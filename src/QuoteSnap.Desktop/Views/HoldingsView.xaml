@@ -1,0 +1,289 @@
+<UserControl x:Class="QuoteSnap.Desktop.Views.HoldingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="clr-namespace:QuoteSnap.Desktop.Controls"
+             xmlns:vm="clr-namespace:QuoteSnap.Desktop.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:HoldingsViewModel}">
+  <UserControl.Resources>
+    <!-- A listed fund: avatar, name, what's stored ("24 holdings · Sep 2026") and, during a fetch, its status. Click to show its portfolio. -->
+    <DataTemplate x:Key="FundTemplate" DataType="{x:Type vm:HoldingsFundRow}">
+      <Border x:Name="Row" Padding="12,10" Margin="8,1" CornerRadius="{StaticResource RadiusControl}" Background="Transparent"
+              BorderBrush="Transparent" BorderThickness="1" Cursor="Hand" ToolTip="{Binding FetchError}">
+        <Border.InputBindings>
+          <MouseBinding MouseAction="LeftClick" CommandParameter="{Binding}"
+                        Command="{Binding DataContext.SelectCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
+        </Border.InputBindings>
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <Border Width="32" Height="32" CornerRadius="16" VerticalAlignment="Center" Background="{Binding AvatarColor}">
+            <TextBlock Text="{Binding Initials}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextOnAccentBrush}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <StackPanel Grid.Column="1" Margin="12,0,10,0" VerticalAlignment="Center">
+            <TextBlock Text="{Binding Name}" FontWeight="Medium" Foreground="{StaticResource TextBrush}" TextTrimming="CharacterEllipsis"
+                       ToolTip="{Binding Name}" />
+            <TextBlock x:Name="Summary" Text="{Binding SummaryText}" Style="{StaticResource Text.Muted}" FontSize="{StaticResource FontSizeCaption}"
+                       Margin="0,2,0,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Typography.NumeralAlignment="Tabular" />
+          </StackPanel>
+          <ui:StatusPill Grid.Column="2" VerticalAlignment="Center" Text="{Binding FetchStatusText}" Tone="{Binding FetchLevel, Converter={StaticResource Tone}}"
+                         Visibility="{Binding HasFetchStatus, Converter={StaticResource BoolToVisibility}}" />
+        </Grid>
+      </Border>
+      <DataTemplate.Triggers>
+        <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
+          <Setter TargetName="Row" Property="Background" Value="{StaticResource HoverBrush}" />
+        </Trigger>
+        <DataTrigger Binding="{Binding HasHoldings}" Value="False">
+          <Setter TargetName="Summary" Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+          <Setter TargetName="Row" Property="Background" Value="{StaticResource AccentSubtleBrush}" />
+          <Setter TargetName="Row" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Grid Margin="{StaticResource PageMargin}">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" MinHeight="320" />
+    </Grid.RowDefinitions>
+
+    <DockPanel Margin="0,0,0,22">
+      <Button DockPanel.Dock="Right" Style="{StaticResource Button.Primary}" ui:Ui.Icon="&#xE896;" VerticalAlignment="Center"
+              Content="Fetch holdings" AutomationProperties.Name="Fetch holdings" Command="{Binding FetchCommand}"
+              ui:Ui.IsSpinning="{Binding IsFetching}"
+              ToolTip="Scrapes the latest portfolio of every fund on your list from ScanX and stores it in the QuoteSnap service. Takes a few seconds per fund." />
+      <StackPanel>
+        <TextBlock Text="Holdings" Style="{StaticResource Text.PageTitle}" />
+        <TextBlock Text="What the funds on your list own, with each holding's weight and how it moved since the month before. Portfolios come from ScanX (scanx.trade)."
+                   Style="{StaticResource Text.PageSubtitle}" />
+      </StackPanel>
+    </DockPanel>
+
+    <Border Grid.Row="1" Style="{StaticResource Banner}" Tag="{Binding MessageLevel}" Margin="0,0,0,16"
+            Visibility="{Binding Message, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
+      <DockPanel>
+        <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE946;" FontSize="14" Margin="0,1,10,0" VerticalAlignment="Top"
+                   Foreground="{Binding MessageLevel, Converter={StaticResource ToneBrush}}" />
+        <TextBlock Text="{Binding Message}" Style="{StaticResource Text.Body}" />
+      </DockPanel>
+    </Border>
+
+    <!-- Fetch progress: stays after the fetch finishes, with the outcome, until dismissed. -->
+    <Border Grid.Row="2" Style="{StaticResource Card}" Padding="18,14" Margin="0,0,0,16"
+            Visibility="{Binding ShowFetchCard, Converter={StaticResource BoolToVisibility}}">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <ContentControl Style="{StaticResource IconBadge}" Tag="{Binding FetchLevel}" Content="&#xE896;" VerticalAlignment="Top" />
+        <StackPanel Grid.Column="1" Margin="14,0,0,0">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Right" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular" Foreground="{StaticResource TextBrush}"
+                       Text="{Binding FetchPercent, StringFormat={}{0:0}%}" />
+            <TextBlock Text="{Binding FetchTitle}" Style="{StaticResource Text.Section}" />
+          </DockPanel>
+          <TextBlock Text="{Binding FetchDetail}" Style="{StaticResource Text.Muted}" Margin="0,3,0,0" TextTrimming="CharacterEllipsis"
+                     ToolTip="{Binding FetchDetail}" />
+          <ProgressBar Value="{Binding FetchPercent, Mode=OneWay}" Maximum="100" Margin="0,10,0,0" AutomationProperties.Name="Holdings fetch progress" />
+        </StackPanel>
+        <Button Grid.Column="2" Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE711;" Margin="12,0,0,0" VerticalAlignment="Top"
+                ToolTip="Dismiss" AutomationProperties.Name="Dismiss fetch progress" Command="{Binding DismissFetchCommand}"
+                Visibility="{Binding IsFetching, Converter={StaticResource InverseBoolToVisibility}}" />
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="3">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="340" />
+        <ColumnDefinition Width="16" />
+        <ColumnDefinition Width="*" MinWidth="560" />
+      </Grid.ColumnDefinitions>
+
+      <!-- Listed funds -->
+      <Border Style="{StaticResource Card}" Padding="0">
+        <DockPanel>
+          <DockPanel DockPanel.Dock="Top" Margin="20,14,14,10">
+            <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE72C;" ToolTip="Reload your funds and their holdings"
+                    AutomationProperties.Name="Reload funds" Command="{Binding RefreshCommand}" ui:Ui.IsSpinning="{Binding RefreshCommand.IsRunning}" />
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+              <TextBlock Text="Your funds" Style="{StaticResource Text.Section}" />
+              <Border Style="{StaticResource Chip}" Margin="10,0,0,0" Padding="7,1" VerticalAlignment="Center"
+                      Visibility="{Binding HasFunds, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="{Binding FundsSummary}" Foreground="{StaticResource TextMutedBrush}" FontSize="{StaticResource FontSizeCaption}" />
+              </Border>
+            </StackPanel>
+          </DockPanel>
+
+          <Border DockPanel.Dock="Top" Style="{StaticResource Banner}" Tag="{x:Static vm:StatusLevel.Warning}" Margin="16,0,16,10"
+                  Visibility="{Binding FundsError, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
+            <TextBlock Text="{Binding FundsError}" Style="{StaticResource Text.Body}" FontSize="{StaticResource FontSizeSmall}" />
+          </Border>
+
+          <Grid>
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+              <ItemsControl ItemsSource="{Binding Funds}" ItemTemplate="{StaticResource FundTemplate}" Focusable="False"
+                            AutomationProperties.Name="Your funds" Margin="0,0,0,8" />
+            </ScrollViewer>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24,40" MaxWidth="260"
+                        Visibility="{Binding ShowNoFunds, Converter={StaticResource BoolToVisibility}}">
+              <Border Width="56" Height="56" CornerRadius="28" Background="{StaticResource AccentSubtleBrush}" HorizontalAlignment="Center">
+                <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE825;" FontSize="22" Foreground="{StaticResource AccentBrush}" />
+              </Border>
+              <TextBlock Text="No funds yet" Style="{StaticResource Text.Section}" HorizontalAlignment="Center" Margin="0,14,0,0" />
+              <TextBlock Text="Add the funds you follow on the Mutual funds page, then fetch their holdings here."
+                         Style="{StaticResource Text.Muted}" TextAlignment="Center" Margin="0,6,0,14" />
+              <Button Content="Add funds" ui:Ui.Icon="&#xE710;" HorizontalAlignment="Center" Command="{Binding AddFundsCommand}" />
+            </StackPanel>
+          </Grid>
+        </DockPanel>
+      </Border>
+
+      <!-- Selected fund's portfolio -->
+      <Border Grid.Column="2" Style="{StaticResource Card}" Padding="0">
+        <DockPanel>
+          <Grid DockPanel.Dock="Top" Margin="20,14,14,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+              <TextBlock Text="{Binding SelectedFund.Name, FallbackValue=Portfolio, TargetNullValue=Portfolio}" Style="{StaticResource Text.Section}"
+                         TextTrimming="CharacterEllipsis" ToolTip="{Binding SelectedFund.Name}" />
+              <TextBlock Style="{StaticResource Text.Muted}" FontSize="{StaticResource FontSizeCaption}" Margin="0,3,0,0" TextTrimming="CharacterEllipsis"
+                         Visibility="{Binding HasPortfolio, Converter={StaticResource BoolToVisibility}}">
+                <Run Text="{Binding MatchedText, Mode=OneWay}" />
+                <Run Text="·" Foreground="{StaticResource TextSubtleBrush}" />
+                <Run Text="{Binding FetchedText, Mode=OneWay}" />
+              </TextBlock>
+            </StackPanel>
+
+            <!-- Month picker: older ‹ Sep 2026 › newer -->
+            <Border Grid.Column="1" Style="{StaticResource Chip}" Margin="0" Padding="2" CornerRadius="{StaticResource RadiusControl}" VerticalAlignment="Center"
+                    Visibility="{Binding HasPortfolio, Converter={StaticResource BoolToVisibility}}">
+              <StackPanel Orientation="Horizontal">
+                <Button Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE76B;" Width="28" Height="28" ToolTip="Previous month"
+                        AutomationProperties.Name="Previous month" Command="{Binding PreviousMonthCommand}" />
+                <TextBlock Text="{Binding MonthText}" MinWidth="76" TextAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextBrush}" Typography.NumeralAlignment="Tabular" />
+                <Button Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE76C;" Width="28" Height="28" ToolTip="Next month"
+                        AutomationProperties.Name="Next month" Command="{Binding NextMonthCommand}" />
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <!-- Asset mix, count, filter and export -->
+          <Grid DockPanel.Dock="Top" Margin="20,12,14,10" Visibility="{Binding HasPortfolio, Converter={StaticResource BoolToVisibility}}">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <ItemsControl ItemsSource="{Binding AssetMix}" Focusable="False" VerticalAlignment="Center" AutomationProperties.Name="Asset mix">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:AssetShare}">
+                  <Border Style="{StaticResource Chip}" Margin="0,2,6,2">
+                    <TextBlock FontSize="{StaticResource FontSizeCaption}" Typography.NumeralAlignment="Tabular">
+                      <Run Text="{Binding Label, Mode=OneWay}" Foreground="{StaticResource TextMutedBrush}" />
+                      <Run Text="{Binding PercentText, Mode=OneWay}" Foreground="{StaticResource TextBrush}" FontWeight="SemiBold" />
+                    </TextBlock>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Grid Grid.Column="1" Width="220" Margin="12,0,8,0" VerticalAlignment="Center">
+              <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" Padding="32,6,10,6"
+                       ui:Ui.Placeholder="Filter by name, sector, ISIN" AutomationProperties.Name="Filter holdings" />
+              <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE721;" FontSize="12" HorizontalAlignment="Left" Margin="12,0,0,0"
+                         Foreground="{StaticResource TextSubtleBrush}" IsHitTestVisible="False" />
+            </Grid>
+            <Button Grid.Column="2" Content="Export CSV" ui:Ui.Icon="&#xEDE1;" VerticalAlignment="Center" Command="{Binding ExportCommand}" />
+          </Grid>
+
+          <Grid DockPanel.Dock="Top" Height="3" Margin="20,0,20,4">
+            <ProgressBar IsIndeterminate="True" Height="3" Visibility="{Binding IsLoadingHoldings, Converter={StaticResource BoolToVisibility}}" />
+          </Grid>
+
+          <DockPanel DockPanel.Dock="Bottom" Margin="20,0,20,12" Visibility="{Binding HasPortfolio, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{Binding HoldingsCountText}" Style="{StaticResource Text.Message}" Typography.NumeralAlignment="Tabular" />
+            <TextBlock Text="Change is in percentage points of the fund's assets." Style="{StaticResource Text.Message}" HorizontalAlignment="Right" />
+          </DockPanel>
+
+          <Grid>
+            <DataGrid x:Name="HoldingsGrid" ItemsSource="{Binding Holdings, NotifyOnTargetUpdated=True}" TargetUpdated="OnHoldingsReplaced"
+                      Margin="8,0,8,8" AutomationProperties.Name="Holdings"
+                      Visibility="{Binding HasPortfolio, Converter={StaticResource BoolToVisibility}}">
+              <DataGrid.Columns>
+                <DataGridTemplateColumn Header="Holding" Width="*" MinWidth="220" SortMemberPath="Name">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type vm:HoldingRow}">
+                      <StackPanel VerticalAlignment="Center" Margin="0,5" ToolTip="{Binding Name}">
+                        <TextBlock Text="{Binding Name}" Style="{StaticResource Cell.Text}" FontWeight="Medium" />
+                        <TextBlock Text="{Binding Details}" Style="{StaticResource Cell.MonoMuted}" FontSize="{StaticResource FontSizeCaption}" Margin="0,1,0,0" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Sector" Binding="{Binding Sector}" Width="170" ElementStyle="{StaticResource Cell.Muted}" />
+                <DataGridTextColumn Header="Type" Binding="{Binding AssetType}" Width="96" ElementStyle="{StaticResource Cell.Muted}" />
+                <DataGridTemplateColumn Header="Weight" Width="150" SortMemberPath="Percent" HeaderStyle="{StaticResource Header.Right}">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type vm:HoldingRow}">
+                      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Border Width="{x:Static vm:HoldingRow.MaxBarWidth}" Height="6" CornerRadius="3" Background="{StaticResource FillBrush}"
+                                VerticalAlignment="Center" Margin="0,0,10,0">
+                          <Border Width="{Binding BarWidth}" HorizontalAlignment="Left" CornerRadius="3" Background="{StaticResource AccentGradientHorizontalBrush}" />
+                        </Border>
+                        <TextBlock Text="{Binding WeightText}" Style="{StaticResource Cell.Number}" FontWeight="SemiBold" MinWidth="52" TextAlignment="Right" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Change" Width="84" SortMemberPath="Change" HeaderStyle="{StaticResource Header.Right}">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type vm:HoldingRow}">
+                      <TextBlock x:Name="ChangeText" Text="{Binding ChangeText}" Style="{StaticResource Cell.Change}" />
+                      <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding IsNew}" Value="True">
+                          <Setter TargetName="ChangeText" Property="Foreground" Value="{StaticResource AccentBrush}" />
+                        </DataTrigger>
+                      </DataTemplate.Triggers>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Shares" Binding="{Binding Shares, StringFormat=N0, TargetNullValue=—}" SortMemberPath="Shares" Width="110"
+                                    HeaderStyle="{StaticResource Header.Right}" ElementStyle="{StaticResource Cell.NumberMuted}" />
+              </DataGrid.Columns>
+            </DataGrid>
+
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24,40" MaxWidth="340"
+                        Visibility="{Binding Holdings, Converter={StaticResource VisibleWhenEmpty}}">
+              <Border Width="56" Height="56" CornerRadius="28" Background="{StaticResource AccentSubtleBrush}" HorizontalAlignment="Center">
+                <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE9D2;" FontSize="22" Foreground="{StaticResource AccentBrush}" />
+              </Border>
+              <TextBlock Text="{Binding HoldingsEmptyText}" Style="{StaticResource Text.Muted}" TextAlignment="Center" Margin="0,12,0,0" />
+            </StackPanel>
+          </Grid>
+        </DockPanel>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>

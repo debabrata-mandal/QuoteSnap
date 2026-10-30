@@ -88,6 +88,9 @@
           <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" ui:Ui.Icon="&#xE825;" Content="Mutual funds"
                        AutomationProperties.Name="Mutual funds"
                        IsChecked="{Binding SelectedTabIndex, Converter={StaticResource Equals}, ConverterParameter=3}" />
+          <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" ui:Ui.Icon="&#xE9D2;" Content="Holdings"
+                       AutomationProperties.Name="Holdings"
+                       IsChecked="{Binding SelectedTabIndex, Converter={StaticResource Equals}, ConverterParameter=5}" />
         </StackPanel>
       </DockPanel>
     </Border>
@@ -126,6 +129,8 @@
                          Visibility="{Binding DataContext.SelectedTabIndex, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource EqualsToVisibility}, ConverterParameter=2}" />
       <views:NavView DataContext="{Binding Nav}" Style="{StaticResource Page}"
                      Visibility="{Binding DataContext.SelectedTabIndex, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource EqualsToVisibility}, ConverterParameter=3}" />
+      <views:HoldingsView DataContext="{Binding Holdings}" Style="{StaticResource Page}"
+                          Visibility="{Binding DataContext.SelectedTabIndex, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource EqualsToVisibility}, ConverterParameter=5}" />
       <views:SettingsView DataContext="{Binding Settings}" Style="{StaticResource Page}"
                           Visibility="{Binding DataContext.SelectedTabIndex, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource EqualsToVisibility}, ConverterParameter=4}" />
     </Grid>

@@ -22,6 +22,59 @@ namespace QuoteSnap.Api.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("QuoteSnap.Api.Data.FundHoldingRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AssetType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Isin")
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)");
+
+                    b.Property<DateOnly>("Month")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<decimal>("Percent")
+                        .HasPrecision(9, 4)
+                        .HasColumnType("numeric(9,4)");
+
+                    b.Property<int>("SchemeCode")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Sector")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<decimal?>("Shares")
+                        .HasPrecision(20, 4)
+                        .HasColumnType("numeric(20,4)");
+
+                    b.Property<string>("Symbol")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Isin");
+
+                    b.HasIndex("SchemeCode", "Month");
+
+                    b.ToTable("FundHoldings", (string)null);
+                });
+
             modelBuilder.Entity("QuoteSnap.Api.Data.FyersSessionRecord", b =>
                 {
                     b.Property<int>("Id")
@@ -73,6 +126,77 @@ namespace QuoteSnap.Api.Data.Migrations
                     b.ToTable("FyersSession", (string)null);
                 });
 
+            modelBuilder.Entity("QuoteSnap.Api.Data.HoldingFetchFundRecord", b =>
+                {
+                    b.Property<Guid>("FetchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SchemeCode")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("HoldingCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("Month")
+                        .HasColumnType("date");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ScanxScheme")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("SchemeName")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.HasKey("FetchId", "SchemeCode");
+
+                    b.ToTable("HoldingFetchFunds", (string)null);
+                });
+
+            modelBuilder.Entity("QuoteSnap.Api.Data.HoldingFetchRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.ToTable("HoldingFetches", (string)null);
+                });
+
             modelBuilder.Entity("QuoteSnap.Api.Data.MyFundRecord", b =>
                 {
                     b.Property<int>("SchemeCode")
@@ -89,9 +213,19 @@ namespace QuoteSnap.Api.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<DateTimeOffset?>("HoldingsFetchedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Option")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<int?>("ScanxPlanId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ScanxScheme")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
 
                     b.Property<string>("SchemeName")
                         .IsRequired()
@@ -253,6 +387,24 @@ namespace QuoteSnap.Api.Data.Migrations
                     b.ToTable("QuoteResults", (string)null);
                 });
 
+            modelBuilder.Entity("QuoteSnap.Api.Data.FundHoldingRecord", b =>
+                {
+                    b.HasOne("QuoteSnap.Api.Data.MyFundRecord", null)
+                        .WithMany("Holdings")
+                        .HasForeignKey("SchemeCode")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("QuoteSnap.Api.Data.HoldingFetchFundRecord", b =>
+                {
+                    b.HasOne("QuoteSnap.Api.Data.HoldingFetchRecord", null)
+                        .WithMany("Funds")
+                        .HasForeignKey("FetchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("QuoteSnap.Api.Domain.QuoteResult", b =>
                 {
                     b.HasOne("QuoteSnap.Api.Domain.QuoteRequest", null)
@@ -260,6 +412,16 @@ namespace QuoteSnap.Api.Data.Migrations
                         .HasForeignKey("RequestId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("QuoteSnap.Api.Data.HoldingFetchRecord", b =>
+                {
+                    b.Navigation("Funds");
+                });
+
+            modelBuilder.Entity("QuoteSnap.Api.Data.MyFundRecord", b =>
+                {
+                    b.Navigation("Holdings");
                 });
 
             modelBuilder.Entity("QuoteSnap.Api.Domain.QuoteRequest", b =>

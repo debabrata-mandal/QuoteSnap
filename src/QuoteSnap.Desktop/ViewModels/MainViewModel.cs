@@ -12,6 +12,7 @@ public sealed partial class MainViewModel : ObservableObject
     public const int HistoryTab = 2;
     public const int NavTab = 3;
     public const int SettingsTab = 4;
+    public const int HoldingsTab = 5;
 
     private readonly QuoteSnapConnection _connection;
 
@@ -23,7 +24,10 @@ public sealed partial class MainViewModel : ObservableObject
         NewRequest = new NewRequestViewModel(connection, dialogs);
         History = new HistoryViewModel(connection, dialogs);
         Nav = new NavViewModel(connection, dialogs);
+        Holdings = new HoldingsViewModel(connection, dialogs);
         Settings = new SettingsViewModel(store, connection, loaded);
+
+        Holdings.AddFundsRequested += (_, _) => SelectedTabIndex = NavTab;
 
         NewRequest.RequestFinished += async (_, _) => await Dashboard.RefreshIfIdleAsync();
         Nav.NavsRefreshed += async (_, _) => await Dashboard.RefreshIfIdleAsync();
@@ -39,6 +43,8 @@ public sealed partial class MainViewModel : ObservableObject
     public HistoryViewModel History { get; }
 
     public NavViewModel Nav { get; }
+
+    public HoldingsViewModel Holdings { get; }
 
     public SettingsViewModel Settings { get; }
 
@@ -79,5 +85,7 @@ public sealed partial class MainViewModel : ObservableObject
             _ = History.RefreshIfIdleAsync();
         else if (value == NavTab)
             _ = Nav.ActivateAsync();
+        else if (value == HoldingsTab)
+            _ = Holdings.ActivateAsync();
     }
 }

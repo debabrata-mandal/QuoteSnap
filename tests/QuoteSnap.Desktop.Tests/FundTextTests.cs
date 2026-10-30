@@ -76,13 +76,4 @@ public sealed class FundTextTests
 
         Assert.Equal(expected, FundText.Nav(decimal.Parse(nav, System.Globalization.CultureInfo.InvariantCulture)));
     }
-
-    private sealed class CultureScope : IDisposable
-    {
-        private readonly System.Globalization.CultureInfo _previous = System.Globalization.CultureInfo.CurrentCulture;
-
-        public CultureScope(string name) => System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo(name);
-
-        public void Dispose() => System.Globalization.CultureInfo.CurrentCulture = _previous;
-    }
 }

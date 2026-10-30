@@ -20,14 +20,16 @@ public static class MyFundEndpoints
     private static async Task<Ok<MyFundList>> GetAllAsync(
         MyFundRepository funds,
         NavRepository navs,
+        HoldingRepository holdings,
         CancellationToken cancellationToken)
     {
         List<MyFundRecord> saved = await funds.GetAllAsync(cancellationToken);
         Dictionary<int, MutualFundNav> latest = saved.Count == 0
             ? []
             : (await navs.FindBySchemeCodesAsync([.. saved.Select(f => f.SchemeCode)], cancellationToken)).ToDictionary(n => n.SchemeCode);
+        Dictionary<int, HoldingsSummary> summaries = await holdings.GetSummariesAsync(saved, cancellationToken);
         return TypedResults.Ok(new MyFundList(
-            [.. saved.Select(f => ToDto(f, latest.GetValueOrDefault(f.SchemeCode)))],
+            [.. saved.Select(f => ToDto(f, latest.GetValueOrDefault(f.SchemeCode), summaries.GetValueOrDefault(f.SchemeCode)))],
             await navs.GetLoadedAtAsync(cancellationToken)));
     }
 
@@ -84,6 +86,6 @@ public static class MyFundEndpoints
         return TypedResults.NoContent();
     }
 
-    private static MyFund ToDto(MyFundRecord f, MutualFundNav? latest) =>
-        new(f.SchemeCode, f.SchemeName, f.FundHouse, f.Option, f.Category, f.AddedAt, latest is null ? null : NavEndpoints.ToDto(latest));
+    private static MyFund ToDto(MyFundRecord f, MutualFundNav? latest, HoldingsSummary? holdings = null) =>
+        new(f.SchemeCode, f.SchemeName, f.FundHouse, f.Option, f.Category, f.AddedAt, latest is null ? null : NavEndpoints.ToDto(latest), holdings);
 }

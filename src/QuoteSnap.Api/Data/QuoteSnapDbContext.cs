@@ -16,10 +16,18 @@ public sealed class QuoteSnapDbContext(DbContextOptions<QuoteSnapDbContext> opti
 
     public DbSet<MyFundRecord> MyFunds => Set<MyFundRecord>();
 
+    public DbSet<FundHoldingRecord> FundHoldings => Set<FundHoldingRecord>();
+
+    public DbSet<HoldingFetchRecord> HoldingFetches => Set<HoldingFetchRecord>();
+
+    public DbSet<HoldingFetchFundRecord> HoldingFetchFunds => Set<HoldingFetchFundRecord>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         configurationBuilder.Properties<QuoteRequestStatus>().HaveConversion<string>().HaveMaxLength(32);
         configurationBuilder.Properties<QuoteResultStatus>().HaveConversion<string>().HaveMaxLength(32);
+        configurationBuilder.Properties<HoldingFetchStatus>().HaveConversion<string>().HaveMaxLength(32);
+        configurationBuilder.Properties<HoldingFetchFundStatus>().HaveConversion<string>().HaveMaxLength(32);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -79,6 +87,48 @@ public sealed class QuoteSnapDbContext(DbContextOptions<QuoteSnapDbContext> opti
             entity.Property(f => f.FundHouse).HasMaxLength(200);
             entity.Property(f => f.Option).HasMaxLength(200);
             entity.Property(f => f.Category).HasMaxLength(300);
+            entity.Property(f => f.ScanxScheme).HasMaxLength(300);
+            entity.HasMany(f => f.Holdings)
+                .WithOne()
+                .HasForeignKey(h => h.SchemeCode)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<FundHoldingRecord>(entity =>
+        {
+            entity.ToTable("FundHoldings");
+            entity.HasKey(h => h.Id);
+            entity.Property(h => h.AssetType).HasMaxLength(100);
+            entity.Property(h => h.Name).HasMaxLength(300);
+            entity.Property(h => h.Symbol).HasMaxLength(100);
+            entity.Property(h => h.Isin).HasMaxLength(12);
+            entity.Property(h => h.Sector).HasMaxLength(200);
+            entity.Property(h => h.Percent).HasPrecision(9, 4);
+            entity.Property(h => h.Shares).HasPrecision(20, 4);
+            entity.HasIndex(h => new { h.SchemeCode, h.Month });
+            entity.HasIndex(h => h.Isin);
+        });
+
+        modelBuilder.Entity<HoldingFetchRecord>(entity =>
+        {
+            entity.ToTable("HoldingFetches");
+            entity.HasKey(f => f.Id);
+            entity.Property(f => f.Error).HasMaxLength(1000);
+            entity.HasIndex(f => f.CreatedAt);
+            entity.HasMany(f => f.Funds)
+                .WithOne()
+                .HasForeignKey(f => f.FetchId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // No foreign key to MyFunds: a fund removed mid-fetch keeps its row here, marked as an error.
+        modelBuilder.Entity<HoldingFetchFundRecord>(entity =>
+        {
+            entity.ToTable("HoldingFetchFunds");
+            entity.HasKey(f => new { f.FetchId, f.SchemeCode });
+            entity.Property(f => f.SchemeName).HasMaxLength(500);
+            entity.Property(f => f.ScanxScheme).HasMaxLength(300);
+            entity.Property(f => f.Error).HasMaxLength(500);
         });
     }
 }

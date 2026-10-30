@@ -10,6 +10,7 @@ using Microsoft.OpenApi;
 using QuoteSnap.Api.Data;
 using QuoteSnap.Api.Endpoints;
 using QuoteSnap.Api.Fyers;
+using QuoteSnap.Api.Holdings;
 using QuoteSnap.Api.Logging;
 using QuoteSnap.Api.Nav;
 using QuoteSnap.Api.Options;
@@ -46,6 +47,10 @@ builder.Services.AddOptions<NavOptions>()
     .BindConfiguration(NavOptions.SectionName)
     .ValidateDataAnnotations()
     .ValidateOnStart();
+builder.Services.AddOptions<HoldingsOptions>()
+    .BindConfiguration(HoldingsOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
 
 builder.Services.AddSingleton(TimeProvider.System);
 
@@ -55,6 +60,7 @@ builder.Services.AddScoped<QuoteRequestRepository>();
 builder.Services.AddScoped<SessionStore>();
 builder.Services.AddScoped<NavRepository>();
 builder.Services.AddScoped<MyFundRepository>();
+builder.Services.AddScoped<HoldingRepository>();
 builder.Services.AddSingleton<FundSearchCache>();
 
 IDataProtectionBuilder dataProtection = builder.Services.AddDataProtection().SetApplicationName("QuoteSnap");
@@ -72,6 +78,8 @@ builder.Services.AddSingleton<SessionService>();
 builder.Services.AddSingleton<QuoteRequestQueue>();
 builder.Services.AddHostedService<QuoteRequestWorker>();
 builder.Services.AddHostedService<CleanupService>();
+builder.Services.AddSingleton<HoldingFetchQueue>();
+builder.Services.AddHostedService<HoldingFetchWorker>();
 
 // The NAV file is about 1.5 MB and the scheme master about 4 MB.
 builder.Services.AddHttpClient<NavImporter>(client =>
@@ -80,6 +88,15 @@ builder.Services.AddHttpClient<NavImporter>(client =>
         client.DefaultRequestHeaders.UserAgent.ParseAdd("QuoteSnap");
     })
     .AddExternalCallLogging("AMFI");
+
+IHttpClientBuilder scanx = builder.Services.AddHttpClient<ScanxClient>((services, client) =>
+{
+    client.BaseAddress = new Uri(services.GetRequiredService<IOptions<HoldingsOptions>>().Value.BaseUrl);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("QuoteSnap");
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+});
+scanx.AddStandardResilienceHandler();
+scanx.AddExternalCallLogging("ScanX");
 
 builder.Services.AddProblemDetails();
 // 3.0 rather than the 3.1 default: import tools such as Bruno and Postman read 3.0 reliably.
@@ -100,6 +117,7 @@ app.MapStatusEndpoints();
 app.MapAdminEndpoints();
 app.MapNavEndpoints();
 app.MapMyFundEndpoints();
+app.MapHoldingEndpoints();
 
 app.Run();
 

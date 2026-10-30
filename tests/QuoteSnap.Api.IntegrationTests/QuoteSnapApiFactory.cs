@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using QuoteSnap.Api.Data;
 using QuoteSnap.Api.Domain;
+using QuoteSnap.Api.Holdings;
 using QuoteSnap.Api.Nav;
 using QuoteSnap.Api.Services;
 using QuoteSnap.Client;
@@ -55,6 +56,18 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
     /// <summary>What the fake AMFI scheme master download returns; null makes it fail with 404.</summary>
     public string? SchemeMasterFile { get; set; }
 
+    /// <summary>What the fake ScanX AMC list returns; null makes it fail with 404.</summary>
+    public string? ScanxSchemes { get; set; }
+
+    /// <summary>The fake ScanX holdings pages by plan ID, from page 1. Unknown plans get ScanX's "no record" answer.</summary>
+    public ConcurrentDictionary<int, string[]> ScanxHoldings { get; } = new();
+
+    /// <summary>Plans whose holdings calls fail with 404.</summary>
+    public ConcurrentDictionary<int, bool> FailingScanxPlans { get; } = new();
+
+    /// <summary>The (plan ID, page) of each holdings call, in order.</summary>
+    public ConcurrentQueue<(int PlanId, int Page)> ScanxHoldingsCalls { get; } = new();
+
     public static string NewDataDirectory() =>
         Path.Combine(Path.GetTempPath(), "quotesnap-tests", Guid.NewGuid().ToString("N"));
 
@@ -84,6 +97,7 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Auth:ApiKey", ApiKey);
         builder.UseSetting("Auth:AdminApiKey", AdminApiKey);
         builder.UseSetting("Fyers:DelayBetweenBatchesMs", DelayBetweenBatchesMs.ToString(CultureInfo.InvariantCulture));
+        builder.UseSetting("Holdings:DelayBetweenRequestsMs", "0");
 
         builder.ConfigureTestServices(services =>
         {
@@ -91,9 +105,13 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<IQuoteProvider, FakeQuoteProvider>();
 
             services.AddHttpClient<NavImporter>().ConfigurePrimaryHttpMessageHandler(() => new FakeAmfiHandler(this));
+            services.AddHttpClient<ScanxClient>().ConfigurePrimaryHttpMessageHandler(() => new FakeScanxHandler(this));
 
             if (!StartWorker)
+            {
                 services.Remove(services.Single(d => d.ImplementationType == typeof(QuoteRequestWorker)));
+                services.Remove(services.Single(d => d.ImplementationType == typeof(HoldingFetchWorker)));
+            }
         });
     }
 
@@ -166,4 +184,38 @@ internal sealed class FakeAmfiHandler(QuoteSnapApiFactory factory) : HttpMessage
             ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(file, Encoding.UTF8, "text/plain") }
             : new HttpResponseMessage(schemeMaster ? HttpStatusCode.NotFound : HttpStatusCode.ServiceUnavailable));
     }
+}
+
+/// <summary>
+/// Serves <see cref="QuoteSnapApiFactory.ScanxSchemes"/> as amclist_v2 and <see cref="QuoteSnapApiFactory.ScanxHoldings"/> as
+/// mfpastholdings_v2. Failures are 404s, which the resilience pipeline doesn't retry.
+/// </summary>
+internal sealed class FakeScanxHandler(QuoteSnapApiFactory factory) : HttpMessageHandler
+{
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        string path = request.RequestUri?.AbsolutePath ?? "";
+        if (path.EndsWith("/amclist_v2", StringComparison.Ordinal) && request.Method == HttpMethod.Get)
+            return factory.ScanxSchemes is { } schemes ? Json(schemes) : new HttpResponseMessage(HttpStatusCode.NotFound);
+
+        if (!path.EndsWith("/mfpastholdings_v2", StringComparison.Ordinal) || request.Method != HttpMethod.Post || request.Content is null)
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+
+        using System.Text.Json.JsonDocument body = System.Text.Json.JsonDocument.Parse(await request.Content.ReadAsStringAsync(cancellationToken));
+        System.Text.Json.JsonElement query = body.RootElement.GetProperty("data");
+        int planId = query.GetProperty("planid").GetInt32();
+        int page = query.GetProperty("page").GetInt32();
+        factory.ScanxHoldingsCalls.Enqueue((planId, page));
+
+        if (factory.FailingScanxPlans.ContainsKey(planId))
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        if (!factory.ScanxHoldings.TryGetValue(planId, out string[]? pages))
+            return Json("""{"code":-1,"data":"","remarks":"unable to fetch data, error :no record fetched"}""");
+        return Json(page <= pages.Length
+            ? pages[page - 1]
+            : """{"code":0,"data":{},"headers":["sym","disp","assetPerc","date"],"meta":{"totalpages":1}}""");
+    }
+
+    private static HttpResponseMessage Json(string json) =>
+        new(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
 }

@@ -4,7 +4,7 @@ using QuoteSnap.Api.Options;
 
 namespace QuoteSnap.Api.Services;
 
-/// <summary>Deletes quote requests older than the retention period, once at startup and then daily.</summary>
+/// <summary>Deletes quote requests and holdings fetch records older than the retention period, once at startup and then daily.</summary>
 public sealed class CleanupService(
     IServiceScopeFactory scopes,
     IOptions<QuoteSnapOptions> options,
@@ -24,6 +24,9 @@ public sealed class CleanupService(
                 int deleted = await repository.DeleteOlderThanAsync(cutoff, stoppingToken);
                 if (deleted > 0)
                     logger.LogInformation("Deleted {Count} quote requests older than {Cutoff}", deleted, cutoff);
+                int fetches = await scope.ServiceProvider.GetRequiredService<HoldingRepository>().DeleteFetchesOlderThanAsync(cutoff, stoppingToken);
+                if (fetches > 0)
+                    logger.LogInformation("Deleted {Count} holdings fetch records older than {Cutoff}", fetches, cutoff);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

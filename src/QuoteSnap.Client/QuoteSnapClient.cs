@@ -27,7 +27,7 @@ public sealed class QuoteSnapClient
     }
 
     public async Task<QuoteRequestDetails> GetAsync(Guid requestId, CancellationToken cancellationToken = default) =>
-        (await GetWithRetryAfterAsync(requestId, cancellationToken)).Details;
+        (await GetWithRetryAfterAsync(requestId, cancellationToken)).Value;
 
     public async Task<QuoteRequestPage> ListAsync(
         int limit = 20,
@@ -105,6 +105,60 @@ public sealed class QuoteSnapClient
     }
 
     /// <summary>
+    /// Starts scraping the holdings of every listed fund from ScanX; poll it with <see cref="GetHoldingFetchAsync"/>.
+    /// While one is already queued or running, that one is returned instead.
+    /// </summary>
+    public async Task<HoldingFetch> StartHoldingFetchAsync(CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Post, "api/holdings/fetches", null, admin: false, cancellationToken);
+        return await ReadAsync<HoldingFetch>(response, cancellationToken);
+    }
+
+    public async Task<HoldingFetch> GetHoldingFetchAsync(Guid fetchId, CancellationToken cancellationToken = default) =>
+        (await GetWithRetryAfterAsync<HoldingFetch>($"api/holdings/fetches/{fetchId}", cancellationToken)).Value;
+
+    /// <summary>The most recently started holdings fetch; null when holdings have never been fetched.</summary>
+    public async Task<HoldingFetch?> GetLatestHoldingFetchAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return (await GetWithRetryAfterAsync<HoldingFetch>("api/holdings/fetches/latest", cancellationToken)).Value;
+        }
+        catch (QuoteSnapApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Polls a holdings fetch until it finishes, reporting each snapshot of its progress.</summary>
+    public async Task<HoldingFetch> WaitForHoldingFetchAsync(
+        Guid fetchId,
+        IProgress<HoldingFetch>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        while (true)
+        {
+            (HoldingFetch fetch, TimeSpan? retryAfter) = await GetWithRetryAfterAsync<HoldingFetch>($"api/holdings/fetches/{fetchId}", cancellationToken);
+            progress?.Report(fetch);
+            if (fetch.Status.IsTerminal())
+                return fetch;
+
+            await Task.Delay(ClampPollInterval(retryAfter ?? _options.DefaultPollInterval), cancellationToken);
+        }
+    }
+
+    /// <summary>A listed fund's stored portfolio.</summary>
+    /// <param name="month">Any day in the month to show; the latest stored month when null.</param>
+    public async Task<FundHoldings> GetFundHoldingsAsync(int schemeCode, DateOnly? month = null, CancellationToken cancellationToken = default)
+    {
+        string path = $"api/my-funds/{schemeCode}/holdings";
+        if (month is { } m)
+            path += $"?month={m.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture)}";
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, path, null, admin: false, cancellationToken);
+        return await ReadAsync<FundHoldings>(response, cancellationToken);
+    }
+
+    /// <summary>
     /// Polls until the request finishes, waiting as long as the server's Retry-After header suggests.
     /// Use <paramref name="cancellationToken"/> to put an upper bound on the wait.
     /// </summary>
@@ -164,18 +218,21 @@ public sealed class QuoteSnapClient
         return await ReadAsync<FyersSessionInfo>(response, cancellationToken);
     }
 
-    private async Task<(QuoteRequestDetails Details, TimeSpan? RetryAfter)> GetWithRetryAfterAsync(
+    private Task<(QuoteRequestDetails Value, TimeSpan? RetryAfter)> GetWithRetryAfterAsync(
         Guid requestId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken) =>
+        GetWithRetryAfterAsync<QuoteRequestDetails>($"api/quote-requests/{requestId}", cancellationToken);
+
+    private async Task<(T Value, TimeSpan? RetryAfter)> GetWithRetryAfterAsync<T>(string path, CancellationToken cancellationToken)
     {
-        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, $"api/quote-requests/{requestId}", null, admin: false, cancellationToken);
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, path, null, admin: false, cancellationToken);
         TimeSpan? retryAfter = response.Headers.RetryAfter switch
         {
             { Delta: { } delta } => delta,
             { Date: { } date } => date - DateTimeOffset.UtcNow,
             _ => (TimeSpan?)null,
         };
-        return (await ReadAsync<QuoteRequestDetails>(response, cancellationToken), retryAfter);
+        return (await ReadAsync<T>(response, cancellationToken), retryAfter);
     }
 
     private async Task<HttpResponseMessage> SendAsync(

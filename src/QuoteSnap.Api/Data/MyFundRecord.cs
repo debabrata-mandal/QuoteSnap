@@ -17,4 +17,13 @@ public sealed class MyFundRecord
     public string? Category { get; set; }
 
     public DateTimeOffset AddedAt { get; set; }
+
+    /// <summary>The ScanX scheme the holdings were last fetched from; null until the first fetch finds one.</summary>
+    public int? ScanxPlanId { get; set; }
+
+    public string? ScanxScheme { get; set; }
+
+    public DateTimeOffset? HoldingsFetchedAt { get; set; }
+
+    public List<FundHoldingRecord> Holdings { get; } = [];
 }

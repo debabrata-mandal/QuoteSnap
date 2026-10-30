@@ -37,6 +37,21 @@ public static class CsvExport
         ("NAV date", f => f.NavDate),
     ]);
 
+    public static string Holdings(FundHoldings fund) => Write(fund.Holdings,
+    [
+        ("Scheme code", _ => fund.SchemeCode),
+        ("Scheme name", _ => fund.SchemeName),
+        ("Month", _ => fund.Month.ToString("yyyy-MM", CultureInfo.InvariantCulture)),
+        ("Holding", h => h.Name),
+        ("Symbol", h => h.Symbol),
+        ("ISIN", h => h.Isin),
+        ("Asset type", h => h.AssetType),
+        ("Sector", h => h.Sector),
+        ("Weight %", h => h.Percent),
+        ("Previous month weight %", h => h.PreviousPercent),
+        ("Shares", h => h.Shares),
+    ]);
+
     public static string Write<T>(IEnumerable<T> rows, IReadOnlyList<(string Header, Func<T, object?> Value)> columns)
     {
         StringBuilder csv = new();
