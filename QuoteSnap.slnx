@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/QuoteSnap.Api/QuoteSnap.Api.csproj" />
+    <Project Path="src/QuoteSnap.Client/QuoteSnap.Client.csproj" />
+    <Project Path="src/QuoteSnap.Contracts/QuoteSnap.Contracts.csproj" />
+    <Project Path="src/QuoteSnap.LoginTool/QuoteSnap.LoginTool.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/QuoteSnap.Api.IntegrationTests/QuoteSnap.Api.IntegrationTests.csproj" />
+    <Project Path="tests/QuoteSnap.Tests/QuoteSnap.Tests.csproj" />
+  </Folder>
+</Solution>

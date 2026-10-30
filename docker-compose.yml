@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: quotesnap-postgres
+    # The password comes from QUOTESNAP_DB_PASSWORD in .env (gitignored), which the API also reads. It is applied only when the
+    # volume is first created; to change it later, use ALTER USER or recreate the volume.
+    environment:
+      POSTGRES_DB: quotesnap
+      POSTGRES_USER: quotesnap
+      POSTGRES_PASSWORD: ${QUOTESNAP_DB_PASSWORD:?Set QUOTESNAP_DB_PASSWORD in .env (see .env.example)}
+    # Bound to loopback only: reachable from this machine, not from the network.
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - quotesnap-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quotesnap -d quotesnap"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # Web UI for browsing the database; the password is QUOTESNAP_DB_PASSWORD:
+  # http://127.0.0.1:8081/?pgsql=postgres&username=quotesnap&db=quotesnap
+  adminer:
+    image: adminer:latest
+    container_name: quotesnap-adminer
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    ports:
+      - "127.0.0.1:8081:8080"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  quotesnap-postgres:

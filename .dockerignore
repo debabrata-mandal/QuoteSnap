@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+**/local-data/
+**/*.db
+**/*.db-wal
+**/*.db-shm
+.git/
+.vs/
+.vscode/
+.idea/
+tests/
+.env
+**/*.user
