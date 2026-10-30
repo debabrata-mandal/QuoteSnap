@@ -25,8 +25,10 @@ public static class QuoteRequestEndpoints
         QuoteRequestQueue queue,
         SessionService session,
         TimeProvider time,
+        ILoggerFactory loggers,
         CancellationToken cancellationToken)
     {
+        ILogger logger = loggers.CreateLogger(typeof(QuoteRequestEndpoints));
         if (body.Symbols is not { Count: > 0 })
             return TypedResults.Problem("Provide at least one symbol in 'symbols'.", statusCode: StatusCodes.Status400BadRequest);
 
@@ -42,6 +44,8 @@ public static class QuoteRequestEndpoints
         FyersSessionInfo fyers = await session.GetInfoAsync(cancellationToken);
         if (fyers.State == FyersAuthState.ReloginRequired)
         {
+            logger.LogWarning(
+                "Rejected a quote request for {SymbolCount} symbols: Fyers needs a new login", validation.Valid.Count);
             return TypedResults.Problem(
                 FyersReloginRequiredException.DefaultMessage,
                 statusCode: StatusCodes.Status503ServiceUnavailable,
@@ -50,6 +54,9 @@ public static class QuoteRequestEndpoints
 
         QuoteRequest request = await repository.CreateAsync(validation.Entries, cancellationToken);
         queue.Enqueue(request.Id);
+        logger.LogInformation(
+            "Queued quote request {RequestId}: {SymbolCount} symbols, {InvalidCount} invalid",
+            request.Id, request.TotalSymbols, validation.Invalid.Count);
 
         string statusUrl = $"/api/quote-requests/{request.Id}";
         int? refreshDays = fyers.RefreshTokenExpiresAt is { } expiresAt

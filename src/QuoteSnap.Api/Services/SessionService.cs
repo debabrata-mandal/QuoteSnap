@@ -51,7 +51,10 @@ public sealed class SessionService(
             session = await scope.ServiceProvider.GetRequiredService<SessionStore>().GetAsync(cancellationToken);
 
         if (session is null)
+        {
+            logger.LogWarning("No Fyers session is stored; run the login tool");
             throw new FyersReloginRequiredException();
+        }
 
         return IsAccessTokenUsable(session)
             ? ToLease(session)
@@ -73,11 +76,22 @@ public sealed class SessionService(
 
             FyersSession session = await store.GetAsync(cancellationToken) ?? throw new FyersReloginRequiredException();
             if (session.Version != staleVersion && IsAccessTokenUsable(session))
+            {
+                logger.LogDebug("Another caller already refreshed the Fyers access token; using it");
                 return ToLease(session);
+            }
 
             if (session.RefreshTokenExpiresAt <= time.GetUtcNow())
+            {
+                logger.LogWarning(
+                    "The Fyers refresh token for {FyersId} expired at {RefreshTokenExpiresAt}; run the login tool",
+                    session.FyersId, session.RefreshTokenExpiresAt);
                 throw new FyersReloginRequiredException();
+            }
 
+            logger.LogInformation(
+                "Refreshing the Fyers access token for {FyersId} (current token valid until {AccessTokenExpiresAt})",
+                session.FyersId, session.AccessTokenExpiresAt);
             string accessToken;
             try
             {
@@ -122,6 +136,7 @@ public sealed class SessionService(
         SessionStore store = scope.ServiceProvider.GetRequiredService<SessionStore>();
         FyersAuthClient auth = scope.ServiceProvider.GetRequiredService<FyersAuthClient>();
 
+        logger.LogInformation("Exchanging a Fyers auth code for tokens (app {AppId})", app.AppId);
         FyersLoginTokens tokens = await auth.ExchangeAuthCodeAsync(app, authCode, cancellationToken);
         FyersProfile profile = await auth.GetProfileAsync(app.AppId, tokens.AccessToken, cancellationToken);
 
@@ -129,11 +144,15 @@ public sealed class SessionService(
         if (!string.IsNullOrWhiteSpace(expected)
             && !string.Equals(profile.FyersId, expected.Trim(), StringComparison.OrdinalIgnoreCase))
         {
+            logger.LogWarning(
+                "Rejected a Fyers login for {FyersId}: this service only accepts {ExpectedFyersId}",
+                profile.FyersId, expected);
             throw new FyersAccountMismatchException(
                 $"Logged in as {profile.FyersId}, but this service is configured for {expected}. The login was not stored.");
         }
 
         DateTimeOffset now = time.GetUtcNow();
+        DateTimeOffset refreshTokenExpiresAt = FyersTokens.ReadJwtExpiry(tokens.RefreshToken) ?? now + FallbackRefreshTokenLifetime;
         await store.SaveLoginAsync(
             new FyersSession(
                 profile.FyersId,
@@ -141,12 +160,14 @@ public sealed class SessionService(
                 tokens.AccessToken,
                 tokens.RefreshToken,
                 FyersTokens.ReadJwtExpiry(tokens.AccessToken) ?? now + FallbackAccessTokenLifetime,
-                FyersTokens.ReadJwtExpiry(tokens.RefreshToken) ?? now + FallbackRefreshTokenLifetime,
+                refreshTokenExpiresAt,
                 now,
                 Version: 0),
             cancellationToken);
 
-        logger.LogInformation("Stored a new Fyers login for {FyersId}", profile.FyersId);
+        logger.LogInformation(
+            "Stored a new Fyers login for {FyersId} (app {AppId}); refresh token valid until {RefreshTokenExpiresAt}",
+            profile.FyersId, app.AppId, refreshTokenExpiresAt);
         return ToInfo(await store.GetAsync(cancellationToken));
     }
 

@@ -12,6 +12,8 @@ public sealed class QuoteSnapDbContext(DbContextOptions<QuoteSnapDbContext> opti
 
     public DbSet<FyersSessionRecord> FyersSessions => Set<FyersSessionRecord>();
 
+    public DbSet<MutualFundNav> MutualFundNavs => Set<MutualFundNav>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         configurationBuilder.Properties<QuoteRequestStatus>().HaveConversion<string>().HaveMaxLength(32);
@@ -47,6 +49,22 @@ public sealed class QuoteSnapDbContext(DbContextOptions<QuoteSnapDbContext> opti
             entity.HasKey(s => s.Id);
             entity.Property(s => s.Id).ValueGeneratedNever();
             entity.Property(s => s.AppId).HasMaxLength(64);
+        });
+
+        modelBuilder.Entity<MutualFundNav>(entity =>
+        {
+            entity.ToTable("MutualFundNavs");
+            entity.HasKey(n => n.SchemeCode);
+            entity.Property(n => n.SchemeCode).ValueGeneratedNever();
+            entity.Property(n => n.Isin).HasMaxLength(12);
+            entity.Property(n => n.IsinReinvestment).HasMaxLength(12);
+            entity.Property(n => n.SchemeName).HasMaxLength(500);
+            entity.Property(n => n.FundHouse).HasMaxLength(200);
+            entity.Property(n => n.Category).HasMaxLength(300);
+            entity.Property(n => n.Plan).HasMaxLength(100);
+            entity.Property(n => n.Option).HasMaxLength(200);
+            entity.HasIndex(n => n.Isin);
+            entity.HasIndex(n => n.IsinReinvestment);
         });
     }
 }

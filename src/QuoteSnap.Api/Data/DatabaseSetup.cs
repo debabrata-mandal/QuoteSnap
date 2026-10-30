@@ -33,7 +33,12 @@ public static class DatabaseSetup
         {
             try
             {
+                List<string> pending = [.. await db.Database.GetPendingMigrationsAsync(cancellationToken)];
                 await db.Database.MigrateAsync(cancellationToken);
+                System.Data.Common.DbConnection connection = db.Database.GetDbConnection();
+                logger.LogInformation(
+                    "Connected to PostgreSQL database {Database} at {DataSource}; applied {MigrationCount} migrations {Migrations}",
+                    connection.Database, connection.DataSource, pending.Count, pending);
                 return;
             }
             catch (NpgsqlException ex) when (ex.IsTransient && attempt < MaxConnectAttempts)

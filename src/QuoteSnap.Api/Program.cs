@@ -10,6 +10,8 @@ using Microsoft.OpenApi;
 using QuoteSnap.Api.Data;
 using QuoteSnap.Api.Endpoints;
 using QuoteSnap.Api.Fyers;
+using QuoteSnap.Api.Logging;
+using QuoteSnap.Api.Nav;
 using QuoteSnap.Api.Options;
 using QuoteSnap.Api.Services;
 using Serilog;
@@ -40,6 +42,10 @@ builder.Services.AddOptions<AuthOptions>()
     .BindConfiguration(AuthOptions.SectionName)
     .ValidateDataAnnotations()
     .ValidateOnStart();
+builder.Services.AddOptions<NavOptions>()
+    .BindConfiguration(NavOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
 
 builder.Services.AddSingleton(TimeProvider.System);
 
@@ -47,6 +53,7 @@ builder.Services.AddDbContext<QuoteSnapDbContext>((services, options) =>
     options.UseNpgsql(services.GetRequiredService<IConfiguration>().GetQuoteSnapConnectionString()));
 builder.Services.AddScoped<QuoteRequestRepository>();
 builder.Services.AddScoped<SessionStore>();
+builder.Services.AddScoped<NavRepository>();
 
 IDataProtectionBuilder dataProtection = builder.Services.AddDataProtection().SetApplicationName("QuoteSnap");
 builder.Services.AddOptions<KeyManagementOptions>()
@@ -63,6 +70,14 @@ builder.Services.AddSingleton<SessionService>();
 builder.Services.AddSingleton<QuoteRequestQueue>();
 builder.Services.AddHostedService<QuoteRequestWorker>();
 builder.Services.AddHostedService<CleanupService>();
+
+// The file is about 1.5 MB.
+builder.Services.AddHttpClient<NavImporter>(client =>
+    {
+        client.Timeout = TimeSpan.FromMinutes(2);
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("QuoteSnap");
+    })
+    .AddExternalCallLogging("AMFI");
 
 builder.Services.AddProblemDetails();
 // 3.0 rather than the 3.1 default: import tools such as Bruno and Postman read 3.0 reliably.
@@ -81,6 +96,7 @@ app.MapOpenApi();
 app.MapQuoteRequestEndpoints();
 app.MapStatusEndpoints();
 app.MapAdminEndpoints();
+app.MapNavEndpoints();
 
 app.Run();
 

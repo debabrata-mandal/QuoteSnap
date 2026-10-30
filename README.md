@@ -1,6 +1,6 @@
 # QuoteSnap
 
-Self-hosted C#/.NET microservice that fetches last traded prices (LTP) for hundreds of NSE/BSE stocks in one request via the Fyers API. Submit a batch, get a request ID, poll for results. PostgreSQL storage.
+Self-hosted C#/.NET microservice that fetches last traded prices (LTP) for hundreds of NSE/BSE stocks in one request via the Fyers API. Submit a batch, get a request ID, poll for results. It also serves the latest mutual fund NAVs from AMFI's daily file. PostgreSQL storage.
 
 ## How it works
 
@@ -93,6 +93,8 @@ Invoke-RestMethod "http://127.0.0.1:8080$($r.statusUrl)" -Headers $h
 | `POST /api/quote-requests` | Submit `{ "symbols": [...] }`; returns `requestId`, `statusUrl`, invalid symbols, and days until the next Fyers login is due |
 | `GET /api/quote-requests/{id}` | Status (`Queued`, `Running`, `Completed`, `CompletedWithErrors`, `Failed`), counts and per-symbol results |
 | `GET /api/quote-requests?limit=20&before=...` | Past requests, newest first; pass `nextBefore` from one page as `before` for the next |
+| `GET /api/nav?isin=...` | Latest mutual fund NAVs by ISIN (see below) |
+| `POST /api/nav/refresh` | Download AMFI's latest NAV file into the service |
 | `GET /api/status` | Service version and Fyers session state |
 | `GET /health` | Liveness check, no key needed |
 | `GET /openapi/v1.json` | OpenAPI description |
@@ -109,7 +111,23 @@ services.AddQuoteSnapClient(o =>
 });
 
 QuoteRequestDetails snapshot = await quoteSnapClient.FetchSnapshotAsync(symbols);
+await quoteSnapClient.RefreshNavsAsync();
+NavLookup navs = await quoteSnapClient.GetNavsAsync(["INF846K01WO1", "INF846K01WP8"]);
 ```
+
+### Mutual fund NAVs
+
+`POST /api/nav/refresh` downloads AMFI's [NAVAll.txt](https://portal.amfiindia.com/spages/NAVAll.txt), the latest NAV of every scheme, and stores its Direct Plan schemes (about 4,400) in PostgreSQL, replacing the previous download. It takes a few seconds and returns the scheme count and the latest NAV date. Nothing downloads on its own: call it whenever you want fresh NAVs, for example once before looking them up. Fund houses publish each day's NAVs by 23:00. A failed download returns `502` and leaves the stored NAVs untouched. None of this needs a Fyers login.
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8080/api/nav/refresh -Method Post -Headers $h
+Invoke-RestMethod "http://127.0.0.1:8080/api/nav?isin=INF846K01WO1,INF846K01WP8" -Headers $h
+```
+
+- Pass one ISIN (`?isin=INF760K01FR2`) or several separated by commas (`?isin=INF760K01FR2,INF846K01WO1`); either the growth/payout or the reinvestment ISIN matches. Up to about 500 fit in one URL.
+- Only Direct Plan schemes are stored, so a Regular Plan ISIN comes back in `notFound`.
+- Each fund comes back with its scheme code, name, fund house, category, plan, option, `nav` and `navDate`, in the order you asked. ISINs AMFI doesn't list are returned in `notFound`, and `loadedAt` says when the file was downloaded.
+- Check `navDate`: closed and matured schemes stay in the file with their last NAV, which can be years old. A few ISINs belong to more than one such scheme, and then all of them are returned.
 
 ## Deploying with Docker
 

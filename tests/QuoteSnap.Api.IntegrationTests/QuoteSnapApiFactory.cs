@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
+using System.Net;
+using System.Text;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -8,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using QuoteSnap.Api.Data;
 using QuoteSnap.Api.Domain;
+using QuoteSnap.Api.Nav;
 using QuoteSnap.Api.Services;
 using QuoteSnap.Client;
 using QuoteSnap.Contracts;
@@ -43,6 +46,9 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
     public int DelayBetweenBatchesMs { get; }
 
     public FakeQuoteProvider QuoteProvider => (FakeQuoteProvider)Services.GetRequiredService<IQuoteProvider>();
+
+    /// <summary>What the fake AMFI download returns; null makes it fail with 503.</summary>
+    public string? NavFile { get; set; }
 
     public static string NewDataDirectory() =>
         Path.Combine(Path.GetTempPath(), "quotesnap-tests", Guid.NewGuid().ToString("N"));
@@ -80,6 +86,8 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
         {
             services.RemoveAll<IQuoteProvider>();
             services.AddSingleton<IQuoteProvider, FakeQuoteProvider>();
+
+            services.AddHttpClient<NavImporter>().ConfigurePrimaryHttpMessageHandler(() => new FakeAmfiHandler(this));
 
             if (!StartWorker)
                 services.Remove(services.Single(d => d.ImplementationType == typeof(QuoteRequestWorker)));
@@ -135,4 +143,13 @@ public sealed class FakeQuoteProvider : IQuoteProvider
             .ToList();
         return Task.FromResult(quotes);
     }
+}
+
+/// <summary>Serves the factory's current <see cref="QuoteSnapApiFactory.NavFile"/> as the AMFI download.</summary>
+internal sealed class FakeAmfiHandler(QuoteSnapApiFactory factory) : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+        Task.FromResult(factory.NavFile is { } file
+            ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(file, Encoding.UTF8, "text/plain") }
+            : new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
 }

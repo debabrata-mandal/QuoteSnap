@@ -37,8 +37,10 @@ public static class AdminEndpoints
     private static async Task<Results<Ok<FyersSessionInfo>, ProblemHttpResult>> SubmitLoginAsync(
         SubmitFyersLogin? body,
         SessionService session,
+        ILoggerFactory loggers,
         CancellationToken cancellationToken)
     {
+        ILogger logger = loggers.CreateLogger(typeof(AdminEndpoints));
         if (body is null)
             return TypedResults.Problem("A JSON body with 'app' and 'authCode' is required.", statusCode: StatusCodes.Status400BadRequest);
         if (string.IsNullOrWhiteSpace(body.AuthCode))
@@ -64,6 +66,7 @@ public static class AdminEndpoints
         }
         catch (FyersApiException ex)
         {
+            logger.LogWarning("Fyers login for app {AppId} failed: {Error}", credentials.AppId, ex.Message);
             return TypedResults.Problem(
                 $"Fyers rejected the login: {ex.Message}",
                 statusCode: StatusCodes.Status400BadRequest,

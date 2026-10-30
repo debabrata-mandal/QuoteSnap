@@ -47,6 +47,21 @@ public sealed class QuoteSnapClient
         return await ReadAsync<ServiceStatus>(response, cancellationToken);
     }
 
+    /// <summary>Latest mutual fund NAVs by growth, payout or reinvestment ISIN, from AMFI's daily file.</summary>
+    public async Task<NavLookup> GetNavsAsync(IEnumerable<string> isins, CancellationToken cancellationToken = default)
+    {
+        string path = $"api/nav?isin={string.Join(',', isins.Select(Uri.EscapeDataString))}";
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, path, null, admin: false, cancellationToken);
+        return await ReadAsync<NavLookup>(response, cancellationToken);
+    }
+
+    /// <summary>Downloads AMFI's latest NAV file into the service, replacing the stored NAVs. Takes a few seconds.</summary>
+    public async Task<NavRefreshResult> RefreshNavsAsync(CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Post, "api/nav/refresh", null, admin: false, cancellationToken);
+        return await ReadAsync<NavRefreshResult>(response, cancellationToken);
+    }
+
     /// <summary>
     /// Polls until the request finishes, waiting as long as the server's Retry-After header suggests.
     /// Use <paramref name="cancellationToken"/> to put an upper bound on the wait.

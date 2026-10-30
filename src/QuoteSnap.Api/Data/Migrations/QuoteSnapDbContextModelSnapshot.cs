@@ -73,6 +73,58 @@ namespace QuoteSnap.Api.Data.Migrations
                     b.ToTable("FyersSession", (string)null);
                 });
 
+            modelBuilder.Entity("QuoteSnap.Api.Domain.MutualFundNav", b =>
+                {
+                    b.Property<int>("SchemeCode")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("FundHouse")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Isin")
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)");
+
+                    b.Property<string>("IsinReinvestment")
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)");
+
+                    b.Property<DateTimeOffset>("LoadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Nav")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateOnly>("NavDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Option")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Plan")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("SchemeName")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("SchemeCode");
+
+                    b.HasIndex("Isin");
+
+                    b.HasIndex("IsinReinvestment");
+
+                    b.ToTable("MutualFundNavs", (string)null);
+                });
+
             modelBuilder.Entity("QuoteSnap.Api.Domain.QuoteRequest", b =>
                 {
                     b.Property<Guid>("Id")
