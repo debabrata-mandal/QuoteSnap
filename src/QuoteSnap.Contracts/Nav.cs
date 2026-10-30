@@ -20,3 +20,6 @@ public sealed record FundNav(
 public sealed record NavLookup(IReadOnlyList<FundNav> Funds, IReadOnlyList<string> NotFound, DateTimeOffset LoadedAt);
 
 public sealed record NavRefreshResult(int SchemeCount, int SkippedRows, DateOnly LatestNavDate, DateTimeOffset LoadedAt);
+
+/// <param name="LoadedAt">When the AMFI file was last downloaded; null until the first refresh.</param>
+public sealed record NavStatus(int SchemeCount, DateOnly? LatestNavDate, DateTimeOffset? LoadedAt);

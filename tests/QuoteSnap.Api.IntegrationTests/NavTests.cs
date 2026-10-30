@@ -126,6 +126,18 @@ public sealed class NavTests
     }
 
     [Fact]
+    public async Task Status_reports_what_the_last_refresh_loaded()
+    {
+        await using QuoteSnapApiFactory factory = new() { NavFile = File };
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+        Assert.Equal(new NavStatus(0, null, null), await client.GetNavStatusAsync());
+
+        NavRefreshResult refresh = await client.RefreshNavsAsync();
+
+        Assert.Equal(new NavStatus(2, new DateOnly(2026, 10, 29), refresh.LoadedAt), await client.GetNavStatusAsync());
+    }
+
+    [Fact]
     public async Task Lookup_without_an_isin_returns_400()
     {
         await using QuoteSnapApiFactory factory = new();

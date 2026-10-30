@@ -55,6 +55,12 @@ public sealed class QuoteSnapClient
         return await ReadAsync<NavLookup>(response, cancellationToken);
     }
 
+    public async Task<NavStatus> GetNavStatusAsync(CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "api/nav/status", null, admin: false, cancellationToken);
+        return await ReadAsync<NavStatus>(response, cancellationToken);
+    }
+
     /// <summary>Downloads AMFI's latest NAV file into the service, replacing the stored NAVs. Takes a few seconds.</summary>
     public async Task<NavRefreshResult> RefreshNavsAsync(CancellationToken cancellationToken = default)
     {

@@ -16,8 +16,9 @@ The service needs no Fyers settings of its own. The login tool sends the Fyers A
 |---|---|
 | `src/QuoteSnap.Api` | The microservice: endpoints, background worker, Fyers client (`Fyers/`), PostgreSQL via EF Core (`Data/`) |
 | `src/QuoteSnap.Contracts` | Request and response types shared by the API and its clients |
-| `src/QuoteSnap.Client` | .NET client for the API, including the Fyers login flow; meant for the login tool and a future Windows app |
+| `src/QuoteSnap.Client` | .NET client for the API, including the Fyers login flow; used by the login tool and the desktop app |
 | `src/QuoteSnap.LoginTool` | `quotesnap-login`, the console tool for the Fyers login |
+| `src/QuoteSnap.Desktop` | Windows desktop app (WPF): status dashboard, quote requests, history and mutual fund NAVs |
 | `tests/` | Unit tests and integration tests (real API, PostgreSQL in Docker, fake Fyers) |
 | `docker-compose.yml` | PostgreSQL for local development |
 
@@ -75,6 +76,22 @@ dotnet run --project src/QuoteSnap.LoginTool -- status
 
 Repeat the login when the status shows `ReloginRequired`, roughly every 15 days.
 
+### 5. Open the desktop app (optional)
+
+```powershell
+dotnet run --project src/QuoteSnap.Desktop
+```
+
+The app talks to the API at `http://127.0.0.1:8080/` with `Auth__ApiKey` from `.env`, so it needs no setup. The pages in its sidebar:
+
+- **Dashboard:** whether the API is reachable, the Fyers login state and when it expires, whether NAVs have been downloaded, and today's quote requests. It refreshes every 15 seconds; the title bar repeats the three states on every page. When the API is offline or a Fyers login is needed it shows the command to run. Click a recent request to open it in History.
+- **New request:** paste symbols, or drop or load a `.txt` or `.csv` file, then fetch. Progress and results update live as the batches complete; invalid symbols are listed. Filter the results and export them to CSV.
+- **History:** every past request, filtered by status; select one to see, filter and export its quotes.
+- **Mutual funds:** download AMFI's NAV file and look Direct Plan funds up by ISIN.
+- **Settings:** point the app at another API address or key. Saved settings go to `%LOCALAPPDATA%\QuoteSnap\desktop-settings.json`, with the API key encrypted for your Windows account; until you save, the app keeps reading `.env`.
+
+The Fyers login itself stays in the login tool.
+
 ## Using the API
 
 All `/api` calls need the `X-Api-Key` header.
@@ -95,6 +112,7 @@ Invoke-RestMethod "http://127.0.0.1:8080$($r.statusUrl)" -Headers $h
 | `GET /api/quote-requests?limit=20&before=...` | Past requests, newest first; pass `nextBefore` from one page as `before` for the next |
 | `GET /api/nav?isin=...` | Latest mutual fund NAVs by ISIN (see below) |
 | `POST /api/nav/refresh` | Download AMFI's latest NAV file into the service |
+| `GET /api/nav/status` | How many NAVs are stored, the latest NAV date, and when they were downloaded (`loadedAt` is null before the first refresh) |
 | `GET /api/status` | Service version and Fyers session state |
 | `GET /health` | Liveness check, no key needed |
 | `GET /openapi/v1.json` | OpenAPI description |
@@ -155,7 +173,7 @@ dotnet build
 dotnet test
 ```
 
-The integration tests start their own PostgreSQL container, so Docker must be running.
+The integration tests start their own PostgreSQL container, so Docker must be running. The desktop app and its tests target `net10.0-windows`, so the full solution builds on Windows only.
 
 After changing the data model, add a migration:
 

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using QuoteSnap.Api.Domain;
+using QuoteSnap.Contracts;
 
 namespace QuoteSnap.Api.Data;
 
@@ -21,6 +22,13 @@ public sealed class NavRepository(QuoteSnapDbContext db)
 
     public Task<DateTimeOffset?> GetLoadedAtAsync(CancellationToken cancellationToken) =>
         db.MutualFundNavs.MaxAsync(n => (DateTimeOffset?)n.LoadedAt, cancellationToken);
+
+    public async Task<NavStatus> GetStatusAsync(CancellationToken cancellationToken) =>
+        await db.MutualFundNavs
+            .GroupBy(_ => 1)
+            .Select(g => new NavStatus(g.Count(), g.Max(n => (DateOnly?)n.NavDate), g.Max(n => (DateTimeOffset?)n.LoadedAt)))
+            .SingleOrDefaultAsync(cancellationToken)
+        ?? new NavStatus(0, null, null);
 
     /// <summary>Matches either ISIN column; an ISIN can belong to more than one scheme.</summary>
     public Task<List<MutualFundNav>> FindByIsinsAsync(IReadOnlyCollection<string> isins, CancellationToken cancellationToken) =>

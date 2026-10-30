@@ -1,0 +1,133 @@
+<Window x:Class="QuoteSnap.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:ui="clr-namespace:QuoteSnap.Desktop.Controls"
+        xmlns:views="clr-namespace:QuoteSnap.Desktop.Views"
+        xmlns:vm="clr-namespace:QuoteSnap.Desktop.ViewModels"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
+        Title="{Binding Title}"
+        Width="1360" Height="860" MinWidth="1100" MinHeight="680"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BackgroundBrush}"
+        Foreground="{StaticResource TextBrush}"
+        FontFamily="{StaticResource UiFont}"
+        FontSize="{StaticResource FontSizeBody}"
+        UseLayoutRounding="True">
+  <WindowChrome.WindowChrome>
+    <WindowChrome CaptionHeight="{StaticResource TitleBarHeight}" ResizeBorderThickness="6" GlassFrameThickness="-1"
+                  CornerRadius="0" UseAeroCaptionButtons="False" />
+  </WindowChrome.WindowChrome>
+
+  <Grid x:Name="Root">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="232" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="48" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <Border x:Name="ContentBackground" Grid.Column="1" Grid.RowSpan="2" Background="{StaticResource BackgroundBrush}" />
+
+    <!-- Navigation rail -->
+    <Border x:Name="Sidebar" Grid.RowSpan="2" Background="{StaticResource SidebarBrush}"
+            BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+      <DockPanel Margin="12,0,12,14">
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Height="64" Margin="8,0,0,6">
+          <Border Width="32" Height="32" CornerRadius="9" Background="{StaticResource AccentGradientBrush}" VerticalAlignment="Center">
+            <Border.Effect>
+              <DropShadowEffect BlurRadius="18" ShadowDepth="0" Opacity="0.55" Color="{StaticResource AccentColor}" />
+            </Border.Effect>
+            <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE9D2;" FontSize="16" Foreground="White" />
+          </Border>
+          <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+            <TextBlock Text="QuoteSnap" FontFamily="{StaticResource DisplayFont}" FontSize="16" FontWeight="SemiBold" />
+            <TextBlock Text="Market data desk" Foreground="{StaticResource TextSubtleBrush}" FontSize="{StaticResource FontSizeCaption}" />
+          </StackPanel>
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom">
+          <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" ui:Ui.Icon="&#xE713;" Content="Settings"
+                       AutomationProperties.Name="Settings"
+                       IsChecked="{Binding SelectedTabIndex, Converter={StaticResource Equals}, ConverterParameter=4}" />
+          <Border Margin="0,8,0,0" Padding="12,10" CornerRadius="{StaticResource RadiusControl}"
+                  Background="{StaticResource FillSubtleBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                  ToolTip="{Binding Dashboard.ApiDetailTooltip}">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,10,0"
+                       Fill="{Binding Dashboard.ApiLevel, Converter={StaticResource ToneBrush}}" />
+              <StackPanel Grid.Column="1">
+                <TextBlock Text="{Binding Dashboard.ConnectionHost}" Style="{StaticResource Text.Mono}" FontSize="{StaticResource FontSizeCaption}"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Foreground="{StaticResource TextSubtleBrush}" FontSize="{StaticResource FontSizeCaption}" Margin="0,2,0,0"
+                           Text="{Binding Dashboard.LastChecked, Converter={StaticResource LocalTime}, ConverterParameter=clock, StringFormat=Checked {0}}" />
+              </StackPanel>
+            </Grid>
+          </Border>
+        </StackPanel>
+
+        <StackPanel>
+          <TextBlock Text="WORKSPACE" Style="{StaticResource Text.Label}" Foreground="{StaticResource TextSubtleBrush}" Margin="14,8,0,10" />
+          <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" ui:Ui.Icon="&#xE80F;" Content="Dashboard"
+                       AutomationProperties.Name="Dashboard"
+                       IsChecked="{Binding SelectedTabIndex, Converter={StaticResource Equals}, ConverterParameter=0}" />
+          <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" ui:Ui.Icon="&#xE945;" Content="New request"
+                       AutomationProperties.Name="New request"
+                       IsChecked="{Binding SelectedTabIndex, Converter={StaticResource Equals}, ConverterParameter=1}" />
+          <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" ui:Ui.Icon="&#xE81C;" Content="History"
+                       AutomationProperties.Name="History"
+                       IsChecked="{Binding SelectedTabIndex, Converter={StaticResource Equals}, ConverterParameter=2}" />
+          <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" ui:Ui.Icon="&#xE825;" Content="Mutual funds"
+                       AutomationProperties.Name="Mutual funds"
+                       IsChecked="{Binding SelectedTabIndex, Converter={StaticResource Equals}, ConverterParameter=3}" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- Title bar: status pills and caption buttons; the empty space drags the window. -->
+    <DockPanel Grid.Column="1">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+        <Button x:Name="MinimizeButton" Style="{StaticResource Button.Caption}" Content="&#xE921;" ToolTip="Minimize"
+                AutomationProperties.Name="Minimize" Click="OnMinimize" />
+        <Button x:Name="MaximizeButton" Style="{StaticResource Button.Caption}" Content="&#xE922;" ToolTip="Maximize"
+                AutomationProperties.Name="Maximize" Click="OnMaximize" />
+        <Button Style="{StaticResource Button.CaptionClose}" Content="&#xE8BB;" ToolTip="Close"
+                AutomationProperties.Name="Close" Click="OnClose" />
+      </StackPanel>
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+        <ui:StatusPill Margin="0,0,8,0" Tone="{Binding Dashboard.ApiLevel, Converter={StaticResource Tone}}"
+                       Text="{Binding Dashboard.ApiSummary, StringFormat=API  {0}}" ToolTip="{Binding Dashboard.ApiDetailTooltip}"
+                       WindowChrome.IsHitTestVisibleInChrome="True" />
+        <ui:StatusPill Margin="0,0,8,0" Tone="{Binding Dashboard.FyersLevel, Converter={StaticResource Tone}}"
+                       Text="{Binding Dashboard.FyersSummary, StringFormat=Fyers  {0}}" ToolTip="{Binding Dashboard.FyersDetail}"
+                       WindowChrome.IsHitTestVisibleInChrome="True" />
+        <ui:StatusPill Tone="{Binding Dashboard.NavLevel, Converter={StaticResource Tone}}"
+                       Text="{Binding Dashboard.NavSummary, StringFormat=NAVs  {0}}" ToolTip="{Binding Dashboard.NavDetail}"
+                       WindowChrome.IsHitTestVisibleInChrome="True" />
+      </StackPanel>
+      <Border />
+    </DockPanel>
+
+    <!-- Pages -->
+    <Grid Grid.Column="1" Grid.Row="1">
+      <views:DashboardView DataContext="{Binding}" Style="{StaticResource Page}"
+                           Visibility="{Binding SelectedTabIndex, Converter={StaticResource EqualsToVisibility}, ConverterParameter=0}" />
+      <views:NewRequestView DataContext="{Binding NewRequest}" Style="{StaticResource Page}"
+                            Visibility="{Binding DataContext.SelectedTabIndex, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource EqualsToVisibility}, ConverterParameter=1}" />
+      <views:HistoryView DataContext="{Binding History}" Style="{StaticResource Page}"
+                         Visibility="{Binding DataContext.SelectedTabIndex, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource EqualsToVisibility}, ConverterParameter=2}" />
+      <views:NavView DataContext="{Binding Nav}" Style="{StaticResource Page}"
+                     Visibility="{Binding DataContext.SelectedTabIndex, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource EqualsToVisibility}, ConverterParameter=3}" />
+      <views:SettingsView DataContext="{Binding Settings}" Style="{StaticResource Page}"
+                          Visibility="{Binding DataContext.SelectedTabIndex, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource EqualsToVisibility}, ConverterParameter=4}" />
+    </Grid>
+  </Grid>
+</Window>

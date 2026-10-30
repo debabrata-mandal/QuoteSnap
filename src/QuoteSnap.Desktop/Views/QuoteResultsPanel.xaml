@@ -1,0 +1,95 @@
+<UserControl x:Class="QuoteSnap.Desktop.Views.QuoteResultsPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="clr-namespace:QuoteSnap.Desktop.Controls"
+             xmlns:vm="clr-namespace:QuoteSnap.Desktop.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:ResultSetViewModel}">
+  <!-- A card with the quotes of one request: a toolbar (search, row count, export), the grid and an empty state. -->
+  <Border Style="{StaticResource Card}" Padding="0">
+    <DockPanel>
+      <Grid DockPanel.Dock="Top" Margin="20,14,14,12">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock Text="Quotes" Style="{StaticResource Text.Section}" />
+          <Border Style="{StaticResource Chip}" Margin="10,0,0,0" Padding="7,1" VerticalAlignment="Center">
+            <TextBlock Text="{Binding RowCountText}" Foreground="{StaticResource TextMutedBrush}" FontSize="{StaticResource FontSizeCaption}"
+                       Typography.NumeralAlignment="Tabular" />
+          </Border>
+        </StackPanel>
+        <TextBlock Grid.Column="1" Text="{Binding Message}" Style="{StaticResource Text.Message}" VerticalAlignment="Center"
+                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Margin="16,0" ToolTip="{Binding Message}" />
+        <Grid Grid.Column="2" Width="240" Margin="0,0,8,0">
+          <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Padding="32,6,10,6"
+                   ui:Ui.Placeholder="Filter symbols or errors" AutomationProperties.Name="Filter quotes" />
+          <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE721;" FontSize="12" HorizontalAlignment="Left" Margin="12,0,0,0"
+                     Foreground="{StaticResource TextSubtleBrush}" IsHitTestVisible="False" />
+        </Grid>
+        <Button Grid.Column="3" Content="Export CSV" ui:Ui.Icon="&#xEDE1;" Command="{Binding ExportCommand}" />
+      </Grid>
+
+      <Grid>
+        <DataGrid x:Name="Grid" ItemsSource="{Binding Visible}" Margin="8,0,8,8" AutomationProperties.Name="Quotes">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Symbol" Binding="{Binding Symbol}" Width="150" ElementStyle="{StaticResource Cell.Mono}" />
+            <DataGridTemplateColumn Header="Status" Width="96" SortMemberPath="Status">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <ui:StatusPill Text="{Binding Status, Converter={StaticResource StatusText}}" Tone="{Binding Status, Converter={StaticResource Tone}}" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTextColumn Header="LTP" Binding="{Binding Ltp, StringFormat=N2, TargetNullValue=—}" Width="90"
+                                HeaderStyle="{StaticResource Header.Right}" ElementStyle="{StaticResource Cell.Number}" />
+            <DataGridTextColumn Header="Change" Binding="{Binding Change, Converter={StaticResource ChangeText}}" SortMemberPath="Change" Width="92"
+                                HeaderStyle="{StaticResource Header.Right}" ElementStyle="{StaticResource Cell.Change}" />
+            <DataGridTextColumn Header="Chg %" Binding="{Binding ChangePercent, Converter={StaticResource ChangeText}, ConverterParameter=percent}"
+                                SortMemberPath="ChangePercent" Width="80"
+                                HeaderStyle="{StaticResource Header.Right}" ElementStyle="{StaticResource Cell.Change}" />
+            <DataGridTemplateColumn Header="Day range" Width="176" SortMemberPath="Low" HeaderStyle="{StaticResource Header.Right}">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Style="{StaticResource Cell.NumberMuted}" Text="{Binding Converter={StaticResource DayRange}}" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTextColumn Header="Volume" Binding="{Binding Volume, StringFormat=N0, TargetNullValue=—}" Width="96"
+                                HeaderStyle="{StaticResource Header.Right}" ElementStyle="{StaticResource Cell.NumberMuted}" />
+            <DataGridTemplateColumn Header="Fetched" Width="80" SortMemberPath="FetchedAt" HeaderStyle="{StaticResource Header.Right}">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <!-- Fyers' "tt" (ExchangeTime) is the trading day at midnight UTC, so the fetch time is the useful clock here. -->
+                  <TextBlock Style="{StaticResource Cell.NumberMuted}"
+                             Text="{Binding FetchedAt, Converter={StaticResource LocalTime}, ConverterParameter=clock}"
+                             ToolTip="{Binding ExchangeTime, Converter={StaticResource LocalTime}, StringFormat=Exchange timestamp {0}}" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="Error" Width="*" MinWidth="110" SortMemberPath="Error">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Style="{StaticResource Cell.Muted}" Text="{Binding Error}" ToolTip="{Binding Error}" Margin="8,0,0,0" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+          </DataGrid.Columns>
+        </DataGrid>
+
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24,40"
+                    Visibility="{Binding Visible, Converter={StaticResource VisibleWhenEmpty}}">
+          <Border Width="52" Height="52" CornerRadius="26" Background="{StaticResource FillSubtleBrush}" HorizontalAlignment="Center">
+            <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE9D2;" FontSize="20" Foreground="{StaticResource TextSubtleBrush}" />
+          </Border>
+          <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Text.Muted}" TextAlignment="Center" Margin="0,12,0,0" MaxWidth="320" />
+        </StackPanel>
+      </Grid>
+    </DockPanel>
+  </Border>
+</UserControl>

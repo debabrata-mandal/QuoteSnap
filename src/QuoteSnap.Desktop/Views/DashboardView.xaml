@@ -1,0 +1,250 @@
+<UserControl x:Class="QuoteSnap.Desktop.Views.DashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="clr-namespace:QuoteSnap.Desktop.Controls"
+             xmlns:vm="clr-namespace:QuoteSnap.Desktop.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:MainViewModel}">
+  <UserControl.Resources>
+    <Style x:Key="KpiCard" TargetType="Border" BasedOn="{StaticResource Card}">
+      <Setter Property="Margin" Value="0,0,16,0" />
+      <Setter Property="Padding" Value="20,18" />
+    </Style>
+    <Style x:Key="KpiValueSkeleton" TargetType="Border" BasedOn="{StaticResource Skeleton}">
+      <Setter Property="Width" Value="96" />
+      <Setter Property="Height" Value="28" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+      <Setter Property="Margin" Value="0,8,0,8" />
+    </Style>
+  </UserControl.Resources>
+
+  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="{StaticResource PageMargin}" DataContext="{Binding Dashboard}">
+
+      <!-- Header -->
+      <Grid Margin="0,0,0,22">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel>
+          <TextBlock Text="Dashboard" Style="{StaticResource Text.PageTitle}" />
+          <TextBlock Text="Live health of the QuoteSnap API, your Fyers login and the mutual fund NAV cache." Style="{StaticResource Text.PageSubtitle}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock Style="{StaticResource Text.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" Typography.NumeralAlignment="Tabular"
+                     Text="{Binding LastChecked, Converter={StaticResource LocalTime}, ConverterParameter=clock, StringFormat=Updated {0}}" />
+          <Button Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE72C;" ToolTip="Refresh now (also refreshes every 15 seconds)"
+                  AutomationProperties.Name="Refresh" Command="{Binding RefreshCommand}"
+                  ui:Ui.IsSpinning="{Binding RefreshCommand.IsRunning}" />
+        </StackPanel>
+      </Grid>
+
+      <!-- Alert: API offline, key rejected or Fyers login needed -->
+      <Border Margin="0,0,0,18" CornerRadius="{StaticResource RadiusCard}" Padding="16,14" BorderThickness="1"
+              Background="{Binding AlertLevel, Converter={StaticResource ToneBrush}, ConverterParameter=subtle}"
+              BorderBrush="{Binding AlertLevel, Converter={StaticResource ToneBrush}, ConverterParameter=border}"
+              Visibility="{Binding AlertTitle, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE7BA;" FontSize="18" VerticalAlignment="Top" Margin="2,1,14,0"
+                     Foreground="{Binding AlertLevel, Converter={StaticResource ToneBrush}}" />
+          <StackPanel Grid.Column="1">
+            <TextBlock Text="{Binding AlertTitle}" FontWeight="SemiBold" FontSize="{StaticResource FontSizeSection}" />
+            <TextBlock Text="{Binding AlertText}" Style="{StaticResource Text.Muted}" Margin="0,3,0,0" Foreground="{StaticResource TextBrush}" Opacity="0.8" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+            <Button Style="{StaticResource Button.Ghost}" Content="Open Settings" Margin="0,0,8,0"
+                    Visibility="{Binding AlertOffersSettings, Converter={StaticResource BoolToVisibility}}"
+                    Command="{Binding DataContext.GoToCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="4" />
+            <Button Style="{StaticResource Button.Secondary}" Content="Try again" Command="{Binding RefreshCommand}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- KPI cards -->
+      <Grid Margin="0,0,-16,0">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Border Style="{StaticResource KpiCard}" ToolTip="{Binding ApiDetailTooltip}">
+          <StackPanel>
+            <DockPanel LastChildFill="False">
+              <ContentControl Style="{StaticResource IconBadge}" Tag="{Binding ApiLevel}" Content="&#xE774;" />
+              <ui:StatusPill DockPanel.Dock="Right" Text="{Binding ApiSummary}" Tone="{Binding ApiLevel, Converter={StaticResource Tone}}" />
+            </DockPanel>
+            <TextBlock Text="QUOTESNAP API" Style="{StaticResource Text.Label}" Margin="0,16,0,0" />
+            <Border Style="{StaticResource KpiValueSkeleton}" Visibility="{Binding LastChecked, Converter={StaticResource VisibleWhenNull}}" />
+            <TextBlock Text="{Binding ApiValue}" Style="{StaticResource Text.Kpi}" Margin="0,4,0,2"
+                       Visibility="{Binding LastChecked, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}" />
+            <TextBlock Text="{Binding ApiDetail}" Style="{StaticResource Text.Muted}" />
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1" Style="{StaticResource KpiCard}" ToolTip="{Binding FyersDetail}">
+          <StackPanel>
+            <DockPanel LastChildFill="False">
+              <ContentControl Style="{StaticResource IconBadge}" Tag="{Binding FyersLevel}" Content="&#xE8D7;" />
+              <ui:StatusPill DockPanel.Dock="Right" Text="{Binding FyersSummary}" Tone="{Binding FyersLevel, Converter={StaticResource Tone}}" />
+            </DockPanel>
+            <TextBlock Text="FYERS LOGIN" Style="{StaticResource Text.Label}" Margin="0,16,0,0" />
+            <Border Style="{StaticResource KpiValueSkeleton}" Visibility="{Binding LastChecked, Converter={StaticResource VisibleWhenNull}}" />
+            <StackPanel Orientation="Horizontal" Margin="0,4,0,2"
+                        Visibility="{Binding LastChecked, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
+              <TextBlock Text="{Binding FyersValue}" Style="{StaticResource Text.Kpi}" />
+              <TextBlock Text="left" Style="{StaticResource Text.Muted}" VerticalAlignment="Bottom" Margin="8,0,0,7"
+                         Visibility="{Binding HasFyersValue, Converter={StaticResource BoolToVisibility}}" />
+            </StackPanel>
+            <ProgressBar Height="4" Maximum="1" Value="{Binding FyersValidity, Mode=OneWay}" Margin="0,2,0,10"
+                         Visibility="{Binding HasFyersValue, Converter={StaticResource BoolToVisibility}}"
+                         Foreground="{Binding FyersLevel, Converter={StaticResource ToneBrush}}" />
+            <TextBlock Text="{Binding FyersDetail}" Style="{StaticResource Text.Muted}" />
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="2" Style="{StaticResource KpiCard}" ToolTip="{Binding NavDetail}">
+          <StackPanel>
+            <DockPanel LastChildFill="False">
+              <ContentControl Style="{StaticResource IconBadge}" Tag="{Binding NavLevel}" Content="&#xE825;" />
+              <ui:StatusPill DockPanel.Dock="Right" Text="{Binding NavSummary}" Tone="{Binding NavLevel, Converter={StaticResource Tone}}" />
+            </DockPanel>
+            <TextBlock Text="MUTUAL FUND NAVS" Style="{StaticResource Text.Label}" Margin="0,16,0,0" />
+            <Border Style="{StaticResource KpiValueSkeleton}" Visibility="{Binding LastChecked, Converter={StaticResource VisibleWhenNull}}" />
+            <StackPanel Orientation="Horizontal" Margin="0,4,0,2"
+                        Visibility="{Binding LastChecked, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
+              <TextBlock Text="{Binding NavValue}" Style="{StaticResource Text.Kpi}" />
+              <TextBlock Text="schemes" Style="{StaticResource Text.Muted}" VerticalAlignment="Bottom" Margin="8,0,0,7"
+                         Visibility="{Binding HasNavValue, Converter={StaticResource BoolToVisibility}}" />
+            </StackPanel>
+            <TextBlock Text="{Binding NavDetail}" Style="{StaticResource Text.Muted}" />
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="3" Style="{StaticResource KpiCard}" ToolTip="{Binding RequestsDetail}">
+          <StackPanel>
+            <DockPanel LastChildFill="False">
+              <ContentControl Style="{StaticResource IconBadge}" Tag="{x:Static ui:Tone.Accent}" Content="&#xE945;" />
+              <ui:StatusPill DockPanel.Dock="Right" Text="{Binding RequestsSummary}" Tone="{Binding RequestsLevel, Converter={StaticResource Tone}}" />
+            </DockPanel>
+            <TextBlock Text="REQUESTS TODAY" Style="{StaticResource Text.Label}" Margin="0,16,0,0" />
+            <Border Style="{StaticResource KpiValueSkeleton}" Visibility="{Binding LastChecked, Converter={StaticResource VisibleWhenNull}}" />
+            <TextBlock Text="{Binding RequestsValue}" Style="{StaticResource Text.Kpi}" Margin="0,4,0,2"
+                       Visibility="{Binding LastChecked, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}" />
+            <TextBlock Text="{Binding RequestsDetail}" Style="{StaticResource Text.Muted}" />
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- Quick actions -->
+      <TextBlock Text="QUICK ACTIONS" Style="{StaticResource Text.Label}" Margin="2,28,0,10" />
+      <UniformGrid Columns="4" Margin="0,0,-12,0"
+                   DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}">
+        <UniformGrid.Resources>
+          <Style TargetType="Button" BasedOn="{StaticResource Button.Tile}">
+            <Setter Property="Margin" Value="0,0,12,0" />
+            <Setter Property="Command" Value="{Binding GoToCommand}" />
+          </Style>
+        </UniformGrid.Resources>
+        <Button CommandParameter="1" AutomationProperties.Name="Fetch quotes">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Right" Style="{StaticResource Text.Icon}" Text="&#xE76C;" FontSize="12" Foreground="{StaticResource TextSubtleBrush}" />
+            <ContentControl Style="{StaticResource IconBadge}" Tag="{x:Static ui:Tone.Accent}" Content="&#xE945;" />
+            <StackPanel Margin="12,0,8,0" VerticalAlignment="Center">
+              <TextBlock Text="Fetch quotes" FontWeight="SemiBold" />
+              <TextBlock Text="Paste or load symbols" Style="{StaticResource Text.Muted}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+          </DockPanel>
+        </Button>
+        <Button CommandParameter="2" AutomationProperties.Name="Browse history">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Right" Style="{StaticResource Text.Icon}" Text="&#xE76C;" FontSize="12" Foreground="{StaticResource TextSubtleBrush}" />
+            <ContentControl Style="{StaticResource IconBadge}" Tag="{x:Static ui:Tone.Info}" Content="&#xE81C;" />
+            <StackPanel Margin="12,0,8,0" VerticalAlignment="Center">
+              <TextBlock Text="Browse history" FontWeight="SemiBold" />
+              <TextBlock Text="Reopen past requests" Style="{StaticResource Text.Muted}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+          </DockPanel>
+        </Button>
+        <Button CommandParameter="3" AutomationProperties.Name="Look up NAVs">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Right" Style="{StaticResource Text.Icon}" Text="&#xE76C;" FontSize="12" Foreground="{StaticResource TextSubtleBrush}" />
+            <ContentControl Style="{StaticResource IconBadge}" Tag="{x:Static ui:Tone.Success}" Content="&#xE825;" />
+            <StackPanel Margin="12,0,8,0" VerticalAlignment="Center">
+              <TextBlock Text="Look up NAVs" FontWeight="SemiBold" />
+              <TextBlock Text="Direct Plan NAVs by ISIN" Style="{StaticResource Text.Muted}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+          </DockPanel>
+        </Button>
+        <Button CommandParameter="4" AutomationProperties.Name="Connection settings">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Right" Style="{StaticResource Text.Icon}" Text="&#xE76C;" FontSize="12" Foreground="{StaticResource TextSubtleBrush}" />
+            <ContentControl Style="{StaticResource IconBadge}" Tag="{x:Static ui:Tone.Neutral}" Content="&#xE713;" />
+            <StackPanel Margin="12,0,8,0" VerticalAlignment="Center">
+              <TextBlock Text="Connection" FontWeight="SemiBold" />
+              <TextBlock Text="API address and key" Style="{StaticResource Text.Muted}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+          </DockPanel>
+        </Button>
+      </UniformGrid>
+
+      <!-- Recent requests -->
+      <Border Style="{StaticResource Card}" Padding="0" Margin="0,28,0,0">
+        <StackPanel>
+          <DockPanel Margin="20,14,12,10">
+            <Button DockPanel.Dock="Right" Style="{StaticResource Button.Ghost}" Content="View all"
+                    Command="{Binding DataContext.GoToCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="2" />
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+              <TextBlock Text="Recent requests" Style="{StaticResource Text.Section}" />
+              <TextBlock Text="Click a request to open it" Style="{StaticResource Text.Muted}" VerticalAlignment="Center" Margin="12,0,0,0" />
+            </StackPanel>
+          </DockPanel>
+          <DataGrid ItemsSource="{Binding RecentRequests}" Margin="8,0,8,8" ui:Ui.BubbleMouseWheel="True" Cursor="Hand"
+                    VerticalScrollBarVisibility="Disabled" AutomationProperties.Name="Recent requests"
+                    SelectedItem="{Binding DataContext.RecentSelection, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    Visibility="{Binding RecentRequests, Converter={StaticResource VisibleWhenEmpty}, ConverterParameter=invert}">
+            <DataGrid.Columns>
+              <DataGridTemplateColumn Header="Status" Width="190" SortMemberPath="Summary.Status">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <ui:StatusPill Text="{Binding StatusText}" Tone="{Binding Summary.Status, Converter={StaticResource Tone}}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTextColumn Header="Created" Binding="{Binding CreatedText}" SortMemberPath="Summary.CreatedAt" Width="200"
+                                  ElementStyle="{StaticResource Cell.Text}" />
+              <DataGridTextColumn Header="Symbols" Binding="{Binding Summary.TotalSymbols, StringFormat=N0}" Width="90"
+                                  HeaderStyle="{StaticResource Header.Right}" ElementStyle="{StaticResource Cell.Number}" />
+              <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="*" MinWidth="140" ElementStyle="{StaticResource Cell.Muted}" />
+              <DataGridTextColumn Header="Took" Binding="{Binding Duration}" Width="90"
+                                  HeaderStyle="{StaticResource Header.Right}" ElementStyle="{StaticResource Cell.NumberMuted}" />
+              <DataGridTemplateColumn Header="ID" Width="110">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding ShortId}" ToolTip="{Binding Id}" Style="{StaticResource Cell.MonoMuted}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+            </DataGrid.Columns>
+          </DataGrid>
+          <StackPanel Margin="20,26,20,34" HorizontalAlignment="Center"
+                      Visibility="{Binding RecentRequests, Converter={StaticResource VisibleWhenEmpty}}">
+            <Border Width="52" Height="52" CornerRadius="26" Background="{StaticResource FillSubtleBrush}" HorizontalAlignment="Center">
+              <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE81C;" FontSize="20" Foreground="{StaticResource TextSubtleBrush}" />
+            </Border>
+            <TextBlock Text="{Binding RecentEmptyText}" Style="{StaticResource Text.Muted}" TextAlignment="Center" Margin="0,12,0,0" MaxWidth="360" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

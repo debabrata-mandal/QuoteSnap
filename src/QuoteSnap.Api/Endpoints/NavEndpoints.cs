@@ -12,6 +12,8 @@ public static class NavEndpoints
     {
         RouteGroupBuilder group = app.MapGroup("/api/nav").RequireApiKey().WithTags("Mutual fund NAV");
         group.MapGet("/", GetAsync);
+        group.MapGet("/status", (NavRepository repository, CancellationToken cancellationToken) =>
+            repository.GetStatusAsync(cancellationToken));
         group.MapPost("/refresh", RefreshAsync);
         return app;
     }
