@@ -9,6 +9,7 @@
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
         Title="{Binding Title}"
+        Icon="Assets/QuoteSnap.ico"
         Width="1360" Height="860" MinWidth="1100" MinHeight="680"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BackgroundBrush}"
@@ -38,12 +39,11 @@
             BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
       <DockPanel Margin="12,0,12,14">
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Height="64" Margin="8,0,0,6">
-          <Border Width="32" Height="32" CornerRadius="9" Background="{StaticResource AccentGradientBrush}" VerticalAlignment="Center">
-            <Border.Effect>
-              <DropShadowEffect BlurRadius="18" ShadowDepth="0" Opacity="0.55" Color="{StaticResource AccentColor}" />
-            </Border.Effect>
-            <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE9D2;" FontSize="16" Foreground="White" />
-          </Border>
+          <Image Source="{StaticResource AppIconImage}" Width="36" Height="36" VerticalAlignment="Center">
+            <Image.Effect>
+              <DropShadowEffect BlurRadius="18" ShadowDepth="0" Opacity="0.5" Color="{StaticResource AccentColor}" />
+            </Image.Effect>
+          </Image>
           <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
             <TextBlock Text="QuoteSnap" FontFamily="{StaticResource DisplayFont}" FontSize="16" FontWeight="SemiBold" />
             <TextBlock Text="Market data desk" Foreground="{StaticResource TextSubtleBrush}" FontSize="{StaticResource FontSizeCaption}" />

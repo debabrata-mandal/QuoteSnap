@@ -1,0 +1,100 @@
+<!--
+  The QuoteSnap mark: a rising price line, its latest quote "snapped" inside viewfinder corners.
+  build-icon.ps1 renders these drawings into QuoteSnap.ico, so the colours are literal rather than theme resources.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <DrawingImage x:Key="AppIconImage">
+    <DrawingImage.Drawing>
+      <DrawingGroup>
+        <DrawingGroup.ClipGeometry>
+          <RectangleGeometry Rect="0,0,256,256" />
+        </DrawingGroup.ClipGeometry>
+        <GeometryDrawing Geometry="M0,0 H256 V256 H0 Z" Brush="Transparent" />
+
+        <!-- Tile -->
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry>
+            <RectangleGeometry Rect="8,8,240,240" RadiusX="58" RadiusY="58" />
+          </GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+              <GradientStop Offset="0" Color="#6C8CFF" />
+              <GradientStop Offset="1" Color="#8B5CF6" />
+            </LinearGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry>
+            <RectangleGeometry Rect="8,8,240,240" RadiusX="58" RadiusY="58" />
+          </GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+              <GradientStop Offset="0" Color="#33FFFFFF" />
+              <GradientStop Offset="0.55" Color="#00FFFFFF" />
+              <GradientStop Offset="1" Color="#1A000000" />
+            </LinearGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+
+        <!-- Viewfinder corners -->
+        <GeometryDrawing Geometry="M54,90 V70 Q54,54 70,54 H90 M166,54 H186 Q202,54 202,70 V90 M202,166 V186 Q202,202 186,202 H166 M90,202 H70 Q54,202 54,186 V166">
+          <GeometryDrawing.Pen>
+            <Pen Brush="#B3FFFFFF" Thickness="15" StartLineCap="Round" EndLineCap="Round" LineJoin="Round" />
+          </GeometryDrawing.Pen>
+        </GeometryDrawing>
+
+        <!-- Price line and the snapped quote -->
+        <GeometryDrawing Geometry="M84,164 L114,130 L138,148 L166,110">
+          <GeometryDrawing.Pen>
+            <Pen Brush="White" Thickness="21" StartLineCap="Round" EndLineCap="Round" LineJoin="Round" />
+          </GeometryDrawing.Pen>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="#40FFFFFF">
+          <GeometryDrawing.Geometry>
+            <EllipseGeometry Center="166,110" RadiusX="27" RadiusY="27" />
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="White">
+          <GeometryDrawing.Geometry>
+            <EllipseGeometry Center="166,110" RadiusX="17" RadiusY="17" />
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingImage.Drawing>
+  </DrawingImage>
+
+  <!-- 16 to 24 pixels: the corners would blur into the line, so the mark is just a bolder line and quote. -->
+  <DrawingImage x:Key="AppIconSmallImage">
+    <DrawingImage.Drawing>
+      <DrawingGroup>
+        <DrawingGroup.ClipGeometry>
+          <RectangleGeometry Rect="0,0,256,256" />
+        </DrawingGroup.ClipGeometry>
+        <GeometryDrawing Geometry="M0,0 H256 V256 H0 Z" Brush="Transparent" />
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry>
+            <RectangleGeometry Rect="0,0,256,256" RadiusX="56" RadiusY="56" />
+          </GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+              <GradientStop Offset="0" Color="#6C8CFF" />
+              <GradientStop Offset="1" Color="#8B5CF6" />
+            </LinearGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+        <GeometryDrawing Geometry="M48,184 L104,124 L144,156 L196,92">
+          <GeometryDrawing.Pen>
+            <Pen Brush="White" Thickness="30" StartLineCap="Round" EndLineCap="Round" LineJoin="Round" />
+          </GeometryDrawing.Pen>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="White">
+          <GeometryDrawing.Geometry>
+            <EllipseGeometry Center="196,92" RadiusX="28" RadiusY="28" />
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingImage.Drawing>
+  </DrawingImage>
+</ResourceDictionary>

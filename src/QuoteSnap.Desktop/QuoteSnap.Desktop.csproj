@@ -6,12 +6,18 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>QuoteSnap</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Rendered from Assets/AppIcon.xaml by Assets/build-icon.ps1. -->
+    <ApplicationIcon>Assets\QuoteSnap.ico</ApplicationIcon>
     <!-- LibraryImport generates unsafe marshalling code for the DWM calls in Interop/WindowEffects.cs. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="QuoteSnap.Desktop.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\QuoteSnap.ico" />
   </ItemGroup>
 
   <ItemGroup>
