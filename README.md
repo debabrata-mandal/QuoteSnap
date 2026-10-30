@@ -87,7 +87,7 @@ The app talks to the API at `http://127.0.0.1:8080/` with `Auth__ApiKey` from `.
 - **Dashboard:** whether the API is reachable, the Fyers login state and when it expires, whether NAVs have been downloaded, and today's quote requests. It refreshes every 15 seconds; the title bar repeats the three states on every page. When the API is offline or a Fyers login is needed it says what to do, with Try again and Open Settings buttons. Click a recent request to open it in History.
 - **New request:** paste symbols, or drop or load a `.txt` or `.csv` file, then fetch. Progress and results update live as the batches complete; invalid symbols are listed. Filter the results and export them to CSV.
 - **History:** every past request, filtered by status; select one to see, filter and export its quotes.
-- **Mutual funds:** your own list of funds with their latest NAVs. Search by any part of the name (word order, typos, "midcap" or "mid cap", "absl", "dividend" for IDCW all work) or by ISIN or scheme code, and add or remove funds. The list is saved in `%LOCALAPPDATA%\QuoteSnap\my-funds.json` and can be exported to CSV. The page also shows when AMFI's NAV file was last downloaded and can download it again.
+- **Mutual funds:** your own list of funds with their latest NAVs. Search by any part of the name (word order, typos, "midcap" or "mid cap", "absl", "dividend" for IDCW all work) or by ISIN or scheme code, and add or remove funds. The list is stored by the API (`/api/my-funds`), so every app pointed at the same service shares it, and it can be exported to CSV. The page also shows when AMFI's NAV file was last downloaded and can download it again.
 - **Settings:** point the app at another API address or key. Saved settings go to `%LOCALAPPDATA%\QuoteSnap\desktop-settings.json`, with the API key encrypted for your Windows account; until you save, the app keeps reading `.env`.
 
 The Fyers login itself stays in the login tool.
@@ -113,6 +113,9 @@ Invoke-RestMethod "http://127.0.0.1:8080$($r.statusUrl)" -Headers $h
 | `GET /api/nav?isin=...` | Latest mutual fund NAVs by ISIN (see below) |
 | `GET /api/nav/search?q=...&limit=20` | Find funds by a loosely typed name, ISIN or scheme code (see below) |
 | `GET /api/nav/schemes?code=...` | Latest NAVs by AMFI scheme code, in the order asked |
+| `GET /api/my-funds` | Your fund list, in the order added, each with its latest NAV |
+| `PUT /api/my-funds/{schemeCode}` | Add a Direct Plan scheme to your list (`201`, or `200` if it's already there) |
+| `DELETE /api/my-funds/{schemeCode}` | Remove a scheme from your list (`204`, also when it wasn't there) |
 | `POST /api/nav/refresh` | Download AMFI's latest NAV file into the service |
 | `GET /api/nav/status` | How many NAVs are stored, the latest NAV date, and when they were downloaded (`loadedAt` is null before the first refresh) |
 | `GET /api/status` | Service version and Fyers session state |
@@ -134,7 +137,8 @@ QuoteRequestDetails snapshot = await quoteSnapClient.FetchSnapshotAsync(symbols)
 await quoteSnapClient.RefreshNavsAsync();
 NavLookup navs = await quoteSnapClient.GetNavsAsync(["INF846K01WO1", "INF846K01WP8"]);
 NavSearchResult found = await quoteSnapClient.SearchNavsAsync("parag parikh flexi");
-NavLookup mine = await quoteSnapClient.GetNavsBySchemeCodeAsync([122639, 118763]);
+await quoteSnapClient.AddMyFundAsync(122639);
+MyFundList mine = await quoteSnapClient.GetMyFundsAsync();
 ```
 
 ### Mutual fund NAVs
@@ -164,7 +168,19 @@ Invoke-RestMethod "http://127.0.0.1:8080/api/nav/search?q=nippon power infra" -H
 - If no fund matches every word, the closest ones come back with `partial: true`, which helps with renamed schemes.
 - Before the first refresh it returns `503`.
 
-`GET /api/nav/schemes?code=122639,118763` returns the latest NAVs for scheme codes, in the order asked, with unknown codes in `notFound`. The desktop app saves scheme codes for its fund list and reloads them this way.
+`GET /api/nav/schemes?code=122639,118763` returns the latest NAVs for scheme codes, in the order asked, with unknown codes in `notFound`.
+
+Your fund list lives in the `MyFunds` table, keyed by scheme code:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8080/api/my-funds/122639 -Method Put -Headers $h
+Invoke-RestMethod http://127.0.0.1:8080/api/my-funds -Headers $h
+Invoke-RestMethod http://127.0.0.1:8080/api/my-funds/122639 -Method Delete -Headers $h
+```
+
+- Only Direct Plan schemes in the current NAV file can be added (`404` otherwise, `503` before the first refresh).
+- Each fund keeps the name, fund house, option and category it had when added. If AMFI later drops the scheme, it stays on the list with `latest: null`.
+- NAV refreshes don't touch the list.
 
 ## Deploying with Docker
 

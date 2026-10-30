@@ -76,7 +76,7 @@ public static class NavEndpoints
             loadedAt));
     }
 
-    private static ProblemHttpResult NotLoaded() => TypedResults.Problem(
+    internal static ProblemHttpResult NotLoaded() => TypedResults.Problem(
         "Mutual fund NAVs haven't been downloaded yet. Call POST /api/nav/refresh first.",
         statusCode: StatusCodes.Status503ServiceUnavailable,
         title: "NAVs not loaded");
@@ -143,6 +143,6 @@ public static class NavEndpoints
         }
     }
 
-    private static FundNav ToDto(MutualFundNav n) =>
+    internal static FundNav ToDto(MutualFundNav n) =>
         new(n.SchemeCode, n.Isin, n.IsinReinvestment, n.SchemeName, n.FundHouse, n.Category, n.Plan, n.Option, n.Nav, n.NavDate);
 }

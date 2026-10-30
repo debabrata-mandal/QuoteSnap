@@ -73,6 +73,36 @@ namespace QuoteSnap.Api.Data.Migrations
                     b.ToTable("FyersSession", (string)null);
                 });
 
+            modelBuilder.Entity("QuoteSnap.Api.Data.MyFundRecord", b =>
+                {
+                    b.Property<int>("SchemeCode")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("AddedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("FundHouse")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Option")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("SchemeName")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("SchemeCode");
+
+                    b.ToTable("MyFunds", (string)null);
+                });
+
             modelBuilder.Entity("QuoteSnap.Api.Domain.MutualFundNav", b =>
                 {
                     b.Property<int>("SchemeCode")

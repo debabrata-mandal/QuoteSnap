@@ -14,6 +14,8 @@ public sealed class QuoteSnapDbContext(DbContextOptions<QuoteSnapDbContext> opti
 
     public DbSet<MutualFundNav> MutualFundNavs => Set<MutualFundNav>();
 
+    public DbSet<MyFundRecord> MyFunds => Set<MyFundRecord>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         configurationBuilder.Properties<QuoteRequestStatus>().HaveConversion<string>().HaveMaxLength(32);
@@ -65,6 +67,18 @@ public sealed class QuoteSnapDbContext(DbContextOptions<QuoteSnapDbContext> opti
             entity.Property(n => n.Option).HasMaxLength(200);
             entity.HasIndex(n => n.Isin);
             entity.HasIndex(n => n.IsinReinvestment);
+        });
+
+        // No foreign key to MutualFundNavs: every NAV refresh deletes and reinserts that table.
+        modelBuilder.Entity<MyFundRecord>(entity =>
+        {
+            entity.ToTable("MyFunds");
+            entity.HasKey(f => f.SchemeCode);
+            entity.Property(f => f.SchemeCode).ValueGeneratedNever();
+            entity.Property(f => f.SchemeName).HasMaxLength(500);
+            entity.Property(f => f.FundHouse).HasMaxLength(200);
+            entity.Property(f => f.Option).HasMaxLength(200);
+            entity.Property(f => f.Category).HasMaxLength(300);
         });
     }
 }

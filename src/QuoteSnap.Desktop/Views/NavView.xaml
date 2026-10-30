@@ -118,7 +118,7 @@
 
     <StackPanel Margin="0,0,0,22">
       <TextBlock Text="Mutual funds" Style="{StaticResource Text.PageTitle}" />
-      <TextBlock Text="The latest NAVs of the Direct Plan funds you follow. Search by name to add a fund; your list is saved on this PC."
+      <TextBlock Text="The latest NAVs of the Direct Plan funds you follow. Search by name to add a fund; your list is saved in the QuoteSnap service."
                  Style="{StaticResource Text.PageSubtitle}" />
     </StackPanel>
 
@@ -175,7 +175,7 @@
                             AutomationProperties.Name="My funds" Margin="0,0,0,8" />
             </ScrollViewer>
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24,40" MaxWidth="360"
-                        Visibility="{Binding HasFunds, Converter={StaticResource InverseBoolToVisibility}}">
+                        Visibility="{Binding ShowEmptyState, Converter={StaticResource BoolToVisibility}}">
               <Border Width="56" Height="56" CornerRadius="28" Background="{StaticResource AccentSubtleBrush}" HorizontalAlignment="Center">
                 <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE825;" FontSize="22" Foreground="{StaticResource AccentBrush}" />
               </Border>

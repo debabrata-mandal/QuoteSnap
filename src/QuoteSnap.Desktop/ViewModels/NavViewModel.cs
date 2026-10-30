@@ -4,7 +4,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using QuoteSnap.Contracts;
 using QuoteSnap.Desktop.Services;
-using QuoteSnap.Desktop.Settings;
 using QuoteSnap.Desktop.Text;
 
 namespace QuoteSnap.Desktop.ViewModels;
@@ -19,28 +18,25 @@ public sealed partial class NavViewModel : ObservableObject
 
     private readonly QuoteSnapConnection _connection;
     private readonly FileDialogs _dialogs;
-    private readonly FundListStore _store;
     private CancellationTokenSource? _search;
+    private bool _myFundsLoaded;
 
-    public NavViewModel(QuoteSnapConnection connection, FileDialogs dialogs, FundListStore store)
+    public NavViewModel(QuoteSnapConnection connection, FileDialogs dialogs)
     {
         _connection = connection;
         _dialogs = dialogs;
-        _store = store;
-
-        (IReadOnlyList<SavedFund> saved, string? problem) = store.Load();
-        MyFunds = new ObservableCollection<FundRow>(saved.Select(FundRow.FromSaved));
         MyFunds.CollectionChanged += (_, _) => OnMyFundsChanged();
-        if (problem is not null)
-            Report(StatusLevel.Warning, problem);
-        OnMyFundsChanged();
     }
 
     public event EventHandler? NavsRefreshed;
 
-    public ObservableCollection<FundRow> MyFunds { get; }
+    /// <summary>Stored by the service, so every app pointed at it shares the list.</summary>
+    public ObservableCollection<FundRow> MyFunds { get; } = [];
 
     public bool HasFunds => MyFunds.Count > 0;
+
+    /// <summary>Only once the list has loaded, so "empty" doesn't flash while it loads.</summary>
+    public bool ShowEmptyState => _myFundsLoaded && MyFunds.Count == 0;
 
     public string MyFundsSummary => Display.Count(MyFunds.Count, "fund");
 
@@ -154,47 +150,54 @@ public sealed partial class NavViewModel : ObservableObject
         if (row is null || MyFunds.Any(f => f.SchemeCode == row.SchemeCode))
             return;
 
-        MyFunds.Add(row.Nav is { } nav ? FundRow.FromNav(nav, isAdded: true) : FundRow.FromSaved(row.Fund));
-        row.IsAdded = true;
-        Save();
-        if (row.Nav is null)
-            await RefreshMyFundsAsync();
+        try
+        {
+            MyFund added = await _connection.Client.AddMyFundAsync(row.SchemeCode);
+            if (MyFunds.All(f => f.SchemeCode != added.SchemeCode))
+                MyFunds.Add(FundRow.FromMyFund(added, navsLoaded: true));
+            row.IsAdded = true;
+        }
+        catch (Exception ex)
+        {
+            Report(StatusLevel.Bad, $"Couldn't add {row.Name}. {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}");
+        }
     }
 
     [RelayCommand]
-    private void Remove(FundRow? row)
+    private async Task RemoveAsync(FundRow? row)
     {
         if (row is null || MyFunds.FirstOrDefault(f => f.SchemeCode == row.SchemeCode) is not { } existing)
             return;
 
-        MyFunds.Remove(existing);
-        foreach (FundRow result in SearchResults.Where(r => r.SchemeCode == row.SchemeCode))
-            result.IsAdded = false;
-        Save();
+        try
+        {
+            await _connection.Client.RemoveMyFundAsync(row.SchemeCode);
+            MyFunds.Remove(existing);
+            foreach (FundRow result in SearchResults.Where(r => r.SchemeCode == row.SchemeCode))
+                result.IsAdded = false;
+        }
+        catch (Exception ex)
+        {
+            Report(StatusLevel.Bad, $"Couldn't remove {row.Name}. {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}");
+        }
     }
 
     [RelayCommand]
     private async Task RefreshMyFundsAsync()
     {
-        if (MyFunds.Count == 0)
-        {
-            MyFundsError = null;
-            return;
-        }
-
         try
         {
-            NavLookup lookup = await _connection.Client.GetNavsBySchemeCodeAsync(MyFunds.Select(f => f.SchemeCode));
-            Dictionary<int, FundNav> navs = lookup.Funds.ToDictionary(f => f.SchemeCode);
-            for (int i = 0; i < MyFunds.Count; i++)
-            {
-                SavedFund fund = MyFunds[i].Fund;
-                MyFunds[i] = navs.TryGetValue(fund.SchemeCode, out FundNav? nav) ? FundRow.FromNav(nav, isAdded: true) : FundRow.NotInFile(fund);
-            }
+            MyFundList list = await _connection.Client.GetMyFundsAsync();
+            List<FundRow> rows = [.. list.Funds.Select(f => FundRow.FromMyFund(f, navsLoaded: list.LoadedAt is not null))];
+            MyFunds.Clear();
+            foreach (FundRow row in rows)
+                MyFunds.Add(row);
+            _myFundsLoaded = true;
+            OnMyFundsChanged();
 
-            MyFundsError = lookup.NotFound.Count == 0 ? null
-                : $"{Display.Count(lookup.NotFound.Count, "fund")} on your list {(lookup.NotFound.Count == 1 ? "is" : "are")} no longer in AMFI's file; the scheme may have been merged or closed.";
-            Save();
+            int missing = rows.Count(r => r.IsMissing);
+            MyFundsError = missing == 0 ? null
+                : $"{Display.Count(missing, "fund")} on your list {(missing == 1 ? "is" : "are")} no longer in AMFI's file; the scheme may have been merged or closed.";
         }
         catch (Exception ex)
         {
@@ -249,22 +252,11 @@ public sealed partial class NavViewModel : ObservableObject
     private void OnMyFundsChanged()
     {
         OnPropertyChanged(nameof(HasFunds));
+        OnPropertyChanged(nameof(ShowEmptyState));
         OnPropertyChanged(nameof(MyFundsSummary));
         DateOnly? latest = MyFunds.Select(f => f.Nav?.NavDate).Max();
         AsOfText = latest is { } date ? $"NAVs as of {Display.Date(date)}" : null;
         ExportCommand.NotifyCanExecuteChanged();
-    }
-
-    private void Save()
-    {
-        try
-        {
-            _store.Save(MyFunds.Select(f => f.Fund));
-        }
-        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
-        {
-            Report(StatusLevel.Bad, $"Couldn't save your fund list to {_store.FilePath}: {ex.Message}");
-        }
     }
 
     private void Report(StatusLevel level, string message)

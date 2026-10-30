@@ -71,6 +71,26 @@ public sealed class QuoteSnapClient
         return await ReadAsync<NavLookup>(response, cancellationToken);
     }
 
+    /// <summary>The user's fund list, in the order the funds were added, with their latest NAVs.</summary>
+    public async Task<MyFundList> GetMyFundsAsync(CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "api/my-funds", null, admin: false, cancellationToken);
+        return await ReadAsync<MyFundList>(response, cancellationToken);
+    }
+
+    /// <summary>Adds a scheme to the user's list; adding one that's already there returns it unchanged.</summary>
+    public async Task<MyFund> AddMyFundAsync(int schemeCode, CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Put, $"api/my-funds/{schemeCode}", null, admin: false, cancellationToken);
+        return await ReadAsync<MyFund>(response, cancellationToken);
+    }
+
+    /// <summary>Removes a scheme from the user's list; removing one that isn't there also succeeds.</summary>
+    public async Task RemoveMyFundAsync(int schemeCode, CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Delete, $"api/my-funds/{schemeCode}", null, admin: false, cancellationToken);
+    }
+
     public async Task<NavStatus> GetNavStatusAsync(CancellationToken cancellationToken = default)
     {
         using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "api/nav/status", null, admin: false, cancellationToken);

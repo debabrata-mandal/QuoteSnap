@@ -41,6 +41,8 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
 
     public string DataDirectory { get; }
 
+    private string ConnectionString => PostgresServer.ConnectionStringFor("qs_" + Path.GetFileName(DataDirectory));
+
     public bool StartWorker { get; }
 
     public int DelayBetweenBatchesMs { get; }
@@ -78,9 +80,7 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
     {
         builder.UseEnvironment("Testing");
         builder.UseSetting("QuoteSnap:DataDirectory", DataDirectory);
-        builder.UseSetting(
-            $"ConnectionStrings:{DatabaseSetup.ConnectionStringName}",
-            PostgresServer.ConnectionStringFor("qs_" + Path.GetFileName(DataDirectory)));
+        builder.UseSetting($"ConnectionStrings:{DatabaseSetup.ConnectionStringName}", ConnectionString);
         builder.UseSetting("Auth:ApiKey", ApiKey);
         builder.UseSetting("Auth:AdminApiKey", AdminApiKey);
         builder.UseSetting("Fyers:DelayBetweenBatchesMs", DelayBetweenBatchesMs.ToString(CultureInfo.InvariantCulture));
@@ -100,6 +100,10 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
     public override async ValueTask DisposeAsync()
     {
         await base.DisposeAsync();
+        // Each test has its own database, and idle pooled connections otherwise stay open for minutes; together they
+        // exceed the test server's 100-connection limit.
+        using (Npgsql.NpgsqlConnection connection = new(ConnectionString))
+            Npgsql.NpgsqlConnection.ClearPool(connection);
         if (_ownsDataDirectory)
             TryDeleteDirectory(DataDirectory);
     }

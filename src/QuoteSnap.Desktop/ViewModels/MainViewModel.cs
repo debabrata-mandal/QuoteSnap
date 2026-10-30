@@ -22,7 +22,7 @@ public sealed partial class MainViewModel : ObservableObject
         Dashboard = new DashboardViewModel(connection);
         NewRequest = new NewRequestViewModel(connection, dialogs);
         History = new HistoryViewModel(connection, dialogs);
-        Nav = new NavViewModel(connection, dialogs, FundListStore.CreateDefault());
+        Nav = new NavViewModel(connection, dialogs);
         Settings = new SettingsViewModel(store, connection, loaded);
 
         NewRequest.RequestFinished += async (_, _) => await Dashboard.RefreshIfIdleAsync();

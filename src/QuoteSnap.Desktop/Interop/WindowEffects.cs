@@ -17,6 +17,9 @@ internal static partial class WindowEffects
     private const int DWMWCP_ROUND = 2;
     private const int DWMSBT_MAINWINDOW = 2;
 
+    private const int GWL_STYLE = -16;
+    private const int WS_SYSMENU = 0x00080000;
+
     /// <summary>Windows 11 22H2, the first build with DWMWA_SYSTEMBACKDROP_TYPE.</summary>
     private const int MicaBuild = 22621;
 
@@ -25,8 +28,12 @@ internal static partial class WindowEffects
     {
         SetInt(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, 1);
         SetInt(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND);
-        return Environment.OSVersion.Version.Build >= MicaBuild
-            && SetInt(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, DWMSBT_MAINWINDOW);
+        if (Environment.OSVersion.Version.Build < MicaBuild || !SetInt(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, DWMSBT_MAINWINDOW))
+            return false;
+
+        // DWM draws its own caption buttons for a WS_SYSMENU window, and they show through the translucent Mica surfaces.
+        SetWindowLong(hwnd, GWL_STYLE, GetWindowLong(hwnd, GWL_STYLE) & ~WS_SYSMENU);
+        return true;
     }
 
     /// <summary>The screen point packed into a WM_NCHITTEST lParam.</summary>
@@ -41,4 +48,10 @@ internal static partial class WindowEffects
 
     [LibraryImport("dwmapi.dll")]
     private static partial int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongW")]
+    private static partial int GetWindowLong(IntPtr hwnd, int index);
+
+    [LibraryImport("user32.dll", EntryPoint = "SetWindowLongW")]
+    private static partial int SetWindowLong(IntPtr hwnd, int index, int value);
 }

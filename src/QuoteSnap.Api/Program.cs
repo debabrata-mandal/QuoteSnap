@@ -54,6 +54,7 @@ builder.Services.AddDbContext<QuoteSnapDbContext>((services, options) =>
 builder.Services.AddScoped<QuoteRequestRepository>();
 builder.Services.AddScoped<SessionStore>();
 builder.Services.AddScoped<NavRepository>();
+builder.Services.AddScoped<MyFundRepository>();
 builder.Services.AddSingleton<FundSearchCache>();
 
 IDataProtectionBuilder dataProtection = builder.Services.AddDataProtection().SetApplicationName("QuoteSnap");
@@ -98,6 +99,7 @@ app.MapQuoteRequestEndpoints();
 app.MapStatusEndpoints();
 app.MapAdminEndpoints();
 app.MapNavEndpoints();
+app.MapMyFundEndpoints();
 
 app.Run();
 

@@ -1,6 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using QuoteSnap.Contracts;
-using QuoteSnap.Desktop.Settings;
 using QuoteSnap.Desktop.Text;
 
 namespace QuoteSnap.Desktop.ViewModels;
@@ -8,47 +7,52 @@ namespace QuoteSnap.Desktop.ViewModels;
 /// <summary>A fund on the user's list or in search results.</summary>
 public sealed partial class FundRow : ObservableObject
 {
-    private FundRow(SavedFund fund, FundNav? nav, bool isAdded)
+    private readonly string? _option;
+    private readonly string? _category;
+
+    private FundRow(int schemeCode, string name, string? fundHouse, string? option, string? category, FundNav? nav, bool isAdded)
     {
-        Fund = fund;
+        SchemeCode = schemeCode;
+        Name = name;
+        FundHouse = fundHouse;
+        _option = option;
+        _category = category;
         Nav = nav;
         IsAdded = isAdded;
     }
 
-    public SavedFund Fund { get; }
-
-    /// <summary>Null until the NAVs load, or when the scheme is no longer in AMFI's file.</summary>
+    /// <summary>Null when NAVs aren't loaded, or when the scheme is no longer in AMFI's file.</summary>
     public FundNav? Nav { get; }
 
-    public int SchemeCode => Fund.SchemeCode;
+    public int SchemeCode { get; }
 
-    public string Name => Fund.SchemeName;
+    public string Name { get; }
 
-    public string? FundHouse => Fund.FundHouse;
+    public string? FundHouse { get; }
 
-    public string Subtitle => FundText.Subtitle(Fund.Option, Fund.Category);
+    public string Subtitle => FundText.Subtitle(_option, _category);
 
-    public string Initials => FundText.Initials(Fund.FundHouse, Fund.SchemeName);
+    public string Initials => FundText.Initials(FundHouse, Name);
 
-    public string AvatarColor => FundText.AvatarColor(Fund.FundHouse ?? Fund.SchemeName);
+    public string AvatarColor => FundText.AvatarColor(FundHouse ?? Name);
 
     public string NavText => Nav is { } nav ? FundText.Nav(nav.Nav) : Display.Missing;
 
     public string NavDateText => Nav is { } nav ? Display.Date(nav.NavDate) : Display.Missing;
 
-    public string Details => $"Scheme code {Fund.SchemeCode}" + (Nav?.Isin is { } isin ? $" · ISIN {isin}" : "");
+    public string Details => $"Scheme code {SchemeCode}" + (Nav?.Isin is { } isin ? $" · ISIN {isin}" : "");
 
     [ObservableProperty]
     public partial bool IsAdded { get; set; }
 
-    /// <summary>The list was loaded but AMFI's file no longer has this scheme (merged or closed).</summary>
-    [ObservableProperty]
-    public partial bool IsMissing { get; set; }
+    /// <summary>NAVs are loaded but AMFI's file no longer has this scheme (merged or closed).</summary>
+    public bool IsMissing { get; private init; }
 
     public static FundRow FromNav(FundNav nav, bool isAdded) =>
-        new(new SavedFund(nav.SchemeCode, nav.SchemeName, nav.FundHouse, nav.Option, nav.Category), nav, isAdded);
+        new(nav.SchemeCode, nav.SchemeName, nav.FundHouse, nav.Option, nav.Category, nav, isAdded);
 
-    public static FundRow FromSaved(SavedFund fund) => new(fund, null, isAdded: true);
-
-    public static FundRow NotInFile(SavedFund fund) => new(fund, null, isAdded: true) { IsMissing = true };
+    /// <param name="navsLoaded">Whether the service has NAVs at all; without them a missing NAV says nothing about the scheme.</param>
+    public static FundRow FromMyFund(MyFund fund, bool navsLoaded) => fund.Latest is { } nav
+        ? FromNav(nav, isAdded: true)
+        : new(fund.SchemeCode, fund.SchemeName, fund.FundHouse, fund.Option, fund.Category, null, isAdded: true) { IsMissing = navsLoaded };
 }
