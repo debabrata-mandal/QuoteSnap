@@ -84,10 +84,10 @@ dotnet run --project src/QuoteSnap.Desktop
 
 The app talks to the API at `http://127.0.0.1:8080/` with `Auth__ApiKey` from `.env`, so it needs no setup. The pages in its sidebar:
 
-- **Dashboard:** whether the API is reachable, the Fyers login state and when it expires, whether NAVs have been downloaded, and today's quote requests. It refreshes every 15 seconds; the title bar repeats the three states on every page. When the API is offline or a Fyers login is needed it shows the command to run. Click a recent request to open it in History.
+- **Dashboard:** whether the API is reachable, the Fyers login state and when it expires, whether NAVs have been downloaded, and today's quote requests. It refreshes every 15 seconds; the title bar repeats the three states on every page. When the API is offline or a Fyers login is needed it says what to do, with Try again and Open Settings buttons. Click a recent request to open it in History.
 - **New request:** paste symbols, or drop or load a `.txt` or `.csv` file, then fetch. Progress and results update live as the batches complete; invalid symbols are listed. Filter the results and export them to CSV.
 - **History:** every past request, filtered by status; select one to see, filter and export its quotes.
-- **Mutual funds:** download AMFI's NAV file and look Direct Plan funds up by ISIN.
+- **Mutual funds:** your own list of funds with their latest NAVs. Search by any part of the name (word order, typos, "midcap" or "mid cap", "absl", "dividend" for IDCW all work) or by ISIN or scheme code, and add or remove funds. The list is saved in `%LOCALAPPDATA%\QuoteSnap\my-funds.json` and can be exported to CSV. The page also shows when AMFI's NAV file was last downloaded and can download it again.
 - **Settings:** point the app at another API address or key. Saved settings go to `%LOCALAPPDATA%\QuoteSnap\desktop-settings.json`, with the API key encrypted for your Windows account; until you save, the app keeps reading `.env`.
 
 The Fyers login itself stays in the login tool.
@@ -111,6 +111,8 @@ Invoke-RestMethod "http://127.0.0.1:8080$($r.statusUrl)" -Headers $h
 | `GET /api/quote-requests/{id}` | Status (`Queued`, `Running`, `Completed`, `CompletedWithErrors`, `Failed`), counts and per-symbol results |
 | `GET /api/quote-requests?limit=20&before=...` | Past requests, newest first; pass `nextBefore` from one page as `before` for the next |
 | `GET /api/nav?isin=...` | Latest mutual fund NAVs by ISIN (see below) |
+| `GET /api/nav/search?q=...&limit=20` | Find funds by a loosely typed name, ISIN or scheme code (see below) |
+| `GET /api/nav/schemes?code=...` | Latest NAVs by AMFI scheme code, in the order asked |
 | `POST /api/nav/refresh` | Download AMFI's latest NAV file into the service |
 | `GET /api/nav/status` | How many NAVs are stored, the latest NAV date, and when they were downloaded (`loadedAt` is null before the first refresh) |
 | `GET /api/status` | Service version and Fyers session state |
@@ -131,11 +133,13 @@ services.AddQuoteSnapClient(o =>
 QuoteRequestDetails snapshot = await quoteSnapClient.FetchSnapshotAsync(symbols);
 await quoteSnapClient.RefreshNavsAsync();
 NavLookup navs = await quoteSnapClient.GetNavsAsync(["INF846K01WO1", "INF846K01WP8"]);
+NavSearchResult found = await quoteSnapClient.SearchNavsAsync("parag parikh flexi");
+NavLookup mine = await quoteSnapClient.GetNavsBySchemeCodeAsync([122639, 118763]);
 ```
 
 ### Mutual fund NAVs
 
-`POST /api/nav/refresh` downloads AMFI's [NAVAll.txt](https://portal.amfiindia.com/spages/NAVAll.txt), the latest NAV of every scheme, and stores its Direct Plan schemes (about 4,400) in PostgreSQL, replacing the previous download. It takes a few seconds and returns the scheme count and the latest NAV date. Nothing downloads on its own: call it whenever you want fresh NAVs, for example once before looking them up. Fund houses publish each day's NAVs by 23:00. A failed download returns `502` and leaves the stored NAVs untouched. None of this needs a Fyers login.
+`POST /api/nav/refresh` downloads AMFI's [NAVAll.txt](https://portal.amfiindia.com/spages/NAVAll.txt), the latest NAV of every scheme, and stores its Direct Plan schemes (about 6,800) in PostgreSQL, replacing the previous download. The file leaves the plan blank for some schemes, Motilal Oswal Midcap Fund among them, so the refresh also downloads AMFI's [scheme master](https://portal.amfiindia.com/DownloadSchemeData_Po.aspx?mf=0) (about 4 MB), whose NAV names say which of those are Direct Plans. If that download fails the refresh still succeeds without them; set `Nav__SchemeMasterUrl` to an empty value to skip it. It takes a few seconds and returns the scheme count and the latest NAV date. Nothing downloads on its own: call it whenever you want fresh NAVs, for example once before looking them up. Fund houses publish each day's NAVs by 23:00. A failed download returns `502` and leaves the stored NAVs untouched. None of this needs a Fyers login.
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8080/api/nav/refresh -Method Post -Headers $h
@@ -146,6 +150,21 @@ Invoke-RestMethod "http://127.0.0.1:8080/api/nav?isin=INF846K01WO1,INF846K01WP8"
 - Only Direct Plan schemes are stored, so a Regular Plan ISIN comes back in `notFound`.
 - Each fund comes back with its scheme code, name, fund house, category, plan, option, `nav` and `navDate`, in the order you asked. ISINs AMFI doesn't list are returned in `notFound`, and `loadedAt` says when the file was downloaded.
 - Check `navDate`: closed and matured schemes stay in the file with their last NAV, which can be years old. A few ISINs belong to more than one such scheme, and then all of them are returned.
+
+Most people know a fund by name, not ISIN, so `GET /api/nav/search?q=...` takes whatever they type:
+
+```powershell
+Invoke-RestMethod "http://127.0.0.1:8080/api/nav/search?q=nippon power infra" -Headers $h
+```
+
+- Case, punctuation, word order and "&" versus "and" don't matter; words may be joined or split ("midcap", "mid cap", "nifty50") or cut short ("icici pru"), and small typos are forgiven ("prudentail", "tecnology").
+- Fund house initials work ("absl", "sbi"), and option words narrow the results ("growth", "idcw", or "dividend", the old name for IDCW).
+- An exact ISIN or scheme code returns just that scheme.
+- Schemes with a current NAV come before matured or wound-up ones, and Growth options before IDCW ones. `q` needs at least 2 characters; `limit` is 1 to 50 (default 20).
+- If no fund matches every word, the closest ones come back with `partial: true`, which helps with renamed schemes.
+- Before the first refresh it returns `503`.
+
+`GET /api/nav/schemes?code=122639,118763` returns the latest NAVs for scheme codes, in the order asked, with unknown codes in `notFound`. The desktop app saves scheme codes for its fund list and reloads them this way.
 
 ## Deploying with Docker
 

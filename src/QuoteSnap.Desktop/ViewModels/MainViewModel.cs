@@ -22,7 +22,7 @@ public sealed partial class MainViewModel : ObservableObject
         Dashboard = new DashboardViewModel(connection);
         NewRequest = new NewRequestViewModel(connection, dialogs);
         History = new HistoryViewModel(connection, dialogs);
-        Nav = new NavViewModel(connection, dialogs);
+        Nav = new NavViewModel(connection, dialogs, FundListStore.CreateDefault());
         Settings = new SettingsViewModel(store, connection, loaded);
 
         NewRequest.RequestFinished += async (_, _) => await Dashboard.RefreshIfIdleAsync();
@@ -78,6 +78,6 @@ public sealed partial class MainViewModel : ObservableObject
         if (value == HistoryTab)
             _ = History.RefreshIfIdleAsync();
         else if (value == NavTab)
-            Nav.LoadStatusCommand.Execute(null);
+            _ = Nav.ActivateAsync();
     }
 }

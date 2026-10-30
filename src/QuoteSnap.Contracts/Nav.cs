@@ -23,3 +23,8 @@ public sealed record NavRefreshResult(int SchemeCount, int SkippedRows, DateOnly
 
 /// <param name="LoadedAt">When the AMFI file was last downloaded; null until the first refresh.</param>
 public sealed record NavStatus(int SchemeCount, DateOnly? LatestNavDate, DateTimeOffset? LoadedAt);
+
+/// <param name="Funds">Best match first.</param>
+/// <param name="Partial">No scheme matched every word, so these are the closest matches.</param>
+/// <param name="LoadedAt">When the AMFI file was last downloaded.</param>
+public sealed record NavSearchResult(string Query, IReadOnlyList<FundNav> Funds, bool Partial, DateTimeOffset LoadedAt);

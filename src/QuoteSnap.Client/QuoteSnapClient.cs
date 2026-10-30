@@ -55,6 +55,22 @@ public sealed class QuoteSnapClient
         return await ReadAsync<NavLookup>(response, cancellationToken);
     }
 
+    /// <summary>Finds Direct Plan schemes by loosely typed name ("icici pru large mid"), ISIN or scheme code.</summary>
+    public async Task<NavSearchResult> SearchNavsAsync(string query, int limit = 20, CancellationToken cancellationToken = default)
+    {
+        string path = $"api/nav/search?q={Uri.EscapeDataString(query)}&limit={limit}";
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, path, null, admin: false, cancellationToken);
+        return await ReadAsync<NavSearchResult>(response, cancellationToken);
+    }
+
+    /// <summary>Latest NAVs by AMFI scheme code, in the order given; unknown codes are listed in NotFound.</summary>
+    public async Task<NavLookup> GetNavsBySchemeCodeAsync(IEnumerable<int> schemeCodes, CancellationToken cancellationToken = default)
+    {
+        string path = $"api/nav/schemes?code={string.Join(',', schemeCodes)}";
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, path, null, admin: false, cancellationToken);
+        return await ReadAsync<NavLookup>(response, cancellationToken);
+    }
+
     public async Task<NavStatus> GetNavStatusAsync(CancellationToken cancellationToken = default)
     {
         using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "api/nav/status", null, admin: false, cancellationToken);

@@ -30,6 +30,12 @@ public sealed class NavRepository(QuoteSnapDbContext db)
             .SingleOrDefaultAsync(cancellationToken)
         ?? new NavStatus(0, null, null);
 
+    public Task<List<MutualFundNav>> GetAllAsync(CancellationToken cancellationToken) =>
+        db.MutualFundNavs.AsNoTracking().ToListAsync(cancellationToken);
+
+    public Task<List<MutualFundNav>> FindBySchemeCodesAsync(IReadOnlyCollection<int> codes, CancellationToken cancellationToken) =>
+        db.MutualFundNavs.AsNoTracking().Where(n => codes.Contains(n.SchemeCode)).ToListAsync(cancellationToken);
+
     /// <summary>Matches either ISIN column; an ISIN can belong to more than one scheme.</summary>
     public Task<List<MutualFundNav>> FindByIsinsAsync(IReadOnlyCollection<string> isins, CancellationToken cancellationToken) =>
         db.MutualFundNavs

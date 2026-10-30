@@ -50,6 +50,9 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
     /// <summary>What the fake AMFI download returns; null makes it fail with 503.</summary>
     public string? NavFile { get; set; }
 
+    /// <summary>What the fake AMFI scheme master download returns; null makes it fail with 404.</summary>
+    public string? SchemeMasterFile { get; set; }
+
     public static string NewDataDirectory() =>
         Path.Combine(Path.GetTempPath(), "quotesnap-tests", Guid.NewGuid().ToString("N"));
 
@@ -145,11 +148,18 @@ public sealed class FakeQuoteProvider : IQuoteProvider
     }
 }
 
-/// <summary>Serves the factory's current <see cref="QuoteSnapApiFactory.NavFile"/> as the AMFI download.</summary>
+/// <summary>
+/// Serves the factory's current <see cref="QuoteSnapApiFactory.NavFile"/> and <see cref="QuoteSnapApiFactory.SchemeMasterFile"/>
+/// as the AMFI downloads.
+/// </summary>
 internal sealed class FakeAmfiHandler(QuoteSnapApiFactory factory) : HttpMessageHandler
 {
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-        Task.FromResult(factory.NavFile is { } file
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        bool schemeMaster = request.RequestUri?.AbsolutePath.Contains("DownloadSchemeData", StringComparison.OrdinalIgnoreCase) == true;
+        string? file = schemeMaster ? factory.SchemeMasterFile : factory.NavFile;
+        return Task.FromResult(file is not null
             ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(file, Encoding.UTF8, "text/plain") }
-            : new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+            : new HttpResponseMessage(schemeMaster ? HttpStatusCode.NotFound : HttpStatusCode.ServiceUnavailable));
+    }
 }

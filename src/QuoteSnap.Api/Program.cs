@@ -54,6 +54,7 @@ builder.Services.AddDbContext<QuoteSnapDbContext>((services, options) =>
 builder.Services.AddScoped<QuoteRequestRepository>();
 builder.Services.AddScoped<SessionStore>();
 builder.Services.AddScoped<NavRepository>();
+builder.Services.AddSingleton<FundSearchCache>();
 
 IDataProtectionBuilder dataProtection = builder.Services.AddDataProtection().SetApplicationName("QuoteSnap");
 builder.Services.AddOptions<KeyManagementOptions>()
@@ -71,7 +72,7 @@ builder.Services.AddSingleton<QuoteRequestQueue>();
 builder.Services.AddHostedService<QuoteRequestWorker>();
 builder.Services.AddHostedService<CleanupService>();
 
-// The file is about 1.5 MB.
+// The NAV file is about 1.5 MB and the scheme master about 4 MB.
 builder.Services.AddHttpClient<NavImporter>(client =>
     {
         client.Timeout = TimeSpan.FromMinutes(2);

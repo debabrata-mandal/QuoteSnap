@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using QuoteSnap.Api.Data;
 using QuoteSnap.Api.Domain;
@@ -12,11 +13,73 @@ public static class NavEndpoints
     {
         RouteGroupBuilder group = app.MapGroup("/api/nav").RequireApiKey().WithTags("Mutual fund NAV");
         group.MapGet("/", GetAsync);
+        group.MapGet("/search", SearchAsync);
+        group.MapGet("/schemes", GetBySchemeCodeAsync);
         group.MapGet("/status", (NavRepository repository, CancellationToken cancellationToken) =>
             repository.GetStatusAsync(cancellationToken));
         group.MapPost("/refresh", RefreshAsync);
         return app;
     }
+
+    private const int DefaultSearchLimit = 20;
+    private const int MaxSearchLimit = 50;
+
+    /// <param name="q">Part of a scheme or fund house name, in any order and spelling: "nippon power infra", "icici pru large mid".
+    /// An ISIN or scheme code also works.</param>
+    /// <param name="limit">At most 50; 20 by default.</param>
+    private static async Task<Results<Ok<NavSearchResult>, ProblemHttpResult>> SearchAsync(
+        string? q,
+        int? limit,
+        NavRepository repository,
+        FundSearchCache search,
+        ILoggerFactory loggers,
+        CancellationToken cancellationToken)
+    {
+        string query = (q ?? "").Trim();
+        if (query.Length < 2)
+            return TypedResults.Problem("Provide a search of at least 2 characters in 'q'.", statusCode: StatusCodes.Status400BadRequest);
+
+        if (await search.GetAsync(repository, cancellationToken) is not { } snapshot)
+            return NotLoaded();
+
+        FundSearchResult result = snapshot.Index.Search(query, Math.Clamp(limit ?? DefaultSearchLimit, 1, MaxSearchLimit));
+        loggers.CreateLogger(typeof(NavEndpoints)).LogInformation(
+            "NAV search for {Query}: {FundCount} funds, partial matches only: {Partial}", query, result.Funds.Count, result.Partial);
+        return TypedResults.Ok(new NavSearchResult(query, [.. result.Funds.Select(ToDto)], result.Partial, snapshot.LoadedAt));
+    }
+
+    /// <param name="code">One AMFI scheme code, or several separated by commas: ?code=120465 or ?code=120465,119018.</param>
+    private static async Task<Results<Ok<NavLookup>, ProblemHttpResult>> GetBySchemeCodeAsync(
+        string? code,
+        NavRepository repository,
+        CancellationToken cancellationToken)
+    {
+        string[] parts = (code ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        List<int> codes = [];
+        foreach (string part in parts)
+        {
+            if (!int.TryParse(part, NumberStyles.None, CultureInfo.InvariantCulture, out int value))
+                return TypedResults.Problem($"'{part}' is not a scheme code; codes are numbers such as 120465.", statusCode: StatusCodes.Status400BadRequest);
+            if (!codes.Contains(value))
+                codes.Add(value);
+        }
+
+        if (codes.Count == 0)
+            return TypedResults.Problem("Provide at least one scheme 'code'.", statusCode: StatusCodes.Status400BadRequest);
+        if (await repository.GetLoadedAtAsync(cancellationToken) is not { } loadedAt)
+            return NotLoaded();
+
+        Dictionary<int, MutualFundNav> found = (await repository.FindBySchemeCodesAsync(codes, cancellationToken)).ToDictionary(n => n.SchemeCode);
+        return TypedResults.Ok(new NavLookup(
+            [.. codes.Where(found.ContainsKey).Select(c => ToDto(found[c]))],
+            [.. codes.Where(c => !found.ContainsKey(c)).Select(c => c.ToString(CultureInfo.InvariantCulture))],
+            loadedAt));
+    }
+
+    private static ProblemHttpResult NotLoaded() => TypedResults.Problem(
+        "Mutual fund NAVs haven't been downloaded yet. Call POST /api/nav/refresh first.",
+        statusCode: StatusCodes.Status503ServiceUnavailable,
+        title: "NAVs not loaded");
 
     /// <param name="isin">One ISIN, or several separated by commas: ?isin=A or ?isin=A,B.</param>
     private static async Task<Results<Ok<NavLookup>, ProblemHttpResult>> GetAsync(
@@ -36,10 +99,7 @@ public static class NavEndpoints
         if (await repository.GetLoadedAtAsync(cancellationToken) is not { } loadedAt)
         {
             logger.LogWarning("NAV lookup for {IsinCount} ISINs refused: no NAVs have been downloaded yet", requested.Count);
-            return TypedResults.Problem(
-                "Mutual fund NAVs haven't been downloaded yet. Call POST /api/nav/refresh first.",
-                statusCode: StatusCodes.Status503ServiceUnavailable,
-                title: "NAVs not loaded");
+            return NotLoaded();
         }
 
         List<MutualFundNav> matches = await repository.FindByIsinsAsync(requested, cancellationToken);

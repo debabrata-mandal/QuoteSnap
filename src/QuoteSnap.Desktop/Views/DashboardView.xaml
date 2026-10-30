@@ -175,13 +175,13 @@
             </StackPanel>
           </DockPanel>
         </Button>
-        <Button CommandParameter="3" AutomationProperties.Name="Look up NAVs">
+        <Button CommandParameter="3" AutomationProperties.Name="My funds">
           <DockPanel>
             <TextBlock DockPanel.Dock="Right" Style="{StaticResource Text.Icon}" Text="&#xE76C;" FontSize="12" Foreground="{StaticResource TextSubtleBrush}" />
             <ContentControl Style="{StaticResource IconBadge}" Tag="{x:Static ui:Tone.Success}" Content="&#xE825;" />
             <StackPanel Margin="12,0,8,0" VerticalAlignment="Center">
-              <TextBlock Text="Look up NAVs" FontWeight="SemiBold" />
-              <TextBlock Text="Direct Plan NAVs by ISIN" Style="{StaticResource Text.Muted}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+              <TextBlock Text="My funds" FontWeight="SemiBold" />
+              <TextBlock Text="Latest NAVs of funds you follow" Style="{StaticResource Text.Muted}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
             </StackPanel>
           </DockPanel>
         </Button>
