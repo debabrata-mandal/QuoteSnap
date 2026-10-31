@@ -31,7 +31,7 @@ public sealed partial class MainViewModel : ObservableObject
 
         Holdings.AddFundsRequested += (_, _) => SelectedTabIndex = NavTab;
         FyersLogin.SettingsRequested += (_, _) => SelectedTabIndex = SettingsTab;
-        FyersLogin.LoggedIn += async (_, _) => await Dashboard.RefreshIfIdleAsync();
+        FyersLogin.SessionChanged += async (_, _) => await Dashboard.RefreshIfIdleAsync();
 
         NewRequest.RequestFinished += async (_, _) => await Dashboard.RefreshIfIdleAsync();
         Nav.NavsRefreshed += async (_, _) => await Dashboard.RefreshIfIdleAsync();

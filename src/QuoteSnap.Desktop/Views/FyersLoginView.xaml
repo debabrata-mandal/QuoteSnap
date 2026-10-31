@@ -205,8 +205,52 @@
 
             <TextBlock Text="{Binding SessionError}" Style="{StaticResource Text.Message}" Foreground="{StaticResource WarningBrush}" Margin="0,0,0,10"
                        Visibility="{Binding SessionError, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}" />
-            <Button Content="Check again" ui:Ui.Icon="&#xE72C;" HorizontalAlignment="Left" Command="{Binding RefreshSessionCommand}"
-                    ui:Ui.IsSpinning="{Binding RefreshSessionCommand.IsRunning}" />
+            <DockPanel Visibility="{Binding IsConfirmingLogout, Converter={StaticResource InverseBoolToVisibility}}">
+              <Button DockPanel.Dock="Right" Style="{StaticResource Button.Ghost}" ui:Ui.Icon="&#xF3B1;" Content="Log out"
+                      Command="{Binding AskLogOutCommand}" Visibility="{Binding HasStoredLogin, Converter={StaticResource BoolToVisibility}}"
+                      ToolTip="Revoke the token at Fyers and make QuoteSnap forget the login." AutomationProperties.Name="Log out of Fyers" />
+              <Button Content="Check again" ui:Ui.Icon="&#xE72C;" HorizontalAlignment="Left" Command="{Binding RefreshSessionCommand}"
+                      ui:Ui.IsSpinning="{Binding RefreshSessionCommand.IsRunning}" />
+            </DockPanel>
+
+            <!-- Log out asks first: quote requests stop until the next login. -->
+            <Border Style="{StaticResource Banner}" Tag="{x:Static vm:StatusLevel.Bad}" Padding="14,12"
+                    Visibility="{Binding IsConfirmingLogout, Converter={StaticResource BoolToVisibility}}">
+              <StackPanel>
+                <TextBlock Text="Log out of Fyers?" FontWeight="SemiBold" Foreground="{StaticResource DangerBrush}" Margin="0,0,0,2" />
+                <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,0,12"
+                           Text="Fyers revokes QuoteSnap's token and QuoteSnap forgets the login, including the app details and PIN it stored. Quote requests are refused until you log in again." />
+                <StackPanel Orientation="Horizontal">
+                  <Button Style="{StaticResource Button.Danger}" ui:Ui.Icon="&#xF3B1;" Content="Log out" Command="{Binding LogOutCommand}"
+                          ui:Ui.IsSpinning="{Binding LogOutCommand.IsRunning}" AutomationProperties.Name="Confirm log out" />
+                  <Button Style="{StaticResource Button.Ghost}" Content="Stay logged in" Margin="8,0,0,0" Command="{Binding KeepLoginCommand}" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+            <!-- How the last logout went. -->
+            <Border Style="{StaticResource Banner}" Tag="{Binding SessionMessageLevel}" Padding="14,12" Margin="0,14,0,0"
+                    Visibility="{Binding SessionMessage, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
+              <DockPanel>
+                <TextBlock FontSize="16" Margin="0,1,12,0" VerticalAlignment="Top" Foreground="{Binding SessionMessageLevel, Converter={StaticResource ToneBrush}}">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Icon}">
+                      <Setter Property="Text" Value="&#xE946;" />
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding SessionMessageLevel}" Value="{x:Static vm:StatusLevel.Good}">
+                          <Setter Property="Text" Value="&#xE930;" />
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+                <StackPanel>
+                  <TextBlock Text="{Binding SessionMessageTitle}" FontWeight="SemiBold" Foreground="{Binding SessionMessageLevel, Converter={StaticResource ToneBrush}}"
+                             Visibility="{Binding SessionMessageTitle, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}" Margin="0,0,0,2" />
+                  <TextBlock Text="{Binding SessionMessage}" Style="{StaticResource Text.Body}" />
+                </StackPanel>
+              </DockPanel>
+            </Border>
           </StackPanel>
         </Border>
       </Grid>

@@ -78,6 +78,14 @@ dotnet run --project src/QuoteSnap.LoginTool -- status
 
 Repeat the login when the status shows `ReloginRequired`, roughly every 15 days.
 
+To log out, for example before handing the machine over or when switching Fyers accounts:
+
+```powershell
+dotnet run --project src/QuoteSnap.LoginTool -- logout
+```
+
+It asks first (`--yes` skips the question), then the service asks Fyers to revoke its access token (`POST /api/v3/logout`; this only affects QuoteSnap's app, not your Fyers web or mobile sessions) and forgets the stored login, including the app details and PIN. Quote requests are refused with "Fyers re-authentication required" until the next login. If Fyers can't be reached, the login is forgotten anyway, so nothing can use or renew the token, and the tool says so; the token then stops working by itself at its next daily expiry. The desktop app's **Fyers login** page has the same **Log out** button, and both call `DELETE /admin/fyers/session` with the admin key.
+
 ### 5. Open the desktop app (optional)
 
 ```powershell
@@ -91,7 +99,7 @@ The app talks to the API at `http://127.0.0.1:8080/` with `Auth__ApiKey` from `.
 - **History:** every past request, filtered by status; select one to see, filter and export its quotes.
 - **Mutual funds:** your own list of funds with their latest NAVs. Search by any part of the name (word order, typos, "midcap" or "mid cap", "absl", "dividend" for IDCW all work) or by ISIN or scheme code, and add or remove funds. The list is stored by the API (`/api/my-funds`), so every app pointed at the same service shares it, and it can be exported to CSV. The page also shows when AMFI's NAV file was last downloaded and can download it again.
 - **Holdings:** what the funds on your list own. Fetch holdings scrapes every listed fund's portfolio from ScanX and shows live progress: a progress bar, the fund being fetched and a status per fund (Waiting, Fetching, Updated, Not on ScanX, Failed). A fetch keeps running in the service if you leave the page or close the app, and the page picks it up again when reopened. Select a fund to see its holdings with weight, sector, shares and the change in weight since the month before; step back through the 12 stored months, filter, and export to CSV.
-- **Fyers login:** the stored Fyers session (account, days left, when the token renews) and the login itself, without the login tool. Enter the App ID, Secret ID and PIN (prefilled from `Fyers__AppId`, `Fyers__SecretId` and `Fyers__Pin` in `.env` if set) and press **Log in with Fyers**. The Fyers page opens in your browser; after you log in, Fyers redirects to `http://127.0.0.1:8085/callback`, where the app receives it and hands the login to the service. If that port can't be used, **Paste the redirect URL instead** has you copy the address from the browser. Turn on **Remember these details on this PC** to keep them for next time in `%LOCALAPPDATA%\QuoteSnap\fyers-login.json`, with the Secret ID and PIN encrypted for your Windows account. Logging in needs the admin API key (`Auth__AdminApiKey`), which the app reads from `.env` or Settings. The dashboard's "Fyers login needed" alert links here.
+- **Fyers login:** the stored Fyers session (account, days left, when the token renews) and the login itself, without the login tool. Enter the App ID, Secret ID and PIN (prefilled from `Fyers__AppId`, `Fyers__SecretId` and `Fyers__Pin` in `.env` if set) and press **Log in with Fyers**. The Fyers page opens in your browser; after you log in, Fyers redirects to `http://127.0.0.1:8085/callback`, where the app receives it and hands the login to the service. If that port can't be used, **Paste the redirect URL instead** has you copy the address from the browser. Turn on **Remember these details on this PC** to keep them for next time in `%LOCALAPPDATA%\QuoteSnap\fyers-login.json`, with the Secret ID and PIN encrypted for your Windows account. **Log out** on the session card (after a confirmation) revokes the token at Fyers and makes the service forget the login, as `quotesnap-login logout` does; the details remembered on this PC stay, ready for the next login. Logging in and out needs the admin API key (`Auth__AdminApiKey`), which the app reads from `.env` or Settings. The dashboard's "Fyers login needed" alert links here.
 - **Settings:** point the app at another API address, API key or admin API key. Saved settings go to `%LOCALAPPDATA%\QuoteSnap\desktop-settings.json`, with the keys encrypted for your Windows account; until you save, the app keeps reading `.env`.
 
 ## Using the API

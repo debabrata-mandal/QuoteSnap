@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using QuoteSnap.Api.Data;
 using QuoteSnap.Api.Domain;
+using QuoteSnap.Api.Fyers;
 using QuoteSnap.Api.Holdings;
 using QuoteSnap.Api.Nav;
 using QuoteSnap.Api.Services;
@@ -68,6 +69,13 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
     /// <summary>The (plan ID, page) of each holdings call, in order.</summary>
     public ConcurrentQueue<(int PlanId, int Page)> ScanxHoldingsCalls { get; } = new();
 
+    /// <summary>The (method, path, Authorization header) of each call to the Fyers auth API, in order.</summary>
+    public ConcurrentQueue<(string Method, string Path, string? Authorization)> FyersAuthCalls { get; } = new();
+
+    /// <summary>What the fake Fyers logout answers.</summary>
+    public (HttpStatusCode Status, string Body) FyersLogoutResponse { get; set; } =
+        (HttpStatusCode.OK, """{"s":"ok","code":200,"message":"Logged out successfully"}""");
+
     public static string NewDataDirectory() =>
         Path.Combine(Path.GetTempPath(), "quotesnap-tests", Guid.NewGuid().ToString("N"));
 
@@ -106,6 +114,7 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
 
             services.AddHttpClient<NavImporter>().ConfigurePrimaryHttpMessageHandler(() => new FakeAmfiHandler(this));
             services.AddHttpClient<ScanxClient>().ConfigurePrimaryHttpMessageHandler(() => new FakeScanxHandler(this));
+            services.AddHttpClient<FyersAuthClient>().ConfigurePrimaryHttpMessageHandler(() => new FakeFyersAuthHandler(this));
 
             if (!StartWorker)
             {
@@ -218,4 +227,20 @@ internal sealed class FakeScanxHandler(QuoteSnapApiFactory factory) : HttpMessag
 
     private static HttpResponseMessage Json(string json) =>
         new(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
+}
+
+/// <summary>Answers the Fyers logout with <see cref="QuoteSnapApiFactory.FyersLogoutResponse"/>; other auth calls get 404.</summary>
+internal sealed class FakeFyersAuthHandler(QuoteSnapApiFactory factory) : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        string path = request.RequestUri?.AbsolutePath ?? "";
+        string? authorization = request.Headers.TryGetValues("Authorization", out IEnumerable<string>? values) ? values.Single() : null;
+        factory.FyersAuthCalls.Enqueue((request.Method.Method, path, authorization));
+
+        if (path != "/api/v3/logout" || request.Method != HttpMethod.Post)
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        (HttpStatusCode status, string body) = factory.FyersLogoutResponse;
+        return Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") });
+    }
 }

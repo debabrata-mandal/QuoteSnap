@@ -74,6 +74,15 @@ public sealed class FyersAuthClient(HttpClient http, IOptions<FyersOptions> opti
         return new FyersProfile(fyersId, FyersJson.GetString(data, "name"));
     }
 
+    /// <summary>Invalidates the access token for this app only; other apps and Fyers web and mobile sessions stay signed in.</summary>
+    public async Task LogoutAsync(string appId, string accessToken, CancellationToken cancellationToken)
+    {
+        using HttpRequestMessage request = new(HttpMethod.Post, Url("logout"));
+        request.Headers.TryAddWithoutValidation("Authorization", $"{appId}:{accessToken}");
+        using HttpResponseMessage response = await http.SendAsync(request, cancellationToken);
+        (await FyersJson.ReadOkAsync(response, cancellationToken)).Dispose();
+    }
+
     private Uri Url(string path) => new(BaseUrl(_options) + path);
 
     private static string BaseUrl(FyersOptions options) => options.ApiBaseUrl.TrimEnd('/') + "/";

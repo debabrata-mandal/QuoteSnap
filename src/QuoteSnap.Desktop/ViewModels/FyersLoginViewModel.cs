@@ -24,6 +24,7 @@ public sealed partial class FyersLoginViewModel : ObservableObject
     private readonly SettingsStore _store;
     private CancellationTokenSource? _login;
     private TaskCompletionSource<string>? _paste;
+    private FyersSessionInfo? _shownSession;
 
     public FyersLoginViewModel(QuoteSnapConnection connection, SettingsStore store)
     {
@@ -37,8 +38,8 @@ public sealed partial class FyersLoginViewModel : ObservableObject
         };
     }
 
-    /// <summary>Raised after a login is stored, so other pages can refresh.</summary>
-    public event EventHandler? LoggedIn;
+    /// <summary>Raised after a login is stored or forgotten, so other pages can refresh.</summary>
+    public event EventHandler? SessionChanged;
 
     /// <summary>Raised when a login that sent you to the browser ends, however it ended, so the app can come back to the front.</summary>
     public event EventHandler? BrowserLoginEnded;
@@ -74,6 +75,27 @@ public sealed partial class FyersLoginViewModel : ObservableObject
     [ObservableProperty]
     public partial string? SessionError { get; set; }
 
+    /// <summary>Whether the service has a login stored, which is what Log out removes.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AskLogOutCommand))]
+    public partial bool HasStoredLogin { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsConfirmingLogout { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AskLogOutCommand), nameof(LogOutCommand), nameof(KeepLoginCommand), nameof(LogInCommand), nameof(LogInManuallyCommand))]
+    public partial bool IsLoggingOut { get; set; }
+
+    [ObservableProperty]
+    public partial string? SessionMessageTitle { get; set; }
+
+    [ObservableProperty]
+    public partial string? SessionMessage { get; set; }
+
+    [ObservableProperty]
+    public partial StatusLevel SessionMessageLevel { get; set; }
+
     [ObservableProperty]
     public partial string AppId { get; set; } = "";
 
@@ -100,7 +122,7 @@ public sealed partial class FyersLoginViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanEditDetails))]
-    [NotifyCanExecuteChangedFor(nameof(LogInCommand), nameof(LogInManuallyCommand), nameof(CancelCommand))]
+    [NotifyCanExecuteChangedFor(nameof(LogInCommand), nameof(LogInManuallyCommand), nameof(CancelCommand), nameof(AskLogOutCommand))]
     public partial bool IsLoggingIn { get; set; }
 
     public bool CanEditDetails => !IsLoggingIn;
@@ -156,7 +178,7 @@ public sealed partial class FyersLoginViewModel : ObservableObject
     [RelayCommand]
     private void OpenSettings() => SettingsRequested?.Invoke(this, EventArgs.Empty);
 
-    private bool CanLogIn() => !IsLoggingIn;
+    private bool CanLogIn() => !IsLoggingIn && !IsLoggingOut;
 
     [RelayCommand(CanExecute = nameof(CanLogIn))]
     private Task LogInAsync() => RunLoginAsync(
@@ -217,12 +239,72 @@ public sealed partial class FyersLoginViewModel : ObservableObject
         Report(StatusLevel.Good, "Forgot the Fyers details saved on this PC.");
     }
 
+    private bool CanAskLogOut() => HasStoredLogin && !IsLoggingIn && !IsLoggingOut;
+
+    [RelayCommand(CanExecute = nameof(CanAskLogOut))]
+    private void AskLogOut()
+    {
+        SessionMessage = null;
+        IsConfirmingLogout = true;
+    }
+
+    private bool IsNotLoggingOut() => !IsLoggingOut;
+
+    [RelayCommand(CanExecute = nameof(IsNotLoggingOut))]
+    private void KeepLogin() => IsConfirmingLogout = false;
+
+    [RelayCommand(CanExecute = nameof(IsNotLoggingOut))]
+    private async Task LogOutAsync()
+    {
+        if (!HasAdminKey)
+        {
+            IsConfirmingLogout = false;
+            ReportSession(StatusLevel.Bad, "Logging out needs the admin API key. Set Auth__AdminApiKey in the repository's .env, or enter it in Settings.");
+            return;
+        }
+
+        DateTimeOffset? tokenExpires = _shownSession?.AccessTokenExpiresAt;
+        IsLoggingOut = true;
+        try
+        {
+            FyersLogoutResult result = await _connection.Client.LogoutFyersAsync();
+            if (result.RevokedAtFyers)
+                ReportSession(
+                    StatusLevel.Good,
+                    "QuoteSnap forgot the login, including the app details and PIN it stored, and Fyers no longer accepts its token. Quote requests are refused until you log in again.",
+                    result.FyersId is { } id ? $"Logged out {id}" : "Already logged out");
+            else
+                ReportSession(
+                    StatusLevel.Warning,
+                    $"QuoteSnap forgot the login, so nothing can use or renew it, but Fyers couldn't be asked to revoke the token ({result.FyersError}). It stops working by itself {Display.WhenInSentence(tokenExpires)}.",
+                    $"Logged out{(result.FyersId is { } account ? $" {account}" : "")}, Fyers not reached");
+            SessionChanged?.Invoke(this, EventArgs.Empty);
+        }
+        catch (QuoteSnapApiException ex) when (ex.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        {
+            ReportSession(StatusLevel.Bad, "QuoteSnap rejected the admin key. It must match Auth__AdminApiKey in the API's .env; check it in Settings.");
+        }
+        catch (Exception ex)
+        {
+            ReportSession(StatusLevel.Bad, $"The logout failed, so you're still logged in. {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}");
+        }
+        finally
+        {
+            IsLoggingOut = false;
+            IsConfirmingLogout = false;
+        }
+
+        await RefreshSessionAsync();
+    }
+
     private async Task RunLoginAsync(
         string firstStep,
         Func<FyersLoginFlow, FyersAppCredentials, string, CancellationToken, Task<FyersSessionInfo>> login)
     {
         Message = null;
         MessageTitle = null;
+        SessionMessage = null;
+        IsConfirmingLogout = false;
         if (ReadCredentials() is not { } app)
             return;
 
@@ -241,7 +323,7 @@ public sealed partial class FyersLoginViewModel : ObservableObject
                 StatusLevel.Good,
                 $"Stored in QuoteSnap {Display.WhenInSentence(session.UpdatedAt ?? DateTimeOffset.Now)}. Quote requests work again; QuoteSnap renews the token daily, and the login lasts until {Display.Time(session.RefreshTokenExpiresAt)}.",
                 $"Logged in{(session.FyersId is { } id ? $" as {id}" : "")}");
-            LoggedIn?.Invoke(this, EventArgs.Empty);
+            SessionChanged?.Invoke(this, EventArgs.Empty);
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
@@ -342,13 +424,16 @@ public sealed partial class FyersLoginViewModel : ObservableObject
 
     private void ShowSession(FyersSessionInfo session, DateTimeOffset now)
     {
+        _shownSession = session;
+        HasStoredLogin = session.FyersId is not null;
         TimeSpan? left = session.RefreshTokenExpiresAt - now;
         bool loggedIn = session.State is FyersAuthState.Ok or FyersAuthState.AccessTokenExpired;
         Validity = loggedIn && left is { } l ? Math.Clamp(l / LoginLifetime, 0, 1) : 0;
         Account = session.FyersId ?? "No login stored";
         UpdatedText = session.UpdatedAt is { } updated ? Display.When(updated) : Display.Missing;
         LoginValidText = session.RefreshTokenExpiresAt is { } ends ? $"Until {Display.Time(ends)}" : Display.Missing;
-        DaysLeftText = !loggedIn ? "Expired"
+        DaysLeftText = !HasStoredLogin ? "Not logged in"
+            : !loggedIn ? "Expired"
             : left is { TotalDays: >= 1 } days ? $"{Display.Count((int)days.TotalDays, "day")} left"
             : left is { TotalHours: > 0 } hours ? $"{Display.Count((int)Math.Ceiling(hours.TotalHours), "hour")} left"
             : Display.Missing;
@@ -381,5 +466,12 @@ public sealed partial class FyersLoginViewModel : ObservableObject
         MessageLevel = level;
         MessageTitle = title;
         Message = message;
+    }
+
+    private void ReportSession(StatusLevel level, string message, string? title = null)
+    {
+        SessionMessageLevel = level;
+        SessionMessageTitle = title;
+        SessionMessage = message;
     }
 }

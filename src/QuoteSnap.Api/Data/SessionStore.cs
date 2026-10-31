@@ -116,6 +116,10 @@ public sealed class SessionStore(
         return updated == 1;
     }
 
+    /// <summary>Forgets the login, including the app credentials and PIN. Returns whether one was stored.</summary>
+    public async Task<bool> DeleteAsync(CancellationToken cancellationToken) =>
+        await db.FyersSessions.Where(s => s.Id == SessionId).ExecuteDeleteAsync(cancellationToken) > 0;
+
     /// <summary>Marks the refresh token as unusable after Fyers rejected it, so status reports a re-login.</summary>
     public async Task<bool> TryInvalidateRefreshTokenAsync(int expectedVersion, CancellationToken cancellationToken)
     {

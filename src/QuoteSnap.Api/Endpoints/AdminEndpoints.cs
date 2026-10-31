@@ -14,6 +14,8 @@ public static class AdminEndpoints
         group.MapPost("/session", SubmitLoginAsync);
         group.MapGet("/session", async (SessionService session, CancellationToken cancellationToken) =>
             TypedResults.Ok(await session.GetInfoAsync(cancellationToken)));
+        group.MapDelete("/session", async (SessionService session, CancellationToken cancellationToken) =>
+            TypedResults.Ok(await session.LogoutAsync(cancellationToken)));
         return app;
     }
 

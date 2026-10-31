@@ -25,16 +25,97 @@ public sealed class AuthAndSessionTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    [Fact]
-    public async Task Admin_endpoints_reject_the_regular_api_key()
+    [Theory]
+    [InlineData("GET")]
+    [InlineData("DELETE")]
+    public async Task Admin_endpoints_reject_the_regular_api_key(string method)
     {
         await using QuoteSnapApiFactory factory = new();
+        await factory.SeedSessionAsync();
         using HttpClient http = factory.CreateClient();
         http.DefaultRequestHeaders.Add(QuoteSnapHeaders.ApiKey, QuoteSnapApiFactory.ApiKey);
 
-        using HttpResponseMessage response = await http.GetAsync("/admin/fyers/session");
+        using HttpRequestMessage request = new(new HttpMethod(method), "/admin/fyers/session");
+        using HttpResponseMessage response = await http.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(FyersAuthState.Ok, (await factory.CreateQuoteSnapClient().GetFyersSessionAsync()).State);
+    }
+
+    [Fact]
+    public async Task Logout_revokes_the_token_at_fyers_and_forgets_the_session()
+    {
+        await using QuoteSnapApiFactory factory = new();
+        await factory.SeedSessionAsync();
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+
+        FyersLogoutResult result = await client.LogoutFyersAsync();
+
+        Assert.Equal(new FyersLogoutResult("XT0001", true, null), result);
+        (string Method, string Path, string? Authorization) call = Assert.Single(factory.FyersAuthCalls);
+        Assert.Equal(("POST", "/api/v3/logout", "TEST-100:access-token"), call);
+        Assert.Equal(FyersAuthState.ReloginRequired, (await client.GetStatusAsync()).Fyers.State);
+        await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+        Assert.Empty(scope.ServiceProvider.GetRequiredService<QuoteSnapDbContext>().FyersSessions);
+    }
+
+    [Fact]
+    public async Task Logout_forgets_the_session_even_when_fyers_fails()
+    {
+        await using QuoteSnapApiFactory factory = new();
+        await factory.SeedSessionAsync();
+        factory.FyersLogoutResponse = (HttpStatusCode.InternalServerError, """{"s":"error","code":-99,"message":"Something went wrong"}""");
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+
+        FyersLogoutResult result = await client.LogoutFyersAsync();
+
+        Assert.Equal("XT0001", result.FyersId);
+        Assert.False(result.RevokedAtFyers);
+        Assert.Contains("Something went wrong", result.FyersError);
+        Assert.Equal(FyersAuthState.ReloginRequired, (await client.GetStatusAsync()).Fyers.State);
+    }
+
+    [Fact]
+    public async Task Logout_counts_a_token_fyers_already_rejected_as_revoked()
+    {
+        await using QuoteSnapApiFactory factory = new();
+        await factory.SeedSessionAsync();
+        factory.FyersLogoutResponse = (HttpStatusCode.Unauthorized, """{"s":"error","code":-16,"message":"Could not authenticate the user"}""");
+
+        FyersLogoutResult result = await factory.CreateQuoteSnapClient().LogoutFyersAsync();
+
+        Assert.Equal(new FyersLogoutResult("XT0001", true, null), result);
+    }
+
+    [Fact]
+    public async Task Logout_does_not_call_fyers_when_the_access_token_already_expired()
+    {
+        await using QuoteSnapApiFactory factory = new();
+        await using (AsyncServiceScope scope = factory.Services.CreateAsyncScope())
+        {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            await scope.ServiceProvider.GetRequiredService<SessionStore>().SaveLoginAsync(
+                new FyersSession("XT0001", QuoteSnapApiFactory.App, "access-token", "refresh-token", now.AddHours(-1), now.AddDays(10), now, 0),
+                default);
+        }
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+
+        FyersLogoutResult result = await client.LogoutFyersAsync();
+
+        Assert.Equal(new FyersLogoutResult("XT0001", true, null), result);
+        Assert.Empty(factory.FyersAuthCalls);
+        Assert.Equal(FyersAuthState.ReloginRequired, (await client.GetStatusAsync()).Fyers.State);
+    }
+
+    [Fact]
+    public async Task Logout_without_a_stored_login_changes_nothing()
+    {
+        await using QuoteSnapApiFactory factory = new();
+
+        FyersLogoutResult result = await factory.CreateQuoteSnapClient().LogoutFyersAsync();
+
+        Assert.Equal(new FyersLogoutResult(null, false, null), result);
+        Assert.Empty(factory.FyersAuthCalls);
     }
 
     [Fact]

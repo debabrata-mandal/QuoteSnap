@@ -218,6 +218,16 @@ public sealed class QuoteSnapClient
         return await ReadAsync<FyersSessionInfo>(response, cancellationToken);
     }
 
+    /// <summary>
+    /// Asks Fyers to revoke the access token and makes the service forget the login; quote requests are refused until
+    /// the next login.
+    /// </summary>
+    public async Task<FyersLogoutResult> LogoutFyersAsync(CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Delete, "admin/fyers/session", null, admin: true, cancellationToken);
+        return await ReadAsync<FyersLogoutResult>(response, cancellationToken);
+    }
+
     private Task<(QuoteRequestDetails Value, TimeSpan? RetryAfter)> GetWithRetryAfterAsync(
         Guid requestId,
         CancellationToken cancellationToken) =>

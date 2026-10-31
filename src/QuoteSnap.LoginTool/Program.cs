@@ -7,7 +7,8 @@ using QuoteSnap.Contracts;
 
 string? command = args.FirstOrDefault()?.ToLowerInvariant();
 bool manual = args.Contains("--manual", StringComparer.OrdinalIgnoreCase);
-if (command is not ("login" or "status"))
+bool confirmed = args.Contains("--yes", StringComparer.OrdinalIgnoreCase) || args.Contains("-y", StringComparer.OrdinalIgnoreCase);
+if (command is not ("login" or "status" or "logout"))
 {
     PrintUsage();
     return 2;
@@ -49,6 +50,9 @@ try
         PrintSession(await client.GetFyersSessionAsync(cancellation.Token));
         return 0;
     }
+
+    if (command == "logout")
+        return await LogoutAsync(client, confirmed, cancellation.Token);
 
     FyersSettings fyers = configuration.GetSection("Fyers").Get<FyersSettings>() ?? new FyersSettings();
     FyersAppCredentials app = new(
@@ -98,6 +102,35 @@ catch (OperationCanceledException)
 {
     Console.Error.WriteLine("Cancelled. Nothing was changed.");
     return 1;
+}
+
+static async Task<int> LogoutAsync(QuoteSnapClient client, bool confirmed, CancellationToken cancellationToken)
+{
+    FyersSessionInfo session = await client.GetFyersSessionAsync(cancellationToken);
+    if (session.FyersId is null)
+    {
+        Console.WriteLine("No Fyers login is stored in QuoteSnap; nothing to log out.");
+        return 0;
+    }
+
+    if (!confirmed)
+    {
+        Console.Write($"Log {session.FyersId} out of QuoteSnap? Quote requests stop until you log in again. [y/N] ");
+        if (Console.ReadLine()?.Trim().ToLowerInvariant() is not ("y" or "yes"))
+        {
+            Console.WriteLine("Nothing was changed.");
+            return 1;
+        }
+    }
+
+    FyersLogoutResult result = await client.LogoutFyersAsync(cancellationToken);
+    Console.WriteLine($"Logged {result.FyersId ?? session.FyersId} out. QuoteSnap has forgotten the login, including the app details and PIN.");
+    Console.WriteLine(result.RevokedAtFyers
+        ? "  Fyers no longer accepts the access token."
+        : $"  Fyers couldn't be asked to revoke the access token ({result.FyersError}). Nothing can use or renew it now, "
+          + $"and it lapses by itself at {session.AccessTokenExpiresAt?.ToLocalTime():yyyy-MM-dd HH:mm}.");
+    Console.WriteLine("  Run 'quotesnap-login login' to log in again.");
+    return 0;
 }
 
 static Task<string> PromptForRedirectAsync(string loginUrl, CancellationToken cancellationToken)
@@ -162,8 +195,10 @@ static void PrintUsage()
     Console.WriteLine("Usage:");
     Console.WriteLine("  quotesnap-login login [--manual]   Log in to Fyers and store the session in QuoteSnap");
     Console.WriteLine("  quotesnap-login status             Show the stored Fyers session");
+    Console.WriteLine("  quotesnap-login logout [--yes]     Revoke the Fyers access token and make QuoteSnap forget the login");
     Console.WriteLine();
     Console.WriteLine("--manual  Paste the redirect URL instead of using a local callback listener.");
+    Console.WriteLine("--yes     Log out without asking first.");
 }
 
 internal sealed class ServiceSettings

@@ -267,6 +267,12 @@
       </Trigger>
     </Style.Triggers>
   </Style>
+  <Style x:Key="Button.Danger" TargetType="ButtonBase" BasedOn="{StaticResource Button.Secondary}">
+    <Setter Property="Background" Value="{StaticResource DangerSubtleBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource DangerBorderBrush}" />
+    <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
   <Style x:Key="Button.Icon" TargetType="ButtonBase" BasedOn="{StaticResource Button.Ghost}">
     <Setter Property="Width" Value="32" />
     <Setter Property="Height" Value="32" />

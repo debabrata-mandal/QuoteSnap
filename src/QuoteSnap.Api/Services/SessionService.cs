@@ -9,7 +9,7 @@ namespace QuoteSnap.Api.Services;
 public sealed class FyersReloginRequiredException(string message) : Exception(message)
 {
     public const string DefaultMessage =
-        "Fyers re-authentication required. Run the QuoteSnap login tool (quotesnap-login login).";
+        "Fyers re-authentication required. Log in on the desktop app's Fyers login page or with the QuoteSnap login tool (quotesnap-login login).";
 
     public FyersReloginRequiredException() : this(DefaultMessage)
     {
@@ -169,6 +169,60 @@ public sealed class SessionService(
             "Stored a new Fyers login for {FyersId} (app {AppId}); refresh token valid until {RefreshTokenExpiresAt}",
             profile.FyersId, app.AppId, refreshTokenExpiresAt);
         return ToInfo(await store.GetAsync(cancellationToken));
+    }
+
+    /// <summary>
+    /// Asks Fyers to revoke the access token, then forgets the login. The login is forgotten even when Fyers can't be
+    /// reached, so the service can neither use nor renew it; the token then lapses at Fyers on its own.
+    /// </summary>
+    public async Task<FyersLogoutResult> LogoutAsync(CancellationToken cancellationToken)
+    {
+        await _refreshLock.WaitAsync(cancellationToken);
+        try
+        {
+            await using AsyncServiceScope scope = scopes.CreateAsyncScope();
+            SessionStore store = scope.ServiceProvider.GetRequiredService<SessionStore>();
+            FyersAuthClient auth = scope.ServiceProvider.GetRequiredService<FyersAuthClient>();
+
+            FyersSession? session = await store.GetAsync(cancellationToken);
+            if (session is null)
+            {
+                // Also clears a row that can no longer be decrypted.
+                await store.DeleteAsync(cancellationToken);
+                return new FyersLogoutResult(null, false, null);
+            }
+
+            bool revoked = true;
+            string? error = null;
+            if (session.AccessTokenExpiresAt > time.GetUtcNow())
+            {
+                try
+                {
+                    await auth.LogoutAsync(session.App.AppId, session.AccessToken, cancellationToken);
+                }
+                catch (FyersAuthException ex)
+                {
+                    logger.LogInformation("Fyers says the access token is already invalid: {Reason}", ex.Message);
+                }
+                catch (Exception ex) when (ex is FyersApiException or HttpRequestException or Polly.ExecutionRejectedException
+                                           || ex is TaskCanceledException && !cancellationToken.IsCancellationRequested)
+                {
+                    logger.LogWarning("Fyers could not revoke the access token for {FyersId}: {Reason}", session.FyersId, ex.Message);
+                    revoked = false;
+                    error = ex.Message;
+                }
+            }
+
+            await store.DeleteAsync(cancellationToken);
+            logger.LogInformation(
+                "Logged out of Fyers: forgot the login for {FyersId} (app {AppId}); access token revoked at Fyers: {Revoked}",
+                session.FyersId, session.App.AppId, revoked);
+            return new FyersLogoutResult(session.FyersId, revoked, error);
+        }
+        finally
+        {
+            _refreshLock.Release();
+        }
     }
 
     private FyersSessionInfo ToInfo(FyersSession? session)
