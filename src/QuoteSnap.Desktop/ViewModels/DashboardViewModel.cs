@@ -114,6 +114,9 @@ public sealed partial class DashboardViewModel : ObservableObject
     public partial bool AlertOffersSettings { get; set; }
 
     [ObservableProperty]
+    public partial bool AlertOffersLogin { get; set; }
+
+    [ObservableProperty]
     public partial DateTimeOffset? LastChecked { get; set; }
 
     public void Start()
@@ -198,6 +201,7 @@ public sealed partial class DashboardViewModel : ObservableObject
 
         AlertLevel = StatusLevel.Bad;
         AlertOffersSettings = true;
+        AlertOffersLogin = false;
         if (keyRejected)
         {
             AlertTitle = "The API rejected the key";
@@ -215,6 +219,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         AlertTitle = null;
         AlertText = null;
         AlertOffersSettings = false;
+        AlertOffersLogin = false;
     }
 
     private void ShowFyers(FyersSessionInfo fyers, DateTimeOffset now)
@@ -252,8 +257,9 @@ public sealed partial class DashboardViewModel : ObservableObject
     {
         AlertLevel = level;
         AlertTitle = title;
-        AlertText = $"{reason} Log in to Fyers again with the QuoteSnap login tool.";
+        AlertText = $"{reason} Log in to Fyers again on the Fyers login page.";
         AlertOffersSettings = false;
+        AlertOffersLogin = true;
     }
 
     private void ShowNav(NavStatus nav)

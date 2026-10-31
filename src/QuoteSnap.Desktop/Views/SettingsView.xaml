@@ -31,6 +31,19 @@
     <Style x:Key="Group" TargetType="TextBlock" BasedOn="{StaticResource Text.Section}">
       <Setter Property="Margin" Value="2,24,0,10" />
     </Style>
+    <!-- Shows or hides the key next to it. -->
+    <Style x:Key="RevealToggle" TargetType="ToggleButton" BasedOn="{StaticResource Button.Icon}">
+      <Setter Property="Margin" Value="6,0,0,0" />
+      <Setter Property="ui:Ui.Icon" Value="&#xE7B3;" />
+      <Setter Property="ToolTip" Value="Show key" />
+      <Style.Triggers>
+        <Trigger Property="IsChecked" Value="True">
+          <Setter Property="ui:Ui.Icon" Value="&#xED1A;" />
+          <Setter Property="ToolTip" Value="Hide key" />
+          <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
   </UserControl.Resources>
 
   <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -40,7 +53,7 @@
       </Grid.ColumnDefinitions>
       <StackPanel>
         <TextBlock Text="Settings" Style="{StaticResource Text.PageTitle}" />
-        <TextBlock Text="How the app reaches the QuoteSnap API. Fyers login is handled by the separate login tool." Style="{StaticResource Text.PageSubtitle}" />
+        <TextBlock Text="How the app reaches the QuoteSnap API. To log in to Fyers, open the Fyers login page." Style="{StaticResource Text.PageSubtitle}" />
 
         <TextBlock Text="Connection" Style="{StaticResource Group}" />
 
@@ -67,26 +80,32 @@
                          AutomationProperties.Name="API key (visible)"
                          Visibility="{Binding IsApiKeyVisible, Converter={StaticResource BoolToVisibility}}" />
               </Grid>
-              <ToggleButton Margin="6,0,0,0" IsChecked="{Binding IsApiKeyVisible}" AutomationProperties.Name="Show API key">
-                <ToggleButton.Style>
-                  <Style TargetType="ToggleButton" BasedOn="{StaticResource Button.Icon}">
-                    <Setter Property="ui:Ui.Icon" Value="&#xE7B3;" />
-                    <Setter Property="ToolTip" Value="Show key" />
-                    <Style.Triggers>
-                      <Trigger Property="IsChecked" Value="True">
-                        <Setter Property="ui:Ui.Icon" Value="&#xED1A;" />
-                        <Setter Property="ToolTip" Value="Hide key" />
-                        <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
-                      </Trigger>
-                    </Style.Triggers>
-                  </Style>
-                </ToggleButton.Style>
-              </ToggleButton>
+              <ToggleButton Style="{StaticResource RevealToggle}" IsChecked="{Binding IsApiKeyVisible}" AutomationProperties.Name="Show API key" />
             </StackPanel>
             <TextBlock Style="{StaticResource SettingIcon}" Text="&#xE8D7;" />
             <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
               <TextBlock Text="API key" Style="{StaticResource SettingTitle}" />
               <TextBlock Text="Sent as X-Api-Key; must match Auth__ApiKey in the API's .env" Style="{StaticResource SettingDescription}" />
+            </StackPanel>
+          </DockPanel>
+        </Border>
+
+        <Border Style="{StaticResource SettingRow}">
+          <DockPanel>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+              <Grid Width="300">
+                <PasswordBox x:Name="AdminApiKeyBox" PasswordChanged="OnPasswordChanged" AutomationProperties.Name="Admin API key"
+                             Visibility="{Binding IsAdminApiKeyVisible, Converter={StaticResource InverseBoolToVisibility}}" />
+                <TextBox Style="{StaticResource TextBox.Mono}" Text="{Binding AdminApiKey, UpdateSourceTrigger=PropertyChanged}"
+                         AutomationProperties.Name="Admin API key (visible)"
+                         Visibility="{Binding IsAdminApiKeyVisible, Converter={StaticResource BoolToVisibility}}" />
+              </Grid>
+              <ToggleButton Style="{StaticResource RevealToggle}" IsChecked="{Binding IsAdminApiKeyVisible}" AutomationProperties.Name="Show admin API key" />
+            </StackPanel>
+            <TextBlock Style="{StaticResource SettingIcon}" Text="&#xE72E;" />
+            <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+              <TextBlock Text="Admin API key" Style="{StaticResource SettingTitle}" />
+              <TextBlock Text="Only for the Fyers login; must match Auth__AdminApiKey in the API's .env" Style="{StaticResource SettingDescription}" />
             </StackPanel>
           </DockPanel>
         </Border>
@@ -130,7 +149,7 @@
             <StackPanel VerticalAlignment="Center">
               <TextBlock Text="Settings file" Style="{StaticResource SettingTitle}" />
               <TextBlock Text="{Binding SettingsPath}" Style="{StaticResource Text.Mono}" Foreground="{StaticResource TextMutedBrush}" Margin="0,3,0,0" />
-              <TextBlock Text="The API key is encrypted for your Windows account before it's saved." Style="{StaticResource SettingDescription}" />
+              <TextBlock Text="The API keys are encrypted for your Windows account before they're saved." Style="{StaticResource SettingDescription}" />
             </StackPanel>
           </DockPanel>
         </Border>

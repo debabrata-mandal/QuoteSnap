@@ -640,6 +640,49 @@
     </Setter>
   </Style>
 
+  <!-- ===== Toggle switch ===== -->
+  <!-- An on/off switch for a CheckBox; its content is the label on the right. -->
+  <Style x:Key="ToggleSwitch" TargetType="CheckBox">
+    <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+    <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="CheckBox">
+          <Grid Background="Transparent">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border x:Name="Track" Width="40" Height="20" CornerRadius="10" BorderThickness="1" VerticalAlignment="Center"
+                    Background="{StaticResource FillBrush}" BorderBrush="{StaticResource BorderStrongBrush}">
+              <Ellipse x:Name="Knob" Width="12" Height="12" Margin="4,0" HorizontalAlignment="Left" Fill="{StaticResource TextMutedBrush}" />
+            </Border>
+            <ContentPresenter Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True" />
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Track" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Track" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Track" Property="Background" Value="{StaticResource AccentBrush}" />
+              <Setter TargetName="Track" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+              <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right" />
+              <Setter TargetName="Knob" Property="Fill" Value="{StaticResource TextOnAccentBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.5" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <!-- ===== Progress ===== -->
   <Style TargetType="ProgressBar">
     <Setter Property="Height" Value="6" />

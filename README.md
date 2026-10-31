@@ -18,7 +18,7 @@ The service needs no Fyers settings of its own. The login tool sends the Fyers A
 | `src/QuoteSnap.Contracts` | Request and response types shared by the API and its clients |
 | `src/QuoteSnap.Client` | .NET client for the API, including the Fyers login flow; used by the login tool and the desktop app |
 | `src/QuoteSnap.LoginTool` | `quotesnap-login`, the console tool for the Fyers login |
-| `src/QuoteSnap.Desktop` | Windows desktop app (WPF): status dashboard, quote requests, history, mutual fund NAVs and fund holdings |
+| `src/QuoteSnap.Desktop` | Windows desktop app (WPF): status dashboard, quote requests, history, mutual fund NAVs, fund holdings and the Fyers login |
 | `tests/` | Unit tests and integration tests (real API, PostgreSQL in Docker, fake Fyers) |
 | `docker-compose.yml` | PostgreSQL for local development |
 
@@ -68,6 +68,8 @@ dotnet run --project src/QuoteSnap.LoginTool -- login
 
 The tool asks for any Fyers detail you didn't set (the Secret ID and PIN are masked) and opens the Fyers login page in your browser. After you log in, Fyers redirects back to the tool, which sends the auth code and the app details to the service. The service exchanges the code for tokens and stores everything encrypted. If the local callback can't run, use `login --manual` and paste the redirect URL instead.
 
+Or log in from the desktop app (step 5): its **Fyers login** page does the same login without a console.
+
 Check the session at any time:
 
 ```powershell
@@ -89,9 +91,8 @@ The app talks to the API at `http://127.0.0.1:8080/` with `Auth__ApiKey` from `.
 - **History:** every past request, filtered by status; select one to see, filter and export its quotes.
 - **Mutual funds:** your own list of funds with their latest NAVs. Search by any part of the name (word order, typos, "midcap" or "mid cap", "absl", "dividend" for IDCW all work) or by ISIN or scheme code, and add or remove funds. The list is stored by the API (`/api/my-funds`), so every app pointed at the same service shares it, and it can be exported to CSV. The page also shows when AMFI's NAV file was last downloaded and can download it again.
 - **Holdings:** what the funds on your list own. Fetch holdings scrapes every listed fund's portfolio from ScanX and shows live progress: a progress bar, the fund being fetched and a status per fund (Waiting, Fetching, Updated, Not on ScanX, Failed). A fetch keeps running in the service if you leave the page or close the app, and the page picks it up again when reopened. Select a fund to see its holdings with weight, sector, shares and the change in weight since the month before; step back through the 12 stored months, filter, and export to CSV.
-- **Settings:** point the app at another API address or key. Saved settings go to `%LOCALAPPDATA%\QuoteSnap\desktop-settings.json`, with the API key encrypted for your Windows account; until you save, the app keeps reading `.env`.
-
-The Fyers login itself stays in the login tool.
+- **Fyers login:** the stored Fyers session (account, days left, when the token renews) and the login itself, without the login tool. Enter the App ID, Secret ID and PIN (prefilled from `Fyers__AppId`, `Fyers__SecretId` and `Fyers__Pin` in `.env` if set) and press **Log in with Fyers**. The Fyers page opens in your browser; after you log in, Fyers redirects to `http://127.0.0.1:8085/callback`, where the app receives it and hands the login to the service. If that port can't be used, **Paste the redirect URL instead** has you copy the address from the browser. Turn on **Remember these details on this PC** to keep them for next time in `%LOCALAPPDATA%\QuoteSnap\fyers-login.json`, with the Secret ID and PIN encrypted for your Windows account. Logging in needs the admin API key (`Auth__AdminApiKey`), which the app reads from `.env` or Settings. The dashboard's "Fyers login needed" alert links here.
+- **Settings:** point the app at another API address, API key or admin API key. Saved settings go to `%LOCALAPPDATA%\QuoteSnap\desktop-settings.json`, with the keys encrypted for your Windows account; until you save, the app keeps reading `.env`.
 
 ## Using the API
 

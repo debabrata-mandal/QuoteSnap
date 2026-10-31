@@ -13,6 +13,7 @@ public sealed partial class MainViewModel : ObservableObject
     public const int NavTab = 3;
     public const int SettingsTab = 4;
     public const int HoldingsTab = 5;
+    public const int FyersLoginTab = 6;
 
     private readonly QuoteSnapConnection _connection;
 
@@ -26,8 +27,11 @@ public sealed partial class MainViewModel : ObservableObject
         Nav = new NavViewModel(connection, dialogs);
         Holdings = new HoldingsViewModel(connection, dialogs);
         Settings = new SettingsViewModel(store, connection, loaded);
+        FyersLogin = new FyersLoginViewModel(connection, store);
 
         Holdings.AddFundsRequested += (_, _) => SelectedTabIndex = NavTab;
+        FyersLogin.SettingsRequested += (_, _) => SelectedTabIndex = SettingsTab;
+        FyersLogin.LoggedIn += async (_, _) => await Dashboard.RefreshIfIdleAsync();
 
         NewRequest.RequestFinished += async (_, _) => await Dashboard.RefreshIfIdleAsync();
         Nav.NavsRefreshed += async (_, _) => await Dashboard.RefreshIfIdleAsync();
@@ -45,6 +49,8 @@ public sealed partial class MainViewModel : ObservableObject
     public NavViewModel Nav { get; }
 
     public HoldingsViewModel Holdings { get; }
+
+    public FyersLoginViewModel FyersLogin { get; }
 
     public SettingsViewModel Settings { get; }
 
@@ -87,5 +93,7 @@ public sealed partial class MainViewModel : ObservableObject
             _ = Nav.ActivateAsync();
         else if (value == HoldingsTab)
             _ = Holdings.ActivateAsync();
+        else if (value == FyersLoginTab)
+            _ = FyersLogin.ActivateAsync();
     }
 }

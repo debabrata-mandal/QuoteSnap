@@ -70,6 +70,57 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.Contains("could not be read", loaded.Source);
     }
 
+    [Fact]
+    public void The_admin_key_comes_from_the_env_file_unless_one_is_saved()
+    {
+        File.WriteAllText(Path.Combine(_root, ".env"), "Auth__ApiKey=from-env-file-0000\nAuth__AdminApiKey=admin-from-env-0000\n");
+        string path = Path.Combine(_root, "settings", "desktop-settings.json");
+        SettingsStore store = new(path, [_root]);
+
+        Assert.Equal("admin-from-env-0000", store.Load().Settings.AdminApiKey);
+
+        store.Save(new DesktopSettings(new Uri("http://example.test/"), "saved-api-key-0000"));
+        Assert.Equal("admin-from-env-0000", store.Load().Settings.AdminApiKey);
+
+        store.Save(new DesktopSettings(new Uri("http://example.test/"), "saved-api-key-0000", "saved-admin-key-0000"));
+        Assert.Equal("saved-admin-key-0000", store.Load().Settings.AdminApiKey);
+        Assert.DoesNotContain("saved-admin-key-0000", File.ReadAllText(path));
+    }
+
+    [Fact]
+    public void Fyers_details_are_prefilled_from_the_env_file()
+    {
+        File.WriteAllText(Path.Combine(_root, ".env"), "Fyers__AppId=ABCDEFGHIJ-100\nFyers__SecretId=env-secret\nFyers__Pin=\n");
+        SettingsStore store = new(Path.Combine(_root, "settings", "desktop-settings.json"), [_root]);
+
+        LoadedFyersLogin loaded = store.LoadFyersLogin();
+
+        Assert.False(loaded.IsRemembered);
+        Assert.Equal(new FyersLoginDetails("ABCDEFGHIJ-100", "env-secret", null, "http://127.0.0.1:8085/callback"), loaded.Details);
+        Assert.Contains(".env", loaded.Source);
+    }
+
+    [Fact]
+    public void Remembered_fyers_details_round_trip_with_the_secret_and_pin_encrypted_and_can_be_forgotten()
+    {
+        SettingsStore store = new(Path.Combine(_root, "settings", "desktop-settings.json"), [_root]);
+        FyersLoginDetails details = new("ABCDEFGHIJ-100", "my-secret-id", "4321", "http://127.0.0.1:9000/callback");
+
+        store.SaveFyersLogin(details);
+        LoadedFyersLogin loaded = store.LoadFyersLogin();
+
+        Assert.True(loaded.IsRemembered);
+        Assert.Equal(details, loaded.Details);
+        string saved = File.ReadAllText(store.FyersLoginPath);
+        Assert.DoesNotContain("my-secret-id", saved);
+        Assert.DoesNotContain("4321", saved);
+
+        store.ForgetFyersLogin();
+
+        Assert.False(File.Exists(store.FyersLoginPath));
+        Assert.Equal(new FyersLoginDetails(null, null, null, "http://127.0.0.1:8085/callback"), store.LoadFyersLogin().Details);
+    }
+
     [Theory]
     [InlineData("http://127.0.0.1:8080", "http://127.0.0.1:8080/")]
     [InlineData(" https://quotes.example.com/base ", "https://quotes.example.com/base/")]

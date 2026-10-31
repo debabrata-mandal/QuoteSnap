@@ -32,6 +32,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     public partial bool IsApiKeyVisible { get; set; }
 
     [ObservableProperty]
+    public partial string AdminApiKey { get; set; } = "";
+
+    [ObservableProperty]
+    public partial bool IsAdminApiKeyVisible { get; set; }
+
+    [ObservableProperty]
     public partial string Source { get; set; } = "";
 
     [ObservableProperty]
@@ -81,7 +87,21 @@ public sealed partial class SettingsViewModel : ObservableObject
                 string fyers = status.Fyers.State is FyersAuthState.Ok or FyersAuthState.AccessTokenExpired
                     ? "Fyers is logged in"
                     : "Fyers needs a new login";
-                Report(StatusLevel.Good, "Connected", $"QuoteSnap {Display.Version(status.Version)}; {fyers}.");
+                if (settings.AdminApiKey is null)
+                {
+                    Report(StatusLevel.Good, "Connected", $"QuoteSnap {Display.Version(status.Version)}; {fyers}. No admin key, so the Fyers login page can't log in.");
+                    return;
+                }
+
+                try
+                {
+                    await client.GetFyersSessionAsync();
+                    Report(StatusLevel.Good, "Connected", $"QuoteSnap {Display.Version(status.Version)}; {fyers}. The admin key works.");
+                }
+                catch (QuoteSnapApiException ex) when (ex.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden)
+                {
+                    Report(StatusLevel.Warning, "Admin key rejected", $"QuoteSnap {Display.Version(status.Version)} is reachable, but it rejected the admin key; it must match Auth__AdminApiKey.");
+                }
             }
             catch (Exception ex)
             {
@@ -108,13 +128,17 @@ public sealed partial class SettingsViewModel : ObservableObject
             return null;
         }
 
-        return new DesktopSettings(address, string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey.Trim());
+        return new DesktopSettings(
+            address,
+            string.IsNullOrWhiteSpace(ApiKey) ? null : ApiKey.Trim(),
+            string.IsNullOrWhiteSpace(AdminApiKey) ? null : AdminApiKey.Trim());
     }
 
     private void Show(LoadedSettings loaded)
     {
         BaseAddressText = loaded.Settings.BaseAddress.AbsoluteUri;
         ApiKey = loaded.Settings.ApiKey ?? "";
+        AdminApiKey = loaded.Settings.AdminApiKey ?? "";
         Source = loaded.Source;
         IsSaved = loaded.IsSaved;
     }

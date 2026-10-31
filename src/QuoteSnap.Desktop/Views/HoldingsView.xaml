@@ -242,8 +242,6 @@
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Sector" Binding="{Binding Sector}" Width="170" ElementStyle="{StaticResource Cell.Muted}" />
-                <DataGridTextColumn Header="Type" Binding="{Binding AssetType}" Width="96" ElementStyle="{StaticResource Cell.Muted}" />
                 <DataGridTemplateColumn Header="Weight" Width="150" SortMemberPath="Percent" HeaderStyle="{StaticResource Header.Right}">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type vm:HoldingRow}">

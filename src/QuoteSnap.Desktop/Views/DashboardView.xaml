@@ -63,6 +63,9 @@
             <Button Style="{StaticResource Button.Ghost}" Content="Open Settings" Margin="0,0,8,0"
                     Visibility="{Binding AlertOffersSettings, Converter={StaticResource BoolToVisibility}}"
                     Command="{Binding DataContext.GoToCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="4" />
+            <Button Style="{StaticResource Button.Primary}" ui:Ui.Icon="&#xE8D7;" Content="Log in to Fyers" Margin="0,0,8,0"
+                    Visibility="{Binding AlertOffersLogin, Converter={StaticResource BoolToVisibility}}"
+                    Command="{Binding DataContext.GoToCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="6" />
             <Button Style="{StaticResource Button.Secondary}" Content="Try again" Command="{Binding RefreshCommand}" />
           </StackPanel>
         </Grid>

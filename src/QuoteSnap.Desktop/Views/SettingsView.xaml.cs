@@ -25,18 +25,27 @@ public partial class SettingsView : UserControl
         {
             _viewModel.PropertyChanged += OnViewModelChanged;
             ApiKeyBox.Password = _viewModel.ApiKey;
+            AdminApiKeyBox.Password = _viewModel.AdminApiKey;
         }
     }
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(SettingsViewModel.ApiKey) && _viewModel is not null && ApiKeyBox.Password != _viewModel.ApiKey)
+        if (_viewModel is null)
+            return;
+        if (e.PropertyName == nameof(SettingsViewModel.ApiKey) && ApiKeyBox.Password != _viewModel.ApiKey)
             ApiKeyBox.Password = _viewModel.ApiKey;
+        else if (e.PropertyName == nameof(SettingsViewModel.AdminApiKey) && AdminApiKeyBox.Password != _viewModel.AdminApiKey)
+            AdminApiKeyBox.Password = _viewModel.AdminApiKey;
     }
 
     private void OnPasswordChanged(object sender, RoutedEventArgs e)
     {
-        if (_viewModel is not null)
+        if (_viewModel is null)
+            return;
+        if (sender == ApiKeyBox)
             _viewModel.ApiKey = ApiKeyBox.Password;
+        else if (sender == AdminApiKeyBox)
+            _viewModel.AdminApiKey = AdminApiKeyBox.Password;
     }
 }

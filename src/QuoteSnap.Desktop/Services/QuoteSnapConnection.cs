@@ -38,6 +38,7 @@ public sealed class QuoteSnapConnection : IDisposable
         {
             BaseAddress = settings.BaseAddress,
             ApiKey = settings.ApiKey,
+            AdminApiKey = settings.AdminApiKey,
         }));
         return (http, client);
     }
