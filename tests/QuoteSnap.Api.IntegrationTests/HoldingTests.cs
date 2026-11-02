@@ -499,6 +499,7 @@ public sealed class HoldingTests
         Assert.All(before.Holdings, h => Assert.Equal(1, h.FundCount));
         Assert.All(before.Holdings, h => Assert.Null(h.Ltp));
         Assert.Equal(["NSE:HAL-EQ"], (await client.GetTopHoldingsAsync(1)).Holdings.Select(h => h.Symbol));
+        Assert.Equal(before.Holdings, (await client.GetTopHoldingsAsync(null)).Holdings);
 
         QuoteRequestAccepted accepted = await client.StartHoldingQuotesAsync();
         using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(20));

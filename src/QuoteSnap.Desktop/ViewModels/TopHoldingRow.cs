@@ -4,7 +4,7 @@ using QuoteSnap.Desktop.Text;
 
 namespace QuoteSnap.Desktop.ViewModels;
 
-/// <summary>One stock tile in the dashboard's top holdings.</summary>
+/// <summary>One stock in the dashboard's top holdings or on the Stocks page.</summary>
 /// <param name="largest">The largest weight in the list, which gets the full bar.</param>
 /// <param name="fundCount">How many funds the weights are averaged over.</param>
 public sealed class TopHoldingRow(int rank, TopHolding holding, decimal largest, int fundCount)
@@ -21,6 +21,9 @@ public sealed class TopHoldingRow(int rank, TopHolding holding, decimal largest,
 
     /// <summary>"Hindustan Aeronautics · NSE:HAL-EQ · Aerospace &amp; Defence".</summary>
     public string Tip { get; } = string.Join(" · ", new[] { holding.Name, holding.Symbol, holding.Sector }.OfType<string>());
+
+    /// <summary>"NSE:HAL-EQ · Aerospace &amp; Defence".</summary>
+    public string Detail { get; } = string.Join(" · ", new[] { holding.Symbol, holding.Sector }.OfType<string>());
 
     public decimal Percent { get; } = holding.Percent;
 

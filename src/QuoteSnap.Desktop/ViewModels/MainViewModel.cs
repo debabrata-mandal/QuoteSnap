@@ -14,6 +14,7 @@ public sealed partial class MainViewModel : ObservableObject
     public const int SettingsTab = 4;
     public const int HoldingsTab = 5;
     public const int FyersLoginTab = 6;
+    public const int StocksTab = 7;
 
     private readonly QuoteSnapConnection _connection;
 
@@ -26,6 +27,7 @@ public sealed partial class MainViewModel : ObservableObject
         History = new HistoryViewModel(connection, dialogs);
         Nav = new NavViewModel(connection, dialogs);
         Holdings = new HoldingsViewModel(connection, dialogs);
+        Stocks = new StocksViewModel(connection);
         Settings = new SettingsViewModel(store, connection, loaded);
         FyersLogin = new FyersLoginViewModel(connection, store);
 
@@ -49,6 +51,8 @@ public sealed partial class MainViewModel : ObservableObject
     public NavViewModel Nav { get; }
 
     public HoldingsViewModel Holdings { get; }
+
+    public StocksViewModel Stocks { get; }
 
     public FyersLoginViewModel FyersLogin { get; }
 
@@ -76,6 +80,8 @@ public sealed partial class MainViewModel : ObservableObject
             _ = Nav.ActivateAsync();
         else if (value == HoldingsTab)
             _ = Holdings.ActivateAsync();
+        else if (value == StocksTab)
+            _ = Stocks.ActivateAsync();
         else if (value == FyersLoginTab)
             _ = FyersLogin.ActivateAsync();
     }
