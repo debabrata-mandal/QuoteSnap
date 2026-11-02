@@ -190,6 +190,17 @@ public sealed class HoldingRepository(QuoteSnapDbContext db, TimeProvider time)
             .ThenBy(h => h.Name)
             .ToListAsync(cancellationToken);
 
+    /// <summary>The distinct Fyers symbols in the latest stored month of every listed fund, in symbol order.</summary>
+    public Task<List<string>> GetLatestSymbolsAsync(CancellationToken cancellationToken) =>
+        db.FundHoldings
+            .Where(h => h.Symbol != null
+                && db.MyFunds.Any(f => f.SchemeCode == h.SchemeCode)
+                && h.Month == db.FundHoldings.Where(x => x.SchemeCode == h.SchemeCode).Max(x => x.Month))
+            .Select(h => h.Symbol!)
+            .Distinct()
+            .OrderBy(s => s)
+            .ToListAsync(cancellationToken);
+
     public async Task<int> DeleteFetchesOlderThanAsync(DateTimeOffset cutoff, CancellationToken cancellationToken) =>
         await db.HoldingFetches.Where(f => f.CreatedAt < cutoff).ExecuteDeleteAsync(cancellationToken);
 

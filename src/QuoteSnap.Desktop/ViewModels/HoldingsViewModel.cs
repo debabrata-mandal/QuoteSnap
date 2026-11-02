@@ -16,7 +16,9 @@ public sealed partial class HoldingsViewModel : ObservableObject
     private readonly QuoteSnapConnection _connection;
     private readonly FileDialogs _dialogs;
     private IReadOnlyList<HoldingRow> _allHoldings = [];
+    private Dictionary<string, QuoteResultDto> _quotes = new(StringComparer.OrdinalIgnoreCase);
     private Guid? _watching;
+    private Guid? _watchingQuotes;
     private int _loadVersion;
 
     public HoldingsViewModel(QuoteSnapConnection connection, FileDialogs dialogs)
@@ -29,6 +31,7 @@ public sealed partial class HoldingsViewModel : ObservableObject
             OnPropertyChanged(nameof(ShowNoFunds));
             OnPropertyChanged(nameof(FundsSummary));
             FetchCommand.NotifyCanExecuteChanged();
+            GetPricesCommand.NotifyCanExecuteChanged();
         };
     }
 
@@ -109,6 +112,32 @@ public sealed partial class HoldingsViewModel : ObservableObject
     public partial StatusLevel FetchLevel { get; set; }
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(GetPricesCommand))]
+    public partial bool IsGettingPrices { get; set; }
+
+    /// <summary>The last live-prices request for the holdings' stocks, running or finished.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowPricesCard), nameof(PricesRequestId))]
+    public partial QuoteRequestDetails? Prices { get; set; }
+
+    public bool ShowPricesCard => Prices is not null;
+
+    /// <summary>"Request 4b1f09c2", short like the History page.</summary>
+    public string? PricesRequestId => Prices is { } p ? Display.ShortId(p.RequestId) : null;
+
+    [ObservableProperty]
+    public partial string PricesTitle { get; set; } = "";
+
+    [ObservableProperty]
+    public partial string PricesDetail { get; set; } = "";
+
+    [ObservableProperty]
+    public partial double PricesPercent { get; set; }
+
+    [ObservableProperty]
+    public partial StatusLevel PricesLevel { get; set; }
+
+    [ObservableProperty]
     public partial string? Message { get; set; }
 
     [ObservableProperty]
@@ -118,6 +147,7 @@ public sealed partial class HoldingsViewModel : ObservableObject
     public async Task ActivateAsync()
     {
         await LoadFundsAsync();
+        await LoadLatestPricesAsync();
         await ResumeRunningFetchAsync();
     }
 
@@ -142,7 +172,37 @@ public sealed partial class HoldingsViewModel : ObservableObject
     private async Task RefreshAsync()
     {
         await LoadFundsAsync();
+        await LoadLatestPricesAsync();
         await ResumeRunningFetchAsync();
+    }
+
+    private bool CanGetPrices() => !IsGettingPrices && Funds.Count > 0;
+
+    /// <summary>Requests quotes for every distinct stock held by the listed funds, then shows each one's LTP.</summary>
+    [RelayCommand(CanExecute = nameof(CanGetPrices))]
+    private async Task GetPricesAsync()
+    {
+        Message = null;
+        QuoteRequestDetails started;
+        try
+        {
+            QuoteRequestAccepted accepted = await _connection.Client.StartHoldingQuotesAsync();
+            started = await _connection.Client.GetAsync(accepted.RequestId);
+        }
+        catch (Exception ex)
+        {
+            Report(StatusLevel.Bad, $"Couldn't request live prices. {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}");
+            return;
+        }
+
+        await WatchPricesAsync(started);
+    }
+
+    [RelayCommand]
+    private void CopyPricesRequestId()
+    {
+        if (ClipboardService.TryCopy(Prices?.RequestId.ToString()))
+            Report(StatusLevel.Good, "Request ID copied.");
     }
 
     private bool CanFetch() => !IsFetching && Funds.Count > 0;
@@ -278,7 +338,8 @@ public sealed partial class HoldingsViewModel : ObservableObject
 
         bool previousStored = portfolio.Months.Contains(portfolio.Month.AddMonths(-1));
         decimal largest = portfolio.Holdings.Count == 0 ? 0 : portfolio.Holdings.Max(h => h.Percent);
-        _allHoldings = [.. portfolio.Holdings.Select(h => new HoldingRow(h, largest, previousStored))];
+        _allHoldings = [.. portfolio.Holdings.Select(h => new HoldingRow(
+            h, largest, previousStored, h.Symbol is { } symbol ? _quotes.GetValueOrDefault(symbol) : null))];
         AssetMix = [.. HoldingText.AssetMix(portfolio.Holdings).Select(t => new AssetShare(t.Label, HoldingText.Weight(t.Percent)))];
         ApplyFilter();
     }
@@ -290,6 +351,76 @@ public sealed partial class HoldingsViewModel : ObservableObject
         HoldingsCountText = Holdings.Count == _allHoldings.Count
             ? Display.Count(_allHoldings.Count, "holding")
             : $"{Holdings.Count} of {_allHoldings.Count}";
+    }
+
+    /// <summary>Shows the last live-prices request, and follows it when it's still running.</summary>
+    private async Task LoadLatestPricesAsync()
+    {
+        if (IsGettingPrices)
+            return;
+        try
+        {
+            if (await _connection.Client.GetLatestHoldingQuotesAsync() is not { } latest)
+                return;
+            if (latest.Status.IsTerminal())
+                ShowPrices(latest);
+            else
+                _ = WatchPricesAsync(latest);
+        }
+        catch (Exception ex)
+        {
+            Report(StatusLevel.Warning, $"Couldn't load the last live prices. {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}");
+        }
+    }
+
+    private async Task WatchPricesAsync(QuoteRequestDetails request)
+    {
+        if (_watchingQuotes == request.RequestId)
+            return;
+
+        _watchingQuotes = request.RequestId;
+        IsGettingPrices = true;
+        ShowPrices(request);
+        try
+        {
+            Progress<QuoteRequestDetails> progress = new(ShowPrices);
+            QuoteRequestDetails finished = await _connection.Client.WaitForCompletionAsync(request.RequestId, progress);
+            ShowPrices(finished);
+        }
+        catch (Exception ex)
+        {
+            PricesLevel = StatusLevel.Bad;
+            PricesDetail = $"Lost track of the request; it may still be running in the service. {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}";
+        }
+        finally
+        {
+            _watchingQuotes = null;
+            IsGettingPrices = false;
+        }
+    }
+
+    /// <summary>Updates the progress card; once the request has finished, puts its prices in the table.</summary>
+    private void ShowPrices(QuoteRequestDetails request)
+    {
+        Prices = request;
+        PricesTitle = HoldingText.QuotesTitle(request);
+        PricesDetail = HoldingText.QuotesDetail(request);
+        PricesPercent = HoldingText.QuotesPercent(request);
+        PricesLevel = request.Status switch
+        {
+            QuoteRequestStatus.Completed => StatusLevel.Good,
+            QuoteRequestStatus.CompletedWithErrors => StatusLevel.Warning,
+            QuoteRequestStatus.Failed => StatusLevel.Bad,
+            _ => StatusLevel.Busy,
+        };
+
+        if (!request.Status.IsTerminal())
+            return;
+        _quotes = request.Results
+            .GroupBy(r => r.Symbol, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        if (Portfolio is { } portfolio)
+            ShowPortfolio(portfolio, HoldingsEmptyText);
     }
 
     /// <summary>Shows the progress of a fetch started elsewhere, or before the app was reopened.</summary>

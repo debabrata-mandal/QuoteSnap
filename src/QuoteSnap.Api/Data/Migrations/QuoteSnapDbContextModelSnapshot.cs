@@ -332,6 +332,9 @@ namespace QuoteSnap.Api.Data.Migrations
                     b.Property<int>("FailedCount")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("ForHoldings")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTimeOffset?>("StartedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -351,6 +354,8 @@ namespace QuoteSnap.Api.Data.Migrations
                     b.HasIndex("CreatedAt");
 
                     b.HasIndex("Status");
+
+                    b.HasIndex("ForHoldings", "CreatedAt");
 
                     b.ToTable("QuoteRequests", (string)null);
                 });

@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using QuoteSnap.Api.Data;
+using QuoteSnap.Api.Domain;
 using QuoteSnap.Api.Services;
 using QuoteSnap.Contracts;
 
@@ -19,7 +20,64 @@ public static class HoldingEndpoints
         fetches.MapGet("/{id:guid}", GetAsync);
 
         app.MapGet("/api/my-funds/{schemeCode:int}/holdings", GetHoldingsAsync).RequireApiKey().WithTags("Holdings");
+
+        RouteGroupBuilder quotes = app.MapGroup("/api/holdings/quotes").RequireApiKey().WithTags("Holdings");
+        quotes.MapPost("/", StartQuotesAsync);
+        quotes.MapGet("/latest", GetLatestQuotesAsync);
         return app;
+    }
+
+    /// <summary>
+    /// Submits one quote request for the distinct stock symbols in the latest month of every listed fund. While such
+    /// a request is queued or running, starting another returns that one instead.
+    /// </summary>
+    private static async Task<Results<Accepted<QuoteRequestAccepted>, Ok<QuoteRequestAccepted>, ProblemHttpResult>> StartQuotesAsync(
+        HoldingRepository holdings,
+        QuoteRequestRepository requests,
+        QuoteRequestQueue queue,
+        SessionService session,
+        TimeProvider time,
+        ILoggerFactory loggers,
+        CancellationToken cancellationToken)
+    {
+        if (await requests.GetLatestForHoldingsAsync(includeResults: false, cancellationToken) is { } latest
+            && !latest.Status.IsTerminal())
+        {
+            return TypedResults.Ok(new QuoteRequestAccepted(
+                latest.Id, latest.Status, latest.TotalSymbols, [], $"/api/quote-requests/{latest.Id}", null));
+        }
+
+        List<string> symbols = await holdings.GetLatestSymbolsAsync(cancellationToken);
+        if (symbols.Count == 0)
+        {
+            return TypedResults.Problem(
+                "No listed fund has stock holdings with a Fyers symbol. Fetch holdings with POST /api/holdings/fetches first.",
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "No holdings symbols");
+        }
+
+        Results<Accepted<QuoteRequestAccepted>, ProblemHttpResult> submitted = await QuoteRequestEndpoints.SubmitAsync(
+            symbols, forHoldings: true, requests, queue, session, time, loggers, cancellationToken);
+        return submitted.Result switch
+        {
+            Accepted<QuoteRequestAccepted> accepted => accepted,
+            ProblemHttpResult problem => problem,
+            _ => throw new InvalidOperationException("Unexpected submit result."),
+        };
+    }
+
+    /// <summary>The most recent quote request for the holdings, with its results, so a client can show the last LTPs.</summary>
+    private static async Task<Results<Ok<QuoteRequestDetails>, ProblemHttpResult>> GetLatestQuotesAsync(
+        QuoteRequestRepository requests,
+        HttpContext http,
+        CancellationToken cancellationToken)
+    {
+        if (await requests.GetLatestForHoldingsAsync(includeResults: true, cancellationToken) is not { } request)
+            return TypedResults.Problem("No quotes have been requested for the holdings.", statusCode: StatusCodes.Status404NotFound);
+
+        if (!request.Status.IsTerminal())
+            http.Response.Headers.RetryAfter = RetryAfterSeconds;
+        return TypedResults.Ok(request.ToDetails());
     }
 
     /// <summary>

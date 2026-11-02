@@ -352,4 +352,86 @@ public sealed class HoldingTests
 
         Assert.Equal(HttpStatusCode.NotFound, ex.StatusCode);
     }
+
+    [Fact]
+    public async Task Live_prices_are_requested_once_for_each_stock_in_the_listed_funds_latest_holdings()
+    {
+        await using QuoteSnapApiFactory factory = await ListedAsync(true, Dsp, Motilal);
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+        await factory.SeedSessionAsync();
+        // HDFC Bank is held by both funds; BEL was only held in August, which is no longer the latest month.
+        factory.ScanxHoldings[MotilalPlan] =
+        [
+            Page(1, $"""
+                "Equity":[{Row("HAL", "Hindustan Aeronautics", "INE066F01020", "20.0|19.0", "500.0|480.0", "Aerospace")},{Row("BEL", "Bharat Electronics", "INE263A01024", "0.0|17.5", "0.0|9000.0", "Aerospace")},{Row("HDFCBANK", "HDFC Bank", "INE040A01034", "1.0|0.0", "10.0|0.0", "Banks")}]
+                """),
+        ];
+        await FetchAsync(client);
+        Assert.Null(await client.GetLatestHoldingQuotesAsync());
+
+        QuoteRequestAccepted accepted = await client.StartHoldingQuotesAsync();
+        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(20));
+        QuoteRequestDetails finished = await client.WaitForCompletionAsync(accepted.RequestId, cancellationToken: timeout.Token);
+
+        Assert.Equal(3, accepted.TotalSymbols);
+        Assert.Equal(QuoteRequestStatus.Completed, finished.Status);
+        Assert.Equal(["BSE:ICICIBANK-A", "NSE:HAL-EQ", "NSE:HDFCBANK-EQ"], finished.Results.Select(r => r.Symbol));
+        Assert.All(finished.Results, r => Assert.Equal(100.5m, r.Ltp));
+
+        QuoteRequestDetails? latest = await client.GetLatestHoldingQuotesAsync();
+        Assert.Equal(accepted.RequestId, latest?.RequestId);
+        Assert.Equal(3, latest?.Results.Count);
+
+        // Ordinary quote requests don't count as the holdings' latest prices.
+        await client.FetchSnapshotAsync(["NSE:SBIN-EQ"], cancellationToken: timeout.Token);
+        Assert.Equal(accepted.RequestId, (await client.GetLatestHoldingQuotesAsync())?.RequestId);
+    }
+
+    [Fact]
+    public async Task Requesting_live_prices_while_a_request_is_queued_returns_that_request()
+    {
+        await using QuoteSnapApiFactory factory = await ListedAsync(true, Dsp);
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+        await FetchAsync(client);
+        // A second host on the same database without workers, so the request stays queued.
+        await using QuoteSnapApiFactory idle = new(factory.DataDirectory, startWorker: false);
+        await idle.SeedSessionAsync();
+        HttpClient http = idle.CreateClient();
+        http.DefaultRequestHeaders.Add("X-Api-Key", QuoteSnapApiFactory.ApiKey);
+
+        using HttpResponseMessage first = await http.PostAsync("/api/holdings/quotes", null);
+        using HttpResponseMessage second = await http.PostAsync("/api/holdings/quotes", null);
+
+        Assert.Equal(HttpStatusCode.Accepted, first.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        QuoteRequestDetails? latest = await idle.CreateQuoteSnapClient().GetLatestHoldingQuotesAsync();
+        Assert.Equal(QuoteRequestStatus.Queued, latest?.Status);
+        Assert.Equal(first.Headers.Location?.OriginalString, $"/api/quote-requests/{latest?.RequestId}");
+        Assert.Equal(2, latest?.TotalSymbols);
+    }
+
+    [Fact]
+    public async Task Live_prices_need_fetched_holdings_with_symbols()
+    {
+        await using QuoteSnapApiFactory factory = await ListedAsync(true, Dsp);
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+        await factory.SeedSessionAsync();
+
+        QuoteSnapApiException ex = await Assert.ThrowsAsync<QuoteSnapApiException>(() => client.StartHoldingQuotesAsync());
+
+        Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+        Assert.Null(await client.GetLatestHoldingQuotesAsync());
+    }
+
+    [Fact]
+    public async Task Live_prices_need_a_fyers_session()
+    {
+        await using QuoteSnapApiFactory factory = await ListedAsync(true, Dsp);
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+        await FetchAsync(client);
+
+        QuoteSnapApiException ex = await Assert.ThrowsAsync<QuoteSnapApiException>(() => client.StartHoldingQuotesAsync());
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, ex.StatusCode);
+    }
 }

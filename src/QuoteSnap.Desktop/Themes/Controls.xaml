@@ -273,6 +273,14 @@
     <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
     <Setter Property="FontWeight" Value="SemiBold" />
   </Style>
+  <!-- A solid red call to action, for the one action on a page that matters most. -->
+  <Style x:Key="Button.DangerSolid" TargetType="ButtonBase" BasedOn="{StaticResource Button.Secondary}">
+    <Setter Property="Background" Value="{StaticResource DangerBrush}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{StaticResource TextOnAccentBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="ui:Ui.HoverBrush" Value="#24FFFFFF" />
+  </Style>
   <Style x:Key="Button.Icon" TargetType="ButtonBase" BasedOn="{StaticResource Button.Ghost}">
     <Setter Property="Width" Value="32" />
     <Setter Property="Height" Value="32" />

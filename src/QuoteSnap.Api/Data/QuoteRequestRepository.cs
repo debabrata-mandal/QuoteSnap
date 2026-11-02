@@ -7,7 +7,7 @@ namespace QuoteSnap.Api.Data;
 
 public sealed class QuoteRequestRepository(QuoteSnapDbContext db, TimeProvider time)
 {
-    public async Task<QuoteRequest> CreateAsync(IReadOnlyList<SymbolEntry> symbols, CancellationToken cancellationToken)
+    public async Task<QuoteRequest> CreateAsync(IReadOnlyList<SymbolEntry> symbols, CancellationToken cancellationToken, bool forHoldings = false)
     {
         Guid id = Guid.CreateVersion7();
         QuoteRequest request = new()
@@ -17,6 +17,7 @@ public sealed class QuoteRequestRepository(QuoteSnapDbContext db, TimeProvider t
             CreatedAt = time.GetUtcNow(),
             TotalSymbols = symbols.Count,
             FailedCount = symbols.Count(s => !s.IsValid),
+            ForHoldings = forHoldings,
         };
 
         for (int position = 0; position < symbols.Count; position++)
@@ -43,6 +44,15 @@ public sealed class QuoteRequestRepository(QuoteSnapDbContext db, TimeProvider t
         if (includeResults)
             query = query.Include(r => r.Results.OrderBy(x => x.Position));
         return query.SingleOrDefaultAsync(r => r.Id == id, cancellationToken);
+    }
+
+    /// <summary>The most recent request for the holdings' symbols, from POST /api/holdings/quotes.</summary>
+    public Task<QuoteRequest?> GetLatestForHoldingsAsync(bool includeResults, CancellationToken cancellationToken)
+    {
+        IQueryable<QuoteRequest> query = db.QuoteRequests.AsNoTracking().Where(r => r.ForHoldings);
+        if (includeResults)
+            query = query.Include(r => r.Results.OrderBy(x => x.Position));
+        return query.OrderByDescending(r => r.CreatedAt).FirstOrDefaultAsync(cancellationToken);
     }
 
     /// <summary>Newest first. <paramref name="before"/> is an exclusive upper bound on CreatedAt.</summary>

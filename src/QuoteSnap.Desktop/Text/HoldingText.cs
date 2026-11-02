@@ -76,6 +76,48 @@ public static class HoldingText
         ? 100
         : 100.0 * (fetch.FinishedFunds + (fetch.Funds.Any(f => f.Status == HoldingFetchFundStatus.Running) ? 0.5 : 0)) / fetch.TotalFunds;
 
+    /// <summary>"Getting prices: 120 of 450 stocks", then "Live prices of 450 stocks".</summary>
+    public static string QuotesTitle(QuoteRequestDetails request)
+    {
+        int done = request.Results.Count(r => r.Status != QuoteResultStatus.Pending);
+        return request.Status switch
+        {
+            QuoteRequestStatus.Queued => "Live prices: waiting to start",
+            QuoteRequestStatus.Running => $"Getting prices: {done.ToString("N0", CultureInfo.CurrentCulture)} of {Display.Count(request.TotalSymbols, "stock")}",
+            QuoteRequestStatus.Failed => "Couldn't get live prices",
+            _ => $"Live prices of {Display.Count(request.TotalSymbols, "stock")}",
+        };
+    }
+
+    /// <summary>When the request was made and, once it's finished, how many prices came back.</summary>
+    public static string QuotesDetail(QuoteRequestDetails request, DateTime? today = null)
+    {
+        if (!request.Status.IsTerminal())
+            return $"Requested {Display.WhenInSentence(request.CreatedAt, today)}";
+
+        if (request.Status == QuoteRequestStatus.Failed && request.Error is { } error)
+            return error;
+
+        List<string> parts = [$"{request.SucceededCount.ToString("N0", CultureInfo.CurrentCulture)} prices"];
+        if (request.FailedCount > 0)
+            parts.Add($"{request.FailedCount.ToString("N0", CultureInfo.CurrentCulture)} failed");
+        parts.Add($"as of {Display.WhenInSentence(request.CompletedAt ?? request.CreatedAt, today)}");
+        return string.Join(" · ", parts);
+    }
+
+    public static double QuotesPercent(QuoteRequestDetails request) => request.TotalSymbols == 0 || request.Status.IsTerminal()
+        ? 100
+        : 100.0 * request.Results.Count(r => r.Status != QuoteResultStatus.Pending) / request.TotalSymbols;
+
+    /// <summary>The day's change as "+1.32%" or "−0.82%".</summary>
+    public static string DayChange(decimal? percent)
+    {
+        if (percent is not { } change)
+            return Display.Missing;
+        string magnitude = Math.Abs(change).ToString("N2", CultureInfo.CurrentCulture);
+        return change > 0 ? $"+{magnitude}%" : change < 0 ? $"−{magnitude}%" : $"{magnitude}%";
+    }
+
     /// <summary>Weights by asset type, largest first; beyond <paramref name="max"/> types the rest are summed as "Other".</summary>
     public static IReadOnlyList<(string Label, decimal Percent)> AssetMix(IEnumerable<FundHolding> holdings, int max = 4)
     {

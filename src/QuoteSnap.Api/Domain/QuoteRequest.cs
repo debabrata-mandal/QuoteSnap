@@ -22,6 +22,9 @@ public sealed class QuoteRequest
 
     public string? Error { get; set; }
 
+    /// <summary>Submitted by POST /api/holdings/quotes for the symbols of the listed funds' holdings.</summary>
+    public bool ForHoldings { get; set; }
+
     public List<QuoteResult> Results { get; set; } = [];
 }
 

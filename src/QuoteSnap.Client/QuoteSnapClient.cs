@@ -154,6 +154,29 @@ public sealed class QuoteSnapClient
         }
     }
 
+    /// <summary>
+    /// Requests quotes for the distinct stock symbols in every listed fund's latest holdings. Returns the running
+    /// request instead when one is already queued or running. Wait for it with <see cref="WaitForCompletionAsync"/>.
+    /// </summary>
+    public async Task<QuoteRequestAccepted> StartHoldingQuotesAsync(CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Post, "api/holdings/quotes", null, admin: false, cancellationToken);
+        return await ReadAsync<QuoteRequestAccepted>(response, cancellationToken);
+    }
+
+    /// <summary>The most recent quote request for the holdings, with results; null when none has been made.</summary>
+    public async Task<QuoteRequestDetails?> GetLatestHoldingQuotesAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return (await GetWithRetryAfterAsync<QuoteRequestDetails>("api/holdings/quotes/latest", cancellationToken)).Value;
+        }
+        catch (QuoteSnapApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+    }
+
     /// <summary>Polls a holdings fetch until it finishes, reporting each snapshot of its progress.</summary>
     public async Task<HoldingFetch> WaitForHoldingFetchAsync(
         Guid fetchId,

@@ -19,8 +19,20 @@ public static class QuoteRequestEndpoints
         return app;
     }
 
-    private static async Task<Results<Accepted<QuoteRequestAccepted>, ProblemHttpResult>> CreateAsync(
+    private static Task<Results<Accepted<QuoteRequestAccepted>, ProblemHttpResult>> CreateAsync(
         CreateQuoteRequest body,
+        QuoteRequestRepository repository,
+        QuoteRequestQueue queue,
+        SessionService session,
+        TimeProvider time,
+        ILoggerFactory loggers,
+        CancellationToken cancellationToken) =>
+        SubmitAsync(body.Symbols, forHoldings: false, repository, queue, session, time, loggers, cancellationToken);
+
+    /// <summary>Validates the symbols, checks the Fyers login, then stores and queues the request.</summary>
+    internal static async Task<Results<Accepted<QuoteRequestAccepted>, ProblemHttpResult>> SubmitAsync(
+        IReadOnlyList<string>? symbols,
+        bool forHoldings,
         QuoteRequestRepository repository,
         QuoteRequestQueue queue,
         SessionService session,
@@ -29,10 +41,10 @@ public static class QuoteRequestEndpoints
         CancellationToken cancellationToken)
     {
         ILogger logger = loggers.CreateLogger(typeof(QuoteRequestEndpoints));
-        if (body.Symbols is not { Count: > 0 })
+        if (symbols is not { Count: > 0 })
             return TypedResults.Problem("Provide at least one symbol in 'symbols'.", statusCode: StatusCodes.Status400BadRequest);
 
-        SymbolValidationResult validation = SymbolValidator.Validate(body.Symbols);
+        SymbolValidationResult validation = SymbolValidator.Validate(symbols);
         if (validation.Valid.Count == 0)
         {
             return TypedResults.Problem(
@@ -52,11 +64,11 @@ public static class QuoteRequestEndpoints
                 title: "Fyers re-authentication required");
         }
 
-        QuoteRequest request = await repository.CreateAsync(validation.Entries, cancellationToken);
+        QuoteRequest request = await repository.CreateAsync(validation.Entries, cancellationToken, forHoldings);
         queue.Enqueue(request.Id);
         logger.LogInformation(
-            "Queued quote request {RequestId}: {SymbolCount} symbols, {InvalidCount} invalid",
-            request.Id, request.TotalSymbols, validation.Invalid.Count);
+            "Queued quote request {RequestId}: {SymbolCount} symbols, {InvalidCount} invalid, for holdings: {ForHoldings}",
+            request.Id, request.TotalSymbols, validation.Invalid.Count, forHoldings);
 
         string statusUrl = $"/api/quote-requests/{request.Id}";
         int? refreshDays = fyers.RefreshTokenExpiresAt is { } expiresAt

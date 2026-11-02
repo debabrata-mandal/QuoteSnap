@@ -143,6 +143,62 @@ public sealed class HoldingTextTests
             lines[1]);
     }
 
+    [Fact]
+    public void Live_prices_show_progress_then_how_many_prices_came_back()
+    {
+        using CultureScope _ = new("en-IN");
+        DateTime today = Created.ToLocalTime().Date;
+        QuoteResultDto ok = Quote("NSE:HAL-EQ", QuoteResultStatus.Ok, 4321.5m, 1.234m);
+        QuoteResultDto pending = Quote("NSE:BEL-EQ", QuoteResultStatus.Pending, null, null);
+        QuoteResultDto failed = Quote("NSE:FAIL-EQ", QuoteResultStatus.Error, null, null);
+
+        QuoteRequestDetails running = Prices(QuoteRequestStatus.Running, 0, 0, ok, pending, failed with { Status = QuoteResultStatus.Pending });
+        Assert.Equal("Getting prices: 1 of 3 stocks", HoldingText.QuotesTitle(running));
+        Assert.StartsWith("Requested today, ", HoldingText.QuotesDetail(running, today), StringComparison.Ordinal);
+        Assert.Equal(100.0 / 3, HoldingText.QuotesPercent(running), 3);
+
+        QuoteRequestDetails finished = Prices(QuoteRequestStatus.CompletedWithErrors, 2, 1, ok, ok with { Symbol = "NSE:BEL-EQ" }, failed);
+        Assert.Equal("Live prices of 3 stocks", HoldingText.QuotesTitle(finished));
+        Assert.StartsWith("2 prices · 1 failed · as of today, ", HoldingText.QuotesDetail(finished, today), StringComparison.Ordinal);
+        Assert.Equal(100, HoldingText.QuotesPercent(finished));
+    }
+
+    [Theory]
+    [InlineData("1.234", "+1.23%")]
+    [InlineData("-0.5", "−0.50%")]
+    [InlineData("0", "0.00%")]
+    [InlineData(null, "—")]
+    public void Day_changes_are_signed_percentages(string? percent, string expected)
+    {
+        using CultureScope _ = new("en-IN");
+
+        Assert.Equal(expected, HoldingText.DayChange(percent is null ? null : decimal.Parse(percent, CultureInfo.InvariantCulture)));
+    }
+
+    [Fact]
+    public void Holding_rows_show_their_stocks_price_and_leave_unlisted_lines_blank()
+    {
+        using CultureScope _ = new("en-IN");
+        FundHolding hal = new("Hindustan Aeronautics", "NSE:HAL-EQ", "INE066F01020", "Equity", null, 20m, 500m, null);
+        FundHolding repo = Holding("Reverse Repo", "TREPS", 3m);
+
+        HoldingRow priced = new(hal, 20m, false, Quote("NSE:HAL-EQ", QuoteResultStatus.Ok, 4321.5m, -0.82m));
+        HoldingRow failed = new(hal, 20m, false, Quote("NSE:HAL-EQ", QuoteResultStatus.Error, null, null) with { Error = "No quote" });
+        HoldingRow notRequested = new(hal, 20m, false);
+        HoldingRow unlisted = new(repo, 20m, false);
+
+        Assert.Equal(("4,321.50", "−0.82%", -0.82m), (priced.LtpText, priced.DayChangeText, priced.DayChangePercent));
+        Assert.Equal(("—", "—", "NSE:HAL-EQ · No quote"), (failed.LtpText, failed.DayChangeText, failed.QuoteTip));
+        Assert.Equal(("—", null), (notRequested.LtpText, notRequested.QuoteTip));
+        Assert.Equal(("", ""), (unlisted.LtpText, unlisted.DayChangeText));
+    }
+
+    private static QuoteResultDto Quote(string symbol, QuoteResultStatus status, decimal? ltp, decimal? changePercent) =>
+        new(symbol, status, ltp, null, changePercent, null, null, null, null, null, null, status == QuoteResultStatus.Ok ? Created : null, null);
+
+    private static QuoteRequestDetails Prices(QuoteRequestStatus status, int succeeded, int failed, params QuoteResultDto[] results) =>
+        new(Guid.NewGuid(), status, Created, Created, status.IsTerminal() ? Created : null, results.Length, succeeded, failed, null, results);
+
     private static HoldingFetch Fetch(HoldingFetchStatus status, params HoldingFetchFund[] funds) =>
         new(Guid.NewGuid(), status, Created, Created, status.IsTerminal() ? Created : null, funds.Length,
             funds.Count(f => f.Status.IsFinished()), null, funds);

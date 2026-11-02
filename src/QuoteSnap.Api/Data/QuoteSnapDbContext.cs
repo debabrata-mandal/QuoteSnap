@@ -41,6 +41,7 @@ public sealed class QuoteSnapDbContext(DbContextOptions<QuoteSnapDbContext> opti
             entity.Property(r => r.Error).HasMaxLength(1000);
             entity.HasIndex(r => r.CreatedAt);
             entity.HasIndex(r => r.Status);
+            entity.HasIndex(r => new { r.ForHoldings, r.CreatedAt });
             entity.HasMany(r => r.Results)
                 .WithOne()
                 .HasForeignKey(r => r.RequestId)
