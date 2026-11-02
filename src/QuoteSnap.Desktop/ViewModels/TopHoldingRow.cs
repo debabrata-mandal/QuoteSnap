@@ -15,8 +15,6 @@ public sealed class TopHoldingRow(int rank, TopHolding holding, decimal largest,
 
     public int Rank { get; } = rank;
 
-    public string RankText { get; } = $"#{rank}";
-
     public string Name { get; } = holding.Name;
 
     public string Symbol { get; } = holding.Symbol;
