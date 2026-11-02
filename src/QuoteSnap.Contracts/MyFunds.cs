@@ -4,16 +4,26 @@ namespace QuoteSnap.Contracts;
 /// <param name="SchemeName">As AMFI named it when the fund was added; <see cref="Latest"/> has the current name.</param>
 /// <param name="Latest">The latest NAV; null when NAVs aren't loaded or AMFI's file no longer has the scheme.</param>
 /// <param name="Holdings">The stored holdings; null until they've been fetched.</param>
-public sealed record MyFund(
-    int SchemeCode,
-    string SchemeName,
-    string? FundHouse,
-    string? Option,
-    string? Category,
-    DateTimeOffset AddedAt,
-    FundNav? Latest,
-    HoldingsSummary? Holdings = null);
+public sealed record MyFund(int SchemeCode, string SchemeName, string? FundHouse, string? Option, string? Category, DateTimeOffset AddedAt, FundNav? Latest, HoldingsSummary? Holdings = null);
 
 /// <param name="Funds">In the order they were added.</param>
 /// <param name="LoadedAt">When the AMFI file was last downloaded; null until the first refresh.</param>
 public sealed record MyFundList(IReadOnlyList<MyFund> Funds, DateTimeOffset? LoadedAt);
+
+/// <summary>Today's NAV estimates for the funds on the list, from their holdings and the last live prices.</summary>
+/// <param name="RequestId">The finished holdings quote request the prices come from; null when none has finished.</param>
+/// <param name="PricesAt">When that request finished.</param>
+/// <param name="Funds">In list order.</param>
+public sealed record NavEstimateList(Guid? RequestId, DateTimeOffset? PricesAt, IReadOnlyList<NavEstimate> Funds);
+
+/// <summary>
+/// A fund's estimated move: each holding's weight times its stock's day change, summed. Holdings without a price
+/// (cash, TREPS, bonds, failed quotes) count as unchanged.
+/// </summary>
+/// <param name="Nav">The latest published NAV the estimate builds on; null when AMFI's file doesn't have it.</param>
+/// <param name="HoldingsMonth">The portfolio month used; null when holdings haven't been fetched.</param>
+/// <param name="ChangePercent">The estimated change in percent; null without holdings or prices.</param>
+/// <param name="EstimatedNav"><paramref name="Nav"/> moved by <paramref name="ChangePercent"/>.</param>
+/// <param name="PricedPercent">The share of the fund's assets, in percent, whose holdings had a price.</param>
+/// <param name="PricedHoldings">Holdings that had a price, out of <paramref name="TotalHoldings"/>.</param>
+public sealed record NavEstimate(int SchemeCode, string SchemeName, decimal? Nav, DateOnly? NavDate, DateOnly? HoldingsMonth, decimal? ChangePercent, decimal? EstimatedNav, decimal PricedPercent, int PricedHoldings, int TotalHoldings);

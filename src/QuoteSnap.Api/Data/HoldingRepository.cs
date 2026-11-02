@@ -75,15 +75,7 @@ public sealed class HoldingRepository(QuoteSnapDbContext db, TimeProvider time)
             .OrderBy(f => f.Position)
             .ToListAsync(cancellationToken);
 
-    public async Task UpdateFundAsync(
-        Guid id,
-        int schemeCode,
-        HoldingFetchFundStatus status,
-        string? scanxScheme,
-        int? holdingCount,
-        DateOnly? month,
-        string? error,
-        CancellationToken cancellationToken)
+    public async Task UpdateFundAsync(Guid id, int schemeCode, HoldingFetchFundStatus status, string? scanxScheme, int? holdingCount, DateOnly? month, string? error, CancellationToken cancellationToken)
     {
         HoldingFetchFundRecord fund = await db.HoldingFetchFunds.FindAsync([id, schemeCode], cancellationToken)
             ?? throw new InvalidOperationException($"Holdings fetch {id} has no fund {schemeCode}.");
@@ -120,12 +112,7 @@ public sealed class HoldingRepository(QuoteSnapDbContext db, TimeProvider time)
 
     /// <summary>Replaces a fund's stored holdings and records where they came from, in one transaction.</summary>
     /// <returns>False when the fund is no longer on the list.</returns>
-    public async Task<bool> ReplaceHoldingsAsync(
-        int schemeCode,
-        int scanxPlanId,
-        string scanxScheme,
-        IReadOnlyList<FundHoldingRecord> holdings,
-        CancellationToken cancellationToken)
+    public async Task<bool> ReplaceHoldingsAsync(int schemeCode, int scanxPlanId, string scanxScheme, IReadOnlyList<FundHoldingRecord> holdings, CancellationToken cancellationToken)
     {
         await using IDbContextTransaction transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         MyFundRecord? fund = await db.MyFunds.SingleOrDefaultAsync(f => f.SchemeCode == schemeCode, cancellationToken);
@@ -146,9 +133,7 @@ public sealed class HoldingRepository(QuoteSnapDbContext db, TimeProvider time)
     }
 
     /// <summary>The latest month and its holding count, for each of the funds that has holdings.</summary>
-    public async Task<Dictionary<int, HoldingsSummary>> GetSummariesAsync(
-        IReadOnlyList<MyFundRecord> funds,
-        CancellationToken cancellationToken)
+    public async Task<Dictionary<int, HoldingsSummary>> GetSummariesAsync(IReadOnlyList<MyFundRecord> funds, CancellationToken cancellationToken)
     {
         List<int> codes = [.. funds.Where(f => f.ScanxScheme is not null).Select(f => f.SchemeCode)];
         if (codes.Count == 0)
@@ -200,6 +185,16 @@ public sealed class HoldingRepository(QuoteSnapDbContext db, TimeProvider time)
             .Distinct()
             .OrderBy(s => s)
             .ToListAsync(cancellationToken);
+
+    /// <summary>The holdings in the latest stored month of each listed fund, by scheme code.</summary>
+    public async Task<Dictionary<int, List<FundHoldingRecord>>> GetLatestHoldingsAsync(CancellationToken cancellationToken)
+    {
+        List<FundHoldingRecord> rows = await db.FundHoldings.AsNoTracking()
+            .Where(h => db.MyFunds.Any(f => f.SchemeCode == h.SchemeCode)
+                && h.Month == db.FundHoldings.Where(x => x.SchemeCode == h.SchemeCode).Max(x => x.Month))
+            .ToListAsync(cancellationToken);
+        return rows.GroupBy(h => h.SchemeCode).ToDictionary(g => g.Key, g => g.ToList());
+    }
 
     public async Task<int> DeleteFetchesOlderThanAsync(DateTimeOffset cutoff, CancellationToken cancellationToken) =>
         await db.HoldingFetches.Where(f => f.CreatedAt < cutoff).ExecuteDeleteAsync(cancellationToken);

@@ -94,9 +94,7 @@ public sealed class AuthAndSessionTests
         await using (AsyncServiceScope scope = factory.Services.CreateAsyncScope())
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
-            await scope.ServiceProvider.GetRequiredService<SessionStore>().SaveLoginAsync(
-                new FyersSession("XT0001", QuoteSnapApiFactory.App, "access-token", "refresh-token", now.AddHours(-1), now.AddDays(10), now, 0),
-                default);
+            await scope.ServiceProvider.GetRequiredService<SessionStore>().SaveLoginAsync(new FyersSession("XT0001", QuoteSnapApiFactory.App, "access-token", "refresh-token", now.AddHours(-1), now.AddDays(10), now, 0), default);
         }
         QuoteSnapClient client = factory.CreateQuoteSnapClient();
 

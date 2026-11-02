@@ -27,19 +27,22 @@
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="96" />
+            <ColumnDefinition Width="72" />
+            <ColumnDefinition Width="96" />
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
           <Border Style="{StaticResource Avatar}" Background="{Binding AvatarColor}">
             <TextBlock Text="{Binding Initials}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextOnAccentBrush}"
                        HorizontalAlignment="Center" VerticalAlignment="Center" />
           </Border>
-          <StackPanel Grid.Column="1" Margin="14,0,16,0" VerticalAlignment="Center">
+          <StackPanel Grid.Column="1" Margin="14,0,12,0" VerticalAlignment="Center">
             <TextBlock Text="{Binding Name}" FontSize="{StaticResource FontSizeSection}" FontWeight="Medium" Foreground="{StaticResource TextBrush}"
-                       TextTrimming="CharacterEllipsis" />
+                       TextWrapping="Wrap" TextTrimming="CharacterEllipsis" LineStackingStrategy="BlockLineHeight" LineHeight="19" MaxHeight="38"
+                       ToolTip="{Binding Name}" />
             <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Text.Muted}" Margin="0,3,0,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
           </StackPanel>
-          <StackPanel x:Name="NavBlock" Grid.Column="2" VerticalAlignment="Center" MinWidth="96">
+          <StackPanel x:Name="NavBlock" Grid.Column="2" VerticalAlignment="Center">
             <TextBlock HorizontalAlignment="Right" FontSize="{StaticResource FontSizeSection}" FontWeight="SemiBold"
                        Foreground="{StaticResource TextBrush}" Typography.NumeralAlignment="Tabular">
               <Run Text="₹" Foreground="{StaticResource TextMutedBrush}" FontWeight="Normal" /><Run Text="{Binding NavText, Mode=OneWay}" />
@@ -49,7 +52,17 @@
           </StackPanel>
           <TextBlock x:Name="MissingText" Grid.Column="2" Text="Not in AMFI file" Style="{StaticResource Text.Muted}" Foreground="{StaticResource WarningBrush}"
                      VerticalAlignment="Center" Visibility="Collapsed" />
-          <Button x:Name="RemoveButton" Grid.Column="3" Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE711;" Margin="8,0,0,0" Opacity="0"
+          <TextBlock Grid.Column="3" Text="{Binding EstimateChangeText}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                     FontSize="{StaticResource FontSizeSection}" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"
+                     Foreground="{Binding EstimateChangePercent, Converter={StaticResource SignBrush}}" ToolTip="{Binding EstimateTip}" />
+          <TextBlock x:Name="EstimatedNav" Grid.Column="4" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="{StaticResource FontSizeSection}"
+                     FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" Typography.NumeralAlignment="Tabular" ToolTip="{Binding EstimateTip}">
+            <Run Text="₹" Foreground="{StaticResource TextMutedBrush}" FontWeight="Normal" /><Run Text="{Binding EstimatedNavText, Mode=OneWay}" />
+          </TextBlock>
+          <TextBlock x:Name="NoEstimatedNav" Grid.Column="4" Text="{Binding EstimatedNavText}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                     FontSize="{StaticResource FontSizeSection}" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" ToolTip="{Binding EstimateTip}"
+                     Visibility="Collapsed" />
+          <Button x:Name="RemoveButton" Grid.Column="5" Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE711;" Margin="8,0,0,0" Opacity="0"
                   ToolTip="Remove from my funds" AutomationProperties.Name="Remove from my funds"
                   Command="{Binding DataContext.RemoveCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
         </Grid>
@@ -62,6 +75,10 @@
         <Trigger SourceName="Row" Property="IsKeyboardFocusWithin" Value="True">
           <Setter TargetName="RemoveButton" Property="Opacity" Value="1" />
         </Trigger>
+        <DataTrigger Binding="{Binding HasEstimatedNav}" Value="False">
+          <Setter TargetName="EstimatedNav" Property="Visibility" Value="Collapsed" />
+          <Setter TargetName="NoEstimatedNav" Property="Visibility" Value="Visible" />
+        </DataTrigger>
         <DataTrigger Binding="{Binding IsMissing}" Value="True">
           <Setter TargetName="NavBlock" Property="Visibility" Value="Collapsed" />
           <Setter TargetName="MissingText" Property="Visibility" Value="Visible" />
@@ -116,11 +133,17 @@
       <RowDefinition Height="*" MinHeight="320" />
     </Grid.RowDefinitions>
 
-    <StackPanel Margin="0,0,0,22">
-      <TextBlock Text="Mutual funds" Style="{StaticResource Text.PageTitle}" />
-      <TextBlock Text="The latest NAVs of the Direct Plan funds you follow. Search by name to add a fund; your list is saved in the QuoteSnap service."
-                 Style="{StaticResource Text.PageSubtitle}" />
-    </StackPanel>
+    <DockPanel Margin="0,0,0,22">
+      <Button DockPanel.Dock="Right" Style="{StaticResource Button.DangerSolid}" ui:Ui.Icon="&#xE9D2;" VerticalAlignment="Center"
+              Content="Get live prices" AutomationProperties.Name="Get live prices" Command="{Binding GetPricesCommand}"
+              ui:Ui.IsSpinning="{Binding IsGettingPrices}"
+              ToolTip="Gets the live prices of every stock your funds hold and estimates each fund's NAV for today from its holdings' weights." />
+      <StackPanel Margin="0,0,24,0">
+        <TextBlock Text="Mutual funds" Style="{StaticResource Text.PageTitle}" />
+        <TextBlock Text="The latest NAVs of the Direct Plan funds you follow, and today's estimate from their holdings' live prices. Search by name to add a fund; your list is saved in the QuoteSnap service."
+                   Style="{StaticResource Text.PageSubtitle}" TextWrapping="Wrap" />
+      </StackPanel>
+    </DockPanel>
 
     <Border Grid.Row="1" Style="{StaticResource Banner}" Tag="{Binding MessageLevel}" Margin="0,0,0,16"
             Visibility="{Binding Message, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
@@ -157,13 +180,20 @@
             </StackPanel>
           </DockPanel>
 
+          <TextBlock DockPanel.Dock="Top" Text="{Binding PricesText}" Style="{StaticResource Text.Message}" Margin="20,0,20,10"
+                     Visibility="{Binding PricesText, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}" />
+
           <Border DockPanel.Dock="Top" Style="{StaticResource Banner}" Tag="{x:Static vm:StatusLevel.Warning}" Margin="20,0,20,12"
                   Visibility="{Binding MyFundsError, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
             <TextBlock Text="{Binding MyFundsError}" Style="{StaticResource Text.Body}" FontSize="{StaticResource FontSizeSmall}" />
           </Border>
 
           <DockPanel DockPanel.Dock="Top" Margin="70,0,64,8" Visibility="{Binding HasFunds, Converter={StaticResource BoolToVisibility}}">
-            <TextBlock DockPanel.Dock="Right" Text="NAV" Style="{StaticResource Text.Label}" />
+            <TextBlock DockPanel.Dock="Right" Text="EST. NAV" Style="{StaticResource Text.Label}" Width="96" TextAlignment="Right"
+                       ToolTip="The latest NAV moved by the estimated change" />
+            <TextBlock DockPanel.Dock="Right" Text="EST. %" Style="{StaticResource Text.Label}" Width="72" TextAlignment="Right"
+                       ToolTip="Today's estimated change: each holding's weight times its stock's day change; cash, bonds and holdings without a price count as unchanged" />
+            <TextBlock DockPanel.Dock="Right" Text="NAV" Style="{StaticResource Text.Label}" Width="96" TextAlignment="Right" />
             <TextBlock Text="FUND" Style="{StaticResource Text.Label}" />
           </DockPanel>
           <Border DockPanel.Dock="Top" Height="1" Background="{StaticResource DividerBrush}"

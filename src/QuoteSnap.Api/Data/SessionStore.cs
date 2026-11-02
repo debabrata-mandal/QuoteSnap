@@ -6,11 +6,7 @@ using QuoteSnap.Contracts;
 
 namespace QuoteSnap.Api.Data;
 
-public sealed class SessionStore(
-    QuoteSnapDbContext db,
-    IDataProtectionProvider dataProtection,
-    TimeProvider time,
-    ILogger<SessionStore> logger)
+public sealed class SessionStore(QuoteSnapDbContext db, IDataProtectionProvider dataProtection, TimeProvider time, ILogger<SessionStore> logger)
 {
     private const int SessionId = 1;
 
@@ -95,11 +91,7 @@ public sealed class SessionStore(
     /// Saves a refreshed access token only if the session is still at <paramref name="expectedVersion"/>,
     /// so a refresh that started before a new login can't overwrite it.
     /// </summary>
-    public async Task<bool> TryUpdateAccessTokenAsync(
-        int expectedVersion,
-        string accessToken,
-        DateTimeOffset expiresAt,
-        CancellationToken cancellationToken)
+    public async Task<bool> TryUpdateAccessTokenAsync(int expectedVersion, string accessToken, DateTimeOffset expiresAt, CancellationToken cancellationToken)
     {
         string protectedToken = _protector.Protect(accessToken);
         DateTimeOffset now = time.GetUtcNow();

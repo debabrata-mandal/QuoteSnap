@@ -29,10 +29,7 @@ public sealed class FyersLoginOptions
 /// </summary>
 public sealed class FyersLoginFlow(QuoteSnapClient client)
 {
-    public async Task<FyersSessionInfo> LoginWithBrowserAsync(
-        FyersAppCredentials app,
-        FyersLoginOptions? options = null,
-        CancellationToken cancellationToken = default)
+    public async Task<FyersSessionInfo> LoginWithBrowserAsync(FyersAppCredentials app, FyersLoginOptions? options = null, CancellationToken cancellationToken = default)
     {
         options ??= new FyersLoginOptions();
         Uri callback = GetLoopbackCallback(options.RedirectUri);
@@ -51,8 +48,7 @@ public sealed class FyersLoginFlow(QuoteSnapClient client)
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new FyersLoginException(
-                $"No login callback arrived within {options.Timeout.TotalMinutes:0} minutes. Nothing was changed.");
+            throw new FyersLoginException($"No login callback arrived within {options.Timeout.TotalMinutes:0} minutes. Nothing was changed.");
         }
 
         return await client.SubmitFyersLoginAsync(app, ParseRedirect(redirect, state), cancellationToken);
@@ -62,11 +58,7 @@ public sealed class FyersLoginFlow(QuoteSnapClient client)
     /// For when no local listener can run: <paramref name="getRedirectUrl"/> receives the login URL and must return
     /// the full URL the browser was redirected to after logging in.
     /// </summary>
-    public async Task<FyersSessionInfo> LoginManualAsync(
-        FyersAppCredentials app,
-        Func<string, CancellationToken, Task<string>> getRedirectUrl,
-        string redirectUri = FyersLoginOptions.DefaultRedirectUri,
-        CancellationToken cancellationToken = default)
+    public async Task<FyersSessionInfo> LoginManualAsync(FyersAppCredentials app, Func<string, CancellationToken, Task<string>> getRedirectUrl, string redirectUri = FyersLoginOptions.DefaultRedirectUri, CancellationToken cancellationToken = default)
     {
         string state = CreateState();
         string loginUrl = (await client.GetFyersLoginUrlAsync(app.AppId, redirectUri, state, cancellationToken)).Url;

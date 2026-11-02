@@ -36,16 +36,12 @@ public static class DatabaseSetup
                 List<string> pending = [.. await db.Database.GetPendingMigrationsAsync(cancellationToken)];
                 await db.Database.MigrateAsync(cancellationToken);
                 System.Data.Common.DbConnection connection = db.Database.GetDbConnection();
-                logger.LogInformation(
-                    "Connected to PostgreSQL database {Database} at {DataSource}; applied {MigrationCount} migrations {Migrations}",
-                    connection.Database, connection.DataSource, pending.Count, pending);
+                logger.LogInformation("Connected to PostgreSQL database {Database} at {DataSource}; applied {MigrationCount} migrations {Migrations}", connection.Database, connection.DataSource, pending.Count, pending);
                 return;
             }
             catch (NpgsqlException ex) when (ex.IsTransient && attempt < MaxConnectAttempts)
             {
-                logger.LogWarning(
-                    "PostgreSQL is not reachable yet ({Reason}); retrying in {Delay}s (attempt {Attempt} of {MaxAttempts})",
-                    ex.Message, ConnectRetryDelay.TotalSeconds, attempt, MaxConnectAttempts);
+                logger.LogWarning("PostgreSQL is not reachable yet ({Reason}); retrying in {Delay}s (attempt {Attempt} of {MaxAttempts})", ex.Message, ConnectRetryDelay.TotalSeconds, attempt, MaxConnectAttempts);
                 await Task.Delay(ConnectRetryDelay, cancellationToken);
             }
         }

@@ -55,6 +55,15 @@ public sealed class QuoteRequestRepository(QuoteSnapDbContext db, TimeProvider t
         return query.OrderByDescending(r => r.CreatedAt).FirstOrDefaultAsync(cancellationToken);
     }
 
+    /// <summary>The most recent holdings request that has finished, with its results.</summary>
+    public Task<QuoteRequest?> GetLatestFinishedForHoldingsAsync(CancellationToken cancellationToken) =>
+        db.QuoteRequests.AsNoTracking()
+            .Where(r => r.ForHoldings
+                && (r.Status == QuoteRequestStatus.Completed || r.Status == QuoteRequestStatus.CompletedWithErrors || r.Status == QuoteRequestStatus.Failed))
+            .Include(r => r.Results.OrderBy(x => x.Position))
+            .OrderByDescending(r => r.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
     /// <summary>Newest first. <paramref name="before"/> is an exclusive upper bound on CreatedAt.</summary>
     public Task<List<QuoteRequest>> ListAsync(int limit, DateTimeOffset? before, CancellationToken cancellationToken)
     {
@@ -167,9 +176,7 @@ public sealed class QuoteRequestRepository(QuoteSnapDbContext db, TimeProvider t
             (0, _) => QuoteRequestStatus.Failed,
             _ => QuoteRequestStatus.CompletedWithErrors,
         };
-        request.Error = Truncate(
-            error ?? (request.Status == QuoteRequestStatus.Failed ? "No quotes could be fetched." : null),
-            1000);
+        request.Error = Truncate(error ?? (request.Status == QuoteRequestStatus.Failed ? "No quotes could be fetched." : null), 1000);
         request.CompletedAt = time.GetUtcNow();
         await db.SaveChangesAsync(cancellationToken);
         return request.Status;

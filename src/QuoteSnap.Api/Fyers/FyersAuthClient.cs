@@ -20,10 +20,7 @@ public sealed class FyersAuthClient(HttpClient http, IOptions<FyersOptions> opti
         + "&response_type=code"
         + $"&state={Uri.EscapeDataString(state)}";
 
-    public async Task<FyersLoginTokens> ExchangeAuthCodeAsync(
-        FyersAppCredentials app,
-        string authCode,
-        CancellationToken cancellationToken)
+    public async Task<FyersLoginTokens> ExchangeAuthCodeAsync(FyersAppCredentials app, string authCode, CancellationToken cancellationToken)
     {
         Dictionary<string, string> body = new()
         {
@@ -42,10 +39,7 @@ public sealed class FyersAuthClient(HttpClient http, IOptions<FyersOptions> opti
         return new FyersLoginTokens(accessToken, refreshToken);
     }
 
-    public async Task<string> RefreshAccessTokenAsync(
-        FyersAppCredentials app,
-        string refreshToken,
-        CancellationToken cancellationToken)
+    public async Task<string> RefreshAccessTokenAsync(FyersAppCredentials app, string refreshToken, CancellationToken cancellationToken)
     {
         Dictionary<string, string> body = new()
         {

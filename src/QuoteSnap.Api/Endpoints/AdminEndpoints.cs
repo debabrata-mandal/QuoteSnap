@@ -20,11 +20,7 @@ public static class AdminEndpoints
     }
 
     // Parameters are nullable so a missing one gets the 400 below instead of a framework exception.
-    private static Results<Ok<FyersLoginUrl>, ProblemHttpResult> GetLoginUrl(
-        string? appId,
-        string? redirectUri,
-        string? state,
-        SessionService session)
+    private static Results<Ok<FyersLoginUrl>, ProblemHttpResult> GetLoginUrl(string? appId, string? redirectUri, string? state, SessionService session)
     {
         if (string.IsNullOrWhiteSpace(appId))
             return TypedResults.Problem("'appId' is required.", statusCode: StatusCodes.Status400BadRequest);
@@ -36,11 +32,7 @@ public static class AdminEndpoints
         return TypedResults.Ok(new FyersLoginUrl(session.BuildLoginUrl(appId.Trim(), redirectUri, state)));
     }
 
-    private static async Task<Results<Ok<FyersSessionInfo>, ProblemHttpResult>> SubmitLoginAsync(
-        SubmitFyersLogin? body,
-        SessionService session,
-        ILoggerFactory loggers,
-        CancellationToken cancellationToken)
+    private static async Task<Results<Ok<FyersSessionInfo>, ProblemHttpResult>> SubmitLoginAsync(SubmitFyersLogin? body, SessionService session, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         ILogger logger = loggers.CreateLogger(typeof(AdminEndpoints));
         if (body is null)
@@ -52,9 +44,7 @@ public static class AdminEndpoints
             || string.IsNullOrWhiteSpace(app.SecretId)
             || string.IsNullOrWhiteSpace(app.Pin))
         {
-            return TypedResults.Problem(
-                "'app' must include 'appId', 'secretId' and 'pin'.",
-                statusCode: StatusCodes.Status400BadRequest);
+            return TypedResults.Problem("'app' must include 'appId', 'secretId' and 'pin'.", statusCode: StatusCodes.Status400BadRequest);
         }
 
         FyersAppCredentials credentials = new(app.AppId.Trim(), app.SecretId.Trim(), app.Pin.Trim());
@@ -69,10 +59,7 @@ public static class AdminEndpoints
         catch (FyersApiException ex)
         {
             logger.LogWarning("Fyers login for app {AppId} failed: {Error}", credentials.AppId, ex.Message);
-            return TypedResults.Problem(
-                $"Fyers rejected the login: {ex.Message}",
-                statusCode: StatusCodes.Status400BadRequest,
-                title: "Fyers login failed");
+            return TypedResults.Problem($"Fyers rejected the login: {ex.Message}", statusCode: StatusCodes.Status400BadRequest, title: "Fyers login failed");
         }
     }
 }

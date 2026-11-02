@@ -10,12 +10,7 @@ namespace QuoteSnap.Api.Nav;
 /// Downloads AMFI's NAV file and replaces the stored NAVs with its Direct Plan schemes, using the scheme master to place
 /// schemes the NAV file lists without a plan.
 /// </summary>
-public sealed class NavImporter(
-    HttpClient http,
-    NavRepository repository,
-    IOptions<NavOptions> options,
-    TimeProvider time,
-    ILogger<NavImporter> logger)
+public sealed class NavImporter(HttpClient http, NavRepository repository, IOptions<NavOptions> options, TimeProvider time, ILogger<NavImporter> logger)
 {
     /// <exception cref="HttpRequestException">The download failed.</exception>
     /// <exception cref="FormatException">The file isn't in the expected format; the stored NAVs are kept.</exception>
@@ -29,9 +24,7 @@ public sealed class NavImporter(
         AmfiNavFile file = AmfiNavParser.Parse(text);
         LabelPlansFromNavNames(file.Navs, await navNamesDownload);
         List<MutualFundNav> direct = [.. file.Navs.Where(IsDirectPlan)];
-        logger.LogInformation(
-            "Parsed the NAV file ({Characters:N0} characters): {SchemeCount} schemes, keeping {DirectCount} Direct Plan schemes; {Skipped} unreadable rows",
-            text.Length, file.Navs.Count, direct.Count, file.SkippedRows);
+        logger.LogInformation("Parsed the NAV file ({Characters:N0} characters): {SchemeCount} schemes, keeping {DirectCount} Direct Plan schemes; {Skipped} unreadable rows", text.Length, file.Navs.Count, direct.Count, file.SkippedRows);
         if (direct.Count == 0)
             throw new FormatException("The NAV file contained no Direct Plan schemes.");
 
@@ -86,9 +79,7 @@ public sealed class NavImporter(
             }
         }
 
-        logger.LogInformation(
-            "Read {NavNameCount} scheme names from the scheme master; {Labelled} schemes without a plan in the NAV file are Direct Plans",
-            navNames.Count, labelled);
+        logger.LogInformation("Read {NavNameCount} scheme names from the scheme master; {Labelled} schemes without a plan in the NAV file are Direct Plans", navNames.Count, labelled);
     }
 
     // Older layouts of the file have no Plan column; their scheme names carry the plan instead.

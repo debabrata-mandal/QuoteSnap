@@ -11,12 +11,7 @@ namespace QuoteSnap.Api.Services;
 /// Runs holdings fetches one at a time: matches each listed fund to its ScanX scheme, downloads every page of its
 /// past holdings and replaces the fund's stored holdings, recording progress per fund as it goes.
 /// </summary>
-public sealed class HoldingFetchWorker(
-    HoldingFetchQueue queue,
-    IServiceScopeFactory scopes,
-    IOptions<HoldingsOptions> options,
-    TimeProvider time,
-    ILogger<HoldingFetchWorker> logger) : BackgroundService
+public sealed class HoldingFetchWorker(HoldingFetchQueue queue, IServiceScopeFactory scopes, IOptions<HoldingsOptions> options, TimeProvider time, ILogger<HoldingFetchWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

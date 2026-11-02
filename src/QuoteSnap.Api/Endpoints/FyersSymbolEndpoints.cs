@@ -24,12 +24,7 @@ public static class FyersSymbolEndpoints
 
     /// <param name="q">Part of a company name, a ticker or an ISIN: "tata motors", "hdfcbank", "INE155A01022".</param>
     /// <param name="limit">At most 50; 20 by default.</param>
-    private static async Task<Results<Ok<FyersSymbolSearchResult>, ProblemHttpResult>> SearchAsync(
-        string? q,
-        int? limit,
-        FyersSymbolRepository repository,
-        ILoggerFactory loggers,
-        CancellationToken cancellationToken)
+    private static async Task<Results<Ok<FyersSymbolSearchResult>, ProblemHttpResult>> SearchAsync(string? q, int? limit, FyersSymbolRepository repository, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         string query = (q ?? "").Trim();
         if (query.Length < 2)
@@ -43,16 +38,10 @@ public static class FyersSymbolEndpoints
         return TypedResults.Ok(new FyersSymbolSearchResult(query, [.. found.Select(s => new FyersSymbolMatch(s.Symbol, s.Name, s.Isin))], loadedAt));
     }
 
-    internal static ProblemHttpResult NotLoaded() => TypedResults.Problem(
-        "Fyers symbols haven't been downloaded yet. Call POST /api/symbols/refresh first.",
-        statusCode: StatusCodes.Status503ServiceUnavailable,
-        title: "Symbols not loaded");
+    internal static ProblemHttpResult NotLoaded() => TypedResults.Problem("Fyers symbols haven't been downloaded yet. Call POST /api/symbols/refresh first.", statusCode: StatusCodes.Status503ServiceUnavailable, title: "Symbols not loaded");
 
     /// <summary>Downloads NSE_CM.csv and BSE_CM.csv again and replaces the stored symbols.</summary>
-    private static async Task<Results<Ok<FyersSymbolRefreshResult>, ProblemHttpResult>> RefreshAsync(
-        FyersSymbolImporter importer,
-        ILoggerFactory loggers,
-        CancellationToken cancellationToken)
+    private static async Task<Results<Ok<FyersSymbolRefreshResult>, ProblemHttpResult>> RefreshAsync(FyersSymbolImporter importer, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         try
         {
@@ -63,10 +52,7 @@ public static class FyersSymbolEndpoints
         {
             loggers.CreateLogger(typeof(FyersSymbolEndpoints)).LogWarning(
                 "Fyers symbol refresh failed; the stored symbols are unchanged. {ErrorType}: {Error}", ex.GetType().Name, ex.Message);
-            return TypedResults.Problem(
-                $"Could not load the Fyers symbol masters; the stored symbols are unchanged. {ex.Message}",
-                statusCode: StatusCodes.Status502BadGateway,
-                title: "Symbol download failed");
+            return TypedResults.Problem($"Could not load the Fyers symbol masters; the stored symbols are unchanged. {ex.Message}", statusCode: StatusCodes.Status502BadGateway, title: "Symbol download failed");
         }
     }
 }

@@ -5,11 +5,7 @@ using QuoteSnap.Api.Options;
 namespace QuoteSnap.Api.Services;
 
 /// <summary>Deletes quote requests and holdings fetch records older than the retention period, once at startup and then daily.</summary>
-public sealed class CleanupService(
-    IServiceScopeFactory scopes,
-    IOptions<QuoteSnapOptions> options,
-    TimeProvider time,
-    ILogger<CleanupService> logger) : BackgroundService
+public sealed class CleanupService(IServiceScopeFactory scopes, IOptions<QuoteSnapOptions> options, TimeProvider time, ILogger<CleanupService> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

@@ -60,8 +60,7 @@ public static partial class AmfiNavParser
     [GeneratedRegex("^[A-Z]{2}[A-Z0-9]{9}[0-9]$")]
     private static partial Regex IsinPattern();
 
-    private sealed record Columns(
-        int SchemeCode, int Isin, int IsinReinvestment, int SchemeName, int Plan, int Option, int Nav, int Date)
+    private sealed record Columns(int SchemeCode, int Isin, int IsinReinvestment, int SchemeName, int Plan, int Option, int Nav, int Date)
     {
         // Older layouts of the file have no Plan and Option columns.
         public static Columns FromHeader(string header)

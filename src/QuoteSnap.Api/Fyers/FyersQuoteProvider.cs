@@ -8,11 +8,7 @@ public sealed class FyersQuoteProvider(HttpClient http, IOptions<FyersOptions> o
 {
     private readonly FyersOptions _options = options.Value;
 
-    public async Task<IReadOnlyList<ProviderQuote>> GetQuotesAsync(
-        string appId,
-        string accessToken,
-        IReadOnlyList<string> symbols,
-        CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<ProviderQuote>> GetQuotesAsync(string appId, string accessToken, IReadOnlyList<string> symbols, CancellationToken cancellationToken)
     {
         if (symbols.Count == 0)
             return [];

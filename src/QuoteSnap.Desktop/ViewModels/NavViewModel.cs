@@ -20,6 +20,7 @@ public sealed partial class NavViewModel : ObservableObject
     private readonly FileDialogs _dialogs;
     private CancellationTokenSource? _search;
     private bool _myFundsLoaded;
+    private NavEstimateList? _estimates;
 
     public NavViewModel(QuoteSnapConnection connection, FileDialogs dialogs)
     {
@@ -85,11 +86,20 @@ public sealed partial class NavViewModel : ObservableObject
     [ObservableProperty]
     public partial StatusLevel MessageLevel { get; set; }
 
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(GetPricesCommand))]
+    public partial bool IsGettingPrices { get; set; }
+
+    /// <summary>"Getting prices: 12 of 40 stocks", or when the prices behind the estimates were fetched.</summary>
+    [ObservableProperty]
+    public partial string? PricesText { get; set; }
+
     /// <summary>Called when the page is opened.</summary>
     public async Task ActivateAsync()
     {
         await LoadStatusAsync();
         await RefreshMyFundsAsync();
+        await ResumePricesAsync();
     }
 
     partial void OnSearchTextChanged(string value)
@@ -194,6 +204,7 @@ public sealed partial class NavViewModel : ObservableObject
                 MyFunds.Add(row);
             _myFundsLoaded = true;
             OnMyFundsChanged();
+            ApplyEstimates();
 
             int missing = rows.Count(r => r.IsMissing);
             MyFundsError = missing == 0 ? null
@@ -202,7 +213,98 @@ public sealed partial class NavViewModel : ObservableObject
         catch (Exception ex)
         {
             MyFundsError = ErrorText.Describe(ex, _connection.Settings.BaseAddress);
+            return;
         }
+
+        await LoadEstimatesAsync();
+    }
+
+    private bool CanGetPrices() => !IsGettingPrices && MyFunds.Count > 0;
+
+    /// <summary>Requests live prices for every stock the listed funds hold, then estimates each fund's NAV from them.</summary>
+    [RelayCommand(CanExecute = nameof(CanGetPrices))]
+    private async Task GetPricesAsync()
+    {
+        Message = null;
+        QuoteRequestDetails started;
+        try
+        {
+            QuoteRequestAccepted accepted = await _connection.Client.StartHoldingQuotesAsync();
+            started = await _connection.Client.GetAsync(accepted.RequestId);
+        }
+        catch (Exception ex)
+        {
+            Report(StatusLevel.Bad, $"Couldn't request live prices. {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}");
+            return;
+        }
+
+        await WatchPricesAsync(started);
+    }
+
+    /// <summary>Follows a live-prices request started elsewhere, such as on the Holdings page, that's still running.</summary>
+    private async Task ResumePricesAsync()
+    {
+        if (IsGettingPrices)
+            return;
+        try
+        {
+            if (await _connection.Client.GetLatestHoldingQuotesAsync() is { } latest && !latest.Status.IsTerminal())
+                await WatchPricesAsync(latest);
+        }
+        catch (Exception)
+        {
+            // The estimates already show the last finished prices; there's nothing to follow.
+        }
+    }
+
+    private async Task WatchPricesAsync(QuoteRequestDetails request)
+    {
+        IsGettingPrices = true;
+        PricesText = HoldingText.QuotesTitle(request);
+        try
+        {
+            Progress<QuoteRequestDetails> progress = new(r => PricesText = HoldingText.QuotesTitle(r));
+            QuoteRequestDetails finished = await _connection.Client.WaitForCompletionAsync(request.RequestId, progress);
+            if (finished.Status == QuoteRequestStatus.Failed)
+                Report(StatusLevel.Bad, $"Couldn't get live prices. {finished.Error}");
+        }
+        catch (Exception ex)
+        {
+            Report(StatusLevel.Bad, $"Lost track of the live prices; they may still be coming in the service. {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}");
+        }
+        finally
+        {
+            IsGettingPrices = false;
+        }
+
+        await LoadEstimatesAsync();
+    }
+
+    private async Task LoadEstimatesAsync()
+    {
+        try
+        {
+            _estimates = await _connection.Client.GetNavEstimatesAsync();
+        }
+        catch (Exception ex)
+        {
+            _estimates = null;
+            if (!IsGettingPrices)
+                PricesText = $"Couldn't load NAV estimates. {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}";
+            ApplyEstimates();
+            return;
+        }
+
+        ApplyEstimates();
+        if (!IsGettingPrices)
+            PricesText = _estimates.PricesAt is { } at ? $"Estimates use prices from {Display.WhenInSentence(at)}" : null;
+    }
+
+    private void ApplyEstimates()
+    {
+        Dictionary<int, NavEstimate> byScheme = _estimates?.Funds.ToDictionary(e => e.SchemeCode) ?? [];
+        foreach (FundRow row in MyFunds)
+            row.ShowEstimate(byScheme.GetValueOrDefault(row.SchemeCode), _estimates?.PricesAt);
     }
 
     [RelayCommand]
@@ -257,6 +359,7 @@ public sealed partial class NavViewModel : ObservableObject
         DateOnly? latest = MyFunds.Select(f => f.Nav?.NavDate).Max();
         AsOfText = latest is { } date ? $"NAVs as of {Display.Date(date)}" : null;
         ExportCommand.NotifyCanExecuteChanged();
+        GetPricesCommand.NotifyCanExecuteChanged();
     }
 
     private void Report(StatusLevel level, string message)

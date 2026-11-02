@@ -36,9 +36,7 @@ internal sealed class LoopbackCallbackListener : IDisposable
         catch (SocketException ex)
         {
             listener.Dispose();
-            throw new FyersLoginException(
-                $"Could not listen on 127.0.0.1:{port} ({ex.SocketErrorCode}). Close whatever is using that port, or use manual mode.",
-                ex);
+            throw new FyersLoginException($"Could not listen on 127.0.0.1:{port} ({ex.SocketErrorCode}). Close whatever is using that port, or use manual mode.", ex);
         }
 
         return new LoopbackCallbackListener(listener, path);
@@ -74,10 +72,7 @@ internal sealed class LoopbackCallbackListener : IDisposable
         }
     }
 
-    private async Task HandleConnectionAsync(
-        TcpClient client,
-        TaskCompletionSource<Uri> callback,
-        CancellationToken cancellationToken)
+    private async Task HandleConnectionAsync(TcpClient client, TaskCompletionSource<Uri> callback, CancellationToken cancellationToken)
     {
         using (client)
         {

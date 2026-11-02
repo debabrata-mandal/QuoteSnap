@@ -98,9 +98,7 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
     {
         await using AsyncServiceScope scope = Services.CreateAsyncScope();
         DateTimeOffset now = DateTimeOffset.UtcNow;
-        await scope.ServiceProvider.GetRequiredService<SessionStore>().SaveLoginAsync(
-            new FyersSession("XT0001", App, "access-token", "refresh-token", now.AddHours(8), now.AddDays(15), now, 0),
-            CancellationToken.None);
+        await scope.ServiceProvider.GetRequiredService<SessionStore>().SaveLoginAsync(new FyersSession("XT0001", App, "access-token", "refresh-token", now.AddHours(8), now.AddDays(15), now, 0), CancellationToken.None);
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -165,11 +163,7 @@ public sealed class FakeQuoteProvider : IQuoteProvider
     /// <summary><see cref="Stopwatch.GetTimestamp"/> at each call.</summary>
     public ConcurrentQueue<long> CallTimestamps { get; } = new();
 
-    public Task<IReadOnlyList<ProviderQuote>> GetQuotesAsync(
-        string appId,
-        string accessToken,
-        IReadOnlyList<string> symbols,
-        CancellationToken cancellationToken)
+    public Task<IReadOnlyList<ProviderQuote>> GetQuotesAsync(string appId, string accessToken, IReadOnlyList<string> symbols, CancellationToken cancellationToken)
     {
         if (appId != QuoteSnapApiFactory.App.AppId)
             throw new InvalidOperationException($"Expected the stored App ID, got '{appId}'.");

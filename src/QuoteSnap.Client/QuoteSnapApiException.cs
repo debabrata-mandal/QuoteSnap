@@ -13,9 +13,7 @@ public sealed class QuoteSnapApiException(HttpStatusCode statusCode, string? tit
 
     public string? Detail { get; } = detail;
 
-    internal static async Task<QuoteSnapApiException> FromResponseAsync(
-        HttpResponseMessage response,
-        CancellationToken cancellationToken)
+    internal static async Task<QuoteSnapApiException> FromResponseAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         string body = await response.Content.ReadAsStringAsync(cancellationToken);
         try

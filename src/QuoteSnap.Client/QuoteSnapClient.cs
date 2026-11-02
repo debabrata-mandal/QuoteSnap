@@ -29,10 +29,7 @@ public sealed class QuoteSnapClient
     public async Task<QuoteRequestDetails> GetAsync(Guid requestId, CancellationToken cancellationToken = default) =>
         (await GetWithRetryAfterAsync(requestId, cancellationToken)).Value;
 
-    public async Task<QuoteRequestPage> ListAsync(
-        int limit = 20,
-        DateTimeOffset? before = null,
-        CancellationToken cancellationToken = default)
+    public async Task<QuoteRequestPage> ListAsync(int limit = 20, DateTimeOffset? before = null, CancellationToken cancellationToken = default)
     {
         string path = $"api/quote-requests?limit={limit}";
         if (before is { } b)
@@ -76,6 +73,16 @@ public sealed class QuoteSnapClient
     {
         using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "api/my-funds", null, admin: false, cancellationToken);
         return await ReadAsync<MyFundList>(response, cancellationToken);
+    }
+
+    /// <summary>
+    /// Today's estimated NAV of each listed fund, from its holdings and the last finished holdings quote request
+    /// (<see cref="StartHoldingQuotesAsync"/>).
+    /// </summary>
+    public async Task<NavEstimateList> GetNavEstimatesAsync(CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "api/my-funds/estimates", null, admin: false, cancellationToken);
+        return await ReadAsync<NavEstimateList>(response, cancellationToken);
     }
 
     /// <summary>Adds a scheme to the user's list; adding one that's already there returns it unchanged.</summary>
@@ -178,10 +185,7 @@ public sealed class QuoteSnapClient
     }
 
     /// <summary>Polls a holdings fetch until it finishes, reporting each snapshot of its progress.</summary>
-    public async Task<HoldingFetch> WaitForHoldingFetchAsync(
-        Guid fetchId,
-        IProgress<HoldingFetch>? progress = null,
-        CancellationToken cancellationToken = default)
+    public async Task<HoldingFetch> WaitForHoldingFetchAsync(Guid fetchId, IProgress<HoldingFetch>? progress = null, CancellationToken cancellationToken = default)
     {
         while (true)
         {
@@ -209,10 +213,7 @@ public sealed class QuoteSnapClient
     /// Polls until the request finishes, waiting as long as the server's Retry-After header suggests.
     /// Use <paramref name="cancellationToken"/> to put an upper bound on the wait.
     /// </summary>
-    public async Task<QuoteRequestDetails> WaitForCompletionAsync(
-        Guid requestId,
-        IProgress<QuoteRequestDetails>? progress = null,
-        CancellationToken cancellationToken = default)
+    public async Task<QuoteRequestDetails> WaitForCompletionAsync(Guid requestId, IProgress<QuoteRequestDetails>? progress = null, CancellationToken cancellationToken = default)
     {
         while (true)
         {
@@ -226,20 +227,13 @@ public sealed class QuoteSnapClient
     }
 
     /// <summary>Submits symbols and waits for the finished snapshot.</summary>
-    public async Task<QuoteRequestDetails> FetchSnapshotAsync(
-        IEnumerable<string> symbols,
-        IProgress<QuoteRequestDetails>? progress = null,
-        CancellationToken cancellationToken = default)
+    public async Task<QuoteRequestDetails> FetchSnapshotAsync(IEnumerable<string> symbols, IProgress<QuoteRequestDetails>? progress = null, CancellationToken cancellationToken = default)
     {
         QuoteRequestAccepted accepted = await SubmitAsync(symbols, cancellationToken);
         return await WaitForCompletionAsync(accepted.RequestId, progress, cancellationToken);
     }
 
-    public async Task<FyersLoginUrl> GetFyersLoginUrlAsync(
-        string appId,
-        string redirectUri,
-        string state,
-        CancellationToken cancellationToken = default)
+    public async Task<FyersLoginUrl> GetFyersLoginUrlAsync(string appId, string redirectUri, string state, CancellationToken cancellationToken = default)
     {
         string path = $"admin/fyers/login-url?appId={Uri.EscapeDataString(appId)}"
             + $"&redirectUri={Uri.EscapeDataString(redirectUri)}"
@@ -249,10 +243,7 @@ public sealed class QuoteSnapClient
     }
 
     /// <summary>Hands the auth code and the app credentials to the service, which stores them with the new tokens.</summary>
-    public async Task<FyersSessionInfo> SubmitFyersLoginAsync(
-        FyersAppCredentials app,
-        string authCode,
-        CancellationToken cancellationToken = default)
+    public async Task<FyersSessionInfo> SubmitFyersLoginAsync(FyersAppCredentials app, string authCode, CancellationToken cancellationToken = default)
     {
         JsonContent body = JsonContent.Create(new SubmitFyersLogin(app, authCode), options: Json);
         using HttpResponseMessage response = await SendAsync(HttpMethod.Post, "admin/fyers/session", body, admin: true, cancellationToken);
@@ -275,9 +266,7 @@ public sealed class QuoteSnapClient
         return await ReadAsync<FyersLogoutResult>(response, cancellationToken);
     }
 
-    private Task<(QuoteRequestDetails Value, TimeSpan? RetryAfter)> GetWithRetryAfterAsync(
-        Guid requestId,
-        CancellationToken cancellationToken) =>
+    private Task<(QuoteRequestDetails Value, TimeSpan? RetryAfter)> GetWithRetryAfterAsync(Guid requestId, CancellationToken cancellationToken) =>
         GetWithRetryAfterAsync<QuoteRequestDetails>($"api/quote-requests/{requestId}", cancellationToken);
 
     private async Task<(T Value, TimeSpan? RetryAfter)> GetWithRetryAfterAsync<T>(string path, CancellationToken cancellationToken)
@@ -292,12 +281,7 @@ public sealed class QuoteSnapClient
         return (await ReadAsync<T>(response, cancellationToken), retryAfter);
     }
 
-    private async Task<HttpResponseMessage> SendAsync(
-        HttpMethod method,
-        string path,
-        HttpContent? content,
-        bool admin,
-        CancellationToken cancellationToken)
+    private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, HttpContent? content, bool admin, CancellationToken cancellationToken)
     {
         using HttpRequestMessage request = new(method, path) { Content = content };
         if (admin)

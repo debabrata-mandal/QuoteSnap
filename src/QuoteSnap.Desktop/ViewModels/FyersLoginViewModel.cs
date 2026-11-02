@@ -269,15 +269,9 @@ public sealed partial class FyersLoginViewModel : ObservableObject
         {
             FyersLogoutResult result = await _connection.Client.LogoutFyersAsync();
             if (result.RevokedAtFyers)
-                ReportSession(
-                    StatusLevel.Good,
-                    "QuoteSnap forgot the login, including the app details and PIN it stored, and Fyers no longer accepts its token. Quote requests are refused until you log in again.",
-                    result.FyersId is { } id ? $"Logged out {id}" : "Already logged out");
+                ReportSession(StatusLevel.Good, "QuoteSnap forgot the login, including the app details and PIN it stored, and Fyers no longer accepts its token. Quote requests are refused until you log in again.", result.FyersId is { } id ? $"Logged out {id}" : "Already logged out");
             else
-                ReportSession(
-                    StatusLevel.Warning,
-                    $"QuoteSnap forgot the login, so nothing can use or renew it, but Fyers couldn't be asked to revoke the token ({result.FyersError}). It stops working by itself {Display.WhenInSentence(tokenExpires)}.",
-                    $"Logged out{(result.FyersId is { } account ? $" {account}" : "")}, Fyers not reached");
+                ReportSession(StatusLevel.Warning, $"QuoteSnap forgot the login, so nothing can use or renew it, but Fyers couldn't be asked to revoke the token ({result.FyersError}). It stops working by itself {Display.WhenInSentence(tokenExpires)}.", $"Logged out{(result.FyersId is { } account ? $" {account}" : "")}, Fyers not reached");
             SessionChanged?.Invoke(this, EventArgs.Empty);
         }
         catch (QuoteSnapApiException ex) when (ex.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
@@ -297,9 +291,7 @@ public sealed partial class FyersLoginViewModel : ObservableObject
         await RefreshSessionAsync();
     }
 
-    private async Task RunLoginAsync(
-        string firstStep,
-        Func<FyersLoginFlow, FyersAppCredentials, string, CancellationToken, Task<FyersSessionInfo>> login)
+    private async Task RunLoginAsync(string firstStep, Func<FyersLoginFlow, FyersAppCredentials, string, CancellationToken, Task<FyersSessionInfo>> login)
     {
         Message = null;
         MessageTitle = null;
@@ -319,10 +311,7 @@ public sealed partial class FyersLoginViewModel : ObservableObject
             KeepDetails(new FyersLoginDetails(app.AppId, app.SecretId, app.Pin, redirectUri));
             ShowSession(session, DateTimeOffset.UtcNow);
             SessionError = null;
-            Report(
-                StatusLevel.Good,
-                $"Stored in QuoteSnap {Display.WhenInSentence(session.UpdatedAt ?? DateTimeOffset.Now)}. Quote requests work again; QuoteSnap renews the token daily, and the login lasts until {Display.Time(session.RefreshTokenExpiresAt)}.",
-                $"Logged in{(session.FyersId is { } id ? $" as {id}" : "")}");
+            Report(StatusLevel.Good, $"Stored in QuoteSnap {Display.WhenInSentence(session.UpdatedAt ?? DateTimeOffset.Now)}. Quote requests work again; QuoteSnap renews the token daily, and the login lasts until {Display.Time(session.RefreshTokenExpiresAt)}.", $"Logged in{(session.FyersId is { } id ? $" as {id}" : "")}");
             SessionChanged?.Invoke(this, EventArgs.Empty);
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)

@@ -22,9 +22,7 @@ public sealed class SettingsStore(string settingsPath, IReadOnlyList<string> env
     private static readonly byte[] FyersEntropy = "QuoteSnap.Desktop.FyersLogin.v1"u8.ToArray();
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
-    public static SettingsStore CreateDefault() => new(
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QuoteSnap", "desktop-settings.json"),
-        [AppContext.BaseDirectory, Environment.CurrentDirectory]);
+    public static SettingsStore CreateDefault() => new(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QuoteSnap", "desktop-settings.json"), [AppContext.BaseDirectory, Environment.CurrentDirectory]);
 
     public string SettingsPath { get; } = settingsPath;
 
@@ -77,11 +75,7 @@ public sealed class SettingsStore(string settingsPath, IReadOnlyList<string> env
                 StoredFyersLogin? stored = JsonSerializer.Deserialize<StoredFyersLogin>(File.ReadAllText(FyersLoginPath), Json);
                 if (stored is not null)
                 {
-                    FyersLoginDetails remembered = new(
-                        stored.AppId,
-                        Unprotect(stored.ProtectedSecretId, FyersEntropy),
-                        Unprotect(stored.ProtectedPin, FyersEntropy),
-                        stored.RedirectUri ?? FyersLoginOptions.DefaultRedirectUri);
+                    FyersLoginDetails remembered = new(stored.AppId, Unprotect(stored.ProtectedSecretId, FyersEntropy), Unprotect(stored.ProtectedPin, FyersEntropy), stored.RedirectUri ?? FyersLoginOptions.DefaultRedirectUri);
                     return new LoadedFyersLogin(remembered, true, $"Remembered on this PC in {FyersLoginPath}");
                 }
             }

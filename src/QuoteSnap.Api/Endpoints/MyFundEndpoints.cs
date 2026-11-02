@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using QuoteSnap.Api.Data;
 using QuoteSnap.Api.Domain;
+using QuoteSnap.Api.Services;
 using QuoteSnap.Contracts;
 
 namespace QuoteSnap.Api.Endpoints;
@@ -12,16 +13,13 @@ public static class MyFundEndpoints
     {
         RouteGroupBuilder group = app.MapGroup("/api/my-funds").RequireApiKey().WithTags("My funds");
         group.MapGet("/", GetAllAsync);
+        group.MapGet("/estimates", GetEstimatesAsync);
         group.MapPut("/{schemeCode:int}", AddAsync);
         group.MapDelete("/{schemeCode:int}", RemoveAsync);
         return app;
     }
 
-    private static async Task<Ok<MyFundList>> GetAllAsync(
-        MyFundRepository funds,
-        NavRepository navs,
-        HoldingRepository holdings,
-        CancellationToken cancellationToken)
+    private static async Task<Ok<MyFundList>> GetAllAsync(MyFundRepository funds, NavRepository navs, HoldingRepository holdings, CancellationToken cancellationToken)
     {
         List<MyFundRecord> saved = await funds.GetAllAsync(cancellationToken);
         Dictionary<int, MutualFundNav> latest = saved.Count == 0
@@ -33,24 +31,36 @@ public static class MyFundEndpoints
             await navs.GetLoadedAtAsync(cancellationToken)));
     }
 
+    /// <summary>
+    /// Estimates today's NAV of each listed fund: its latest month's holding weights times the day changes from the
+    /// last finished POST /api/holdings/quotes request, applied to the latest published NAV.
+    /// </summary>
+    private static async Task<Ok<NavEstimateList>> GetEstimatesAsync(MyFundRepository funds, NavRepository navs, HoldingRepository holdings, QuoteRequestRepository requests, CancellationToken cancellationToken)
+    {
+        List<MyFundRecord> saved = await funds.GetAllAsync(cancellationToken);
+        Dictionary<int, MutualFundNav> latest = saved.Count == 0
+            ? []
+            : (await navs.FindBySchemeCodesAsync([.. saved.Select(f => f.SchemeCode)], cancellationToken)).ToDictionary(n => n.SchemeCode);
+        Dictionary<int, List<FundHoldingRecord>> portfolios = await holdings.GetLatestHoldingsAsync(cancellationToken);
+        QuoteRequest? prices = await requests.GetLatestFinishedForHoldingsAsync(cancellationToken);
+        Dictionary<string, decimal>? dayChanges = prices is null ? null : NavEstimator.DayChanges(prices.Results);
+
+        List<NavEstimate> estimates = [.. saved.Select(f => Estimate(f, latest.GetValueOrDefault(f.SchemeCode), portfolios.GetValueOrDefault(f.SchemeCode) ?? [], dayChanges))];
+        return TypedResults.Ok(new NavEstimateList(prices?.Id, prices?.CompletedAt, estimates));
+
+        static NavEstimate Estimate(MyFundRecord fund, MutualFundNav? nav, List<FundHoldingRecord> holdings, Dictionary<string, decimal>? dayChanges) =>
+            NavEstimator.Estimate(fund.SchemeCode, nav?.SchemeName ?? fund.SchemeName, nav, holdings, dayChanges);
+    }
+
     /// <summary>Adds a Direct Plan scheme from AMFI's NAV file; adding a fund that's already on the list returns it unchanged.</summary>
     /// <param name="schemeCode">The AMFI scheme code, as returned by GET /api/nav/search.</param>
-    private static async Task<Results<Created<MyFund>, Ok<MyFund>, ProblemHttpResult>> AddAsync(
-        int schemeCode,
-        MyFundRepository funds,
-        NavRepository navs,
-        TimeProvider time,
-        ILoggerFactory loggers,
-        CancellationToken cancellationToken)
+    private static async Task<Results<Created<MyFund>, Ok<MyFund>, ProblemHttpResult>> AddAsync(int schemeCode, MyFundRepository funds, NavRepository navs, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         if (await navs.GetLoadedAtAsync(cancellationToken) is null)
             return NavEndpoints.NotLoaded();
         if ((await navs.FindBySchemeCodesAsync([schemeCode], cancellationToken)).SingleOrDefault() is not { } nav)
         {
-            return TypedResults.Problem(
-                $"Scheme {schemeCode} isn't among the Direct Plan schemes in AMFI's NAV file. Find funds with GET /api/nav/search.",
-                statusCode: StatusCodes.Status404NotFound,
-                title: "Scheme not found");
+            return TypedResults.Problem($"Scheme {schemeCode} isn't among the Direct Plan schemes in AMFI's NAV file. Find funds with GET /api/nav/search.", statusCode: StatusCodes.Status404NotFound, title: "Scheme not found");
         }
 
         DateTimeOffset now = time.GetUtcNow();
@@ -69,17 +79,12 @@ public static class MyFundEndpoints
         if (!added)
             return TypedResults.Ok(dto);
 
-        loggers.CreateLogger(typeof(MyFundEndpoints)).LogInformation(
-            "Added {SchemeCode} {SchemeName} to my funds", fund.SchemeCode, fund.SchemeName);
+        loggers.CreateLogger(typeof(MyFundEndpoints)).LogInformation("Added {SchemeCode} {SchemeName} to my funds", fund.SchemeCode, fund.SchemeName);
         return TypedResults.Created($"/api/my-funds/{fund.SchemeCode}", dto);
     }
 
     /// <summary>Removes a fund from the list. Removing one that isn't on it also succeeds.</summary>
-    private static async Task<NoContent> RemoveAsync(
-        int schemeCode,
-        MyFundRepository funds,
-        ILoggerFactory loggers,
-        CancellationToken cancellationToken)
+    private static async Task<NoContent> RemoveAsync(int schemeCode, MyFundRepository funds, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         if (await funds.RemoveAsync(schemeCode, cancellationToken))
             loggers.CreateLogger(typeof(MyFundEndpoints)).LogInformation("Removed {SchemeCode} from my funds", schemeCode);

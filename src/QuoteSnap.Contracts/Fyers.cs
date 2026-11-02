@@ -1,11 +1,6 @@
 namespace QuoteSnap.Contracts;
 
-public sealed record FyersSessionInfo(
-    FyersAuthState State,
-    string? FyersId,
-    DateTimeOffset? AccessTokenExpiresAt,
-    DateTimeOffset? RefreshTokenExpiresAt,
-    DateTimeOffset? UpdatedAt);
+public sealed record FyersSessionInfo(FyersAuthState State, string? FyersId, DateTimeOffset? AccessTokenExpiresAt, DateTimeOffset? RefreshTokenExpiresAt, DateTimeOffset? UpdatedAt);
 
 public sealed record ServiceStatus(string Version, DateTimeOffset ServerTime, FyersSessionInfo Fyers);
 

@@ -31,14 +31,7 @@ public static class HoldingEndpoints
     /// Submits one quote request for the distinct stock symbols in the latest month of every listed fund. While such
     /// a request is queued or running, starting another returns that one instead.
     /// </summary>
-    private static async Task<Results<Accepted<QuoteRequestAccepted>, Ok<QuoteRequestAccepted>, ProblemHttpResult>> StartQuotesAsync(
-        HoldingRepository holdings,
-        QuoteRequestRepository requests,
-        QuoteRequestQueue queue,
-        SessionService session,
-        TimeProvider time,
-        ILoggerFactory loggers,
-        CancellationToken cancellationToken)
+    private static async Task<Results<Accepted<QuoteRequestAccepted>, Ok<QuoteRequestAccepted>, ProblemHttpResult>> StartQuotesAsync(HoldingRepository holdings, QuoteRequestRepository requests, QuoteRequestQueue queue, SessionService session, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         if (await requests.GetLatestForHoldingsAsync(includeResults: false, cancellationToken) is { } latest
             && !latest.Status.IsTerminal())
@@ -50,14 +43,10 @@ public static class HoldingEndpoints
         List<string> symbols = await holdings.GetLatestSymbolsAsync(cancellationToken);
         if (symbols.Count == 0)
         {
-            return TypedResults.Problem(
-                "No listed fund has stock holdings with a Fyers symbol. Fetch holdings with POST /api/holdings/fetches first.",
-                statusCode: StatusCodes.Status400BadRequest,
-                title: "No holdings symbols");
+            return TypedResults.Problem("No listed fund has stock holdings with a Fyers symbol. Fetch holdings with POST /api/holdings/fetches first.", statusCode: StatusCodes.Status400BadRequest, title: "No holdings symbols");
         }
 
-        Results<Accepted<QuoteRequestAccepted>, ProblemHttpResult> submitted = await QuoteRequestEndpoints.SubmitAsync(
-            symbols, forHoldings: true, requests, queue, session, time, loggers, cancellationToken);
+        Results<Accepted<QuoteRequestAccepted>, ProblemHttpResult> submitted = await QuoteRequestEndpoints.SubmitAsync(symbols, forHoldings: true, requests, queue, session, time, loggers, cancellationToken);
         return submitted.Result switch
         {
             Accepted<QuoteRequestAccepted> accepted => accepted,
@@ -67,10 +56,7 @@ public static class HoldingEndpoints
     }
 
     /// <summary>The most recent quote request for the holdings, with its results, so a client can show the last LTPs.</summary>
-    private static async Task<Results<Ok<QuoteRequestDetails>, ProblemHttpResult>> GetLatestQuotesAsync(
-        QuoteRequestRepository requests,
-        HttpContext http,
-        CancellationToken cancellationToken)
+    private static async Task<Results<Ok<QuoteRequestDetails>, ProblemHttpResult>> GetLatestQuotesAsync(QuoteRequestRepository requests, HttpContext http, CancellationToken cancellationToken)
     {
         if (await requests.GetLatestForHoldingsAsync(includeResults: true, cancellationToken) is not { } request)
             return TypedResults.Problem("No quotes have been requested for the holdings.", statusCode: StatusCodes.Status404NotFound);
@@ -84,13 +70,7 @@ public static class HoldingEndpoints
     /// Starts fetching the holdings of every fund on the list. Poll the returned status URL for progress. While a
     /// fetch is queued or running, starting another returns that one instead.
     /// </summary>
-    private static async Task<Results<Accepted<HoldingFetch>, Ok<HoldingFetch>, ProblemHttpResult>> StartAsync(
-        HoldingRepository holdings,
-        MyFundRepository funds,
-        FyersSymbolRepository symbols,
-        HoldingFetchQueue queue,
-        ILoggerFactory loggers,
-        CancellationToken cancellationToken)
+    private static async Task<Results<Accepted<HoldingFetch>, Ok<HoldingFetch>, ProblemHttpResult>> StartAsync(HoldingRepository holdings, MyFundRepository funds, FyersSymbolRepository symbols, HoldingFetchQueue queue, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         List<Guid> unfinished = await holdings.GetUnfinishedFetchIdsAsync(cancellationToken);
         if (unfinished.Count > 0 && await holdings.GetFetchAsync(unfinished[^1], cancellationToken) is { } running)
@@ -99,10 +79,7 @@ public static class HoldingEndpoints
         List<MyFundRecord> listed = await funds.GetAllAsync(cancellationToken);
         if (listed.Count == 0)
         {
-            return TypedResults.Problem(
-                "There are no funds on the list. Add some with PUT /api/my-funds/{schemeCode} first.",
-                statusCode: StatusCodes.Status400BadRequest,
-                title: "No funds to fetch");
+            return TypedResults.Problem("There are no funds on the list. Add some with PUT /api/my-funds/{schemeCode} first.", statusCode: StatusCodes.Status400BadRequest, title: "No funds to fetch");
         }
 
         if ((await symbols.GetStatusAsync(cancellationToken)).SymbolCount == 0)
@@ -110,16 +87,11 @@ public static class HoldingEndpoints
 
         HoldingFetchRecord fetch = await holdings.CreateFetchAsync(listed, cancellationToken);
         queue.Enqueue(fetch.Id);
-        loggers.CreateLogger(typeof(HoldingEndpoints)).LogInformation(
-            "Queued holdings fetch {FetchId} for {FundCount} funds", fetch.Id, listed.Count);
+        loggers.CreateLogger(typeof(HoldingEndpoints)).LogInformation("Queued holdings fetch {FetchId} for {FundCount} funds", fetch.Id, listed.Count);
         return TypedResults.Accepted($"/api/holdings/fetches/{fetch.Id}", ToDto(fetch));
     }
 
-    private static async Task<Results<Ok<HoldingFetch>, ProblemHttpResult>> GetAsync(
-        Guid id,
-        HoldingRepository holdings,
-        HttpContext http,
-        CancellationToken cancellationToken)
+    private static async Task<Results<Ok<HoldingFetch>, ProblemHttpResult>> GetAsync(Guid id, HoldingRepository holdings, HttpContext http, CancellationToken cancellationToken)
     {
         if (await holdings.GetFetchAsync(id, cancellationToken) is not { } fetch)
             return TypedResults.Problem($"Holdings fetch {id} was not found.", statusCode: StatusCodes.Status404NotFound);
@@ -127,10 +99,7 @@ public static class HoldingEndpoints
     }
 
     /// <summary>The most recently started fetch, so a client can show the progress of one it didn't start.</summary>
-    private static async Task<Results<Ok<HoldingFetch>, ProblemHttpResult>> GetLatestAsync(
-        HoldingRepository holdings,
-        HttpContext http,
-        CancellationToken cancellationToken)
+    private static async Task<Results<Ok<HoldingFetch>, ProblemHttpResult>> GetLatestAsync(HoldingRepository holdings, HttpContext http, CancellationToken cancellationToken)
     {
         if (await holdings.GetLatestFetchAsync(cancellationToken) is not { } fetch)
             return TypedResults.Problem("Holdings have never been fetched.", statusCode: StatusCodes.Status404NotFound);
@@ -138,12 +107,7 @@ public static class HoldingEndpoints
     }
 
     /// <param name="month">The month to show, as 2026-09; the latest stored month by default.</param>
-    private static async Task<Results<Ok<FundHoldings>, ProblemHttpResult>> GetHoldingsAsync(
-        int schemeCode,
-        string? month,
-        MyFundRepository funds,
-        HoldingRepository holdings,
-        CancellationToken cancellationToken)
+    private static async Task<Results<Ok<FundHoldings>, ProblemHttpResult>> GetHoldingsAsync(int schemeCode, string? month, MyFundRepository funds, HoldingRepository holdings, CancellationToken cancellationToken)
     {
         if (await funds.FindAsync(schemeCode, cancellationToken) is not { } fund)
             return TypedResults.Problem($"Scheme {schemeCode} isn't on the list.", statusCode: StatusCodes.Status404NotFound, title: "Fund not found");
@@ -151,10 +115,7 @@ public static class HoldingEndpoints
         List<DateOnly> months = await holdings.GetMonthsAsync(schemeCode, cancellationToken);
         if (months.Count == 0 || fund.ScanxScheme is not { } scanxScheme || fund.HoldingsFetchedAt is not { } fetchedAt)
         {
-            return TypedResults.Problem(
-                $"{fund.SchemeName} has no holdings yet. Fetch them with POST /api/holdings/fetches.",
-                statusCode: StatusCodes.Status404NotFound,
-                title: "No holdings");
+            return TypedResults.Problem($"{fund.SchemeName} has no holdings yet. Fetch them with POST /api/holdings/fetches.", statusCode: StatusCodes.Status404NotFound, title: "No holdings");
         }
 
         DateOnly shown = months[0];
@@ -206,6 +167,5 @@ public static class HoldingEndpoints
         f.Funds.Count,
         f.Funds.Count(x => x.Status.IsFinished()),
         f.Error,
-        [.. f.Funds.OrderBy(x => x.Position).Select(x => new HoldingFetchFund(
-            x.SchemeCode, x.SchemeName, x.Status, x.ScanxScheme, x.HoldingCount, x.Month, x.Error))]);
+        [.. f.Funds.OrderBy(x => x.Position).Select(x => new HoldingFetchFund(x.SchemeCode, x.SchemeName, x.Status, x.ScanxScheme, x.HoldingCount, x.Month, x.Error))]);
 }

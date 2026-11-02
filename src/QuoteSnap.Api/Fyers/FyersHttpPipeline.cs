@@ -51,9 +51,7 @@ public sealed class FyersRateLimiter : IDisposable
         TimeSpan waited = Stopwatch.GetElapsedTime(start);
         if (waited >= NotableWait)
         {
-            _logger.LogInformation(
-                "Held a Fyers call for {WaitedMs:0} ms to stay within {PerSecond} calls/s and {PerMinute} calls/min",
-                waited.TotalMilliseconds, _options.MaxRequestsPerSecond, _options.MaxRequestsPerMinute);
+            _logger.LogInformation("Held a Fyers call for {WaitedMs:0} ms to stay within {PerSecond} calls/s and {PerMinute} calls/min", waited.TotalMilliseconds, _options.MaxRequestsPerSecond, _options.MaxRequestsPerMinute);
         }
         else if (waited > TimeSpan.Zero)
         {
@@ -70,9 +68,7 @@ public sealed class FyersRateLimiter : IDisposable
 
 public sealed class FyersRateLimitHandler(FyersRateLimiter limiter) : DelegatingHandler
 {
-    protected override async Task<HttpResponseMessage> SendAsync(
-        HttpRequestMessage request,
-        CancellationToken cancellationToken)
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         await limiter.WaitAsync(cancellationToken);
         return await base.SendAsync(request, cancellationToken);

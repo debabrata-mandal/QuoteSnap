@@ -1,3 +1,4 @@
+using QuoteSnap.Contracts;
 using QuoteSnap.Desktop.Text;
 
 namespace QuoteSnap.Desktop.Tests;
@@ -75,5 +76,30 @@ public sealed class FundTextTests
         using CultureScope _ = new("en-IN");
 
         Assert.Equal(expected, FundText.Nav(decimal.Parse(nav, System.Globalization.CultureInfo.InvariantCulture)));
+    }
+
+    private static NavEstimate Estimate(DateOnly? month = null, decimal? change = 0.2204m) =>
+        new(1, "Defence Fund", 14.285m, new DateOnly(2026, 10, 29), month, change, change is null ? null : 14.3165m, 17.5m, 2, 3);
+
+    [Fact]
+    public void The_estimate_tip_says_what_the_estimate_is_based_on()
+    {
+        using CultureScope _ = new("en-IN");
+        DateTimeOffset pricesAt = DateTimeOffset.Now;
+
+        string tip = FundText.EstimateTip(Estimate(new DateOnly(2026, 9, 1)), pricesAt, pricesAt.LocalDateTime.Date);
+
+        Assert.StartsWith($"From 2 of 3 holdings (17.50% of assets) in the {HoldingText.Month(new DateOnly(2026, 9, 1))} portfolio; the rest count as unchanged · on the NAV of 29 Oct 2026 · prices today", tip);
+    }
+
+    [Fact]
+    public void The_estimate_tip_explains_a_missing_estimate()
+    {
+        Assert.Equal("No holdings yet. Fetch them on the Holdings page to estimate this fund.",
+            FundText.EstimateTip(Estimate(), DateTimeOffset.Now));
+        Assert.Equal("No live prices yet. Press Get live prices to estimate today's NAV.",
+            FundText.EstimateTip(Estimate(new DateOnly(2026, 9, 1), null), null));
+        Assert.Equal("None of its 3 holdings has a live price, so it can't be estimated.",
+            FundText.EstimateTip(Estimate(new DateOnly(2026, 9, 1), null), DateTimeOffset.Now));
     }
 }

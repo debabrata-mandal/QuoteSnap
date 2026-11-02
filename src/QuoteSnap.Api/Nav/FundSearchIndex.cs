@@ -55,9 +55,7 @@ public sealed partial class FundSearchIndex
         string upper = trimmed.ToUpperInvariant();
         if (IsinPattern().IsMatch(upper))
         {
-            return new FundSearchResult(
-                [.. _entries.Where(e => e.Nav.Isin == upper || e.Nav.IsinReinvestment == upper).Select(e => e.Nav).Take(limit)],
-                false);
+            return new FundSearchResult([.. _entries.Where(e => e.Nav.Isin == upper || e.Nav.IsinReinvestment == upper).Select(e => e.Nav).Take(limit)], false);
         }
 
         string[] words = [.. Words(trimmed).Select(w => Synonyms.GetValueOrDefault(w, w))];

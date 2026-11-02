@@ -9,11 +9,7 @@ namespace QuoteSnap.Api.Holdings;
 /// Downloads Fyers' NSE and BSE cash-market symbol masters (no login is needed) and replaces the stored symbols, giving
 /// each listed ISIN its NSE symbol, or its BSE one when it isn't listed on NSE.
 /// </summary>
-public sealed class FyersSymbolImporter(
-    HttpClient http,
-    FyersSymbolRepository repository,
-    TimeProvider time,
-    ILogger<FyersSymbolImporter> logger)
+public sealed class FyersSymbolImporter(HttpClient http, FyersSymbolRepository repository, TimeProvider time, ILogger<FyersSymbolImporter> logger)
 {
     /// <exception cref="HttpRequestException">A download failed.</exception>
     /// <exception cref="FormatException">A file isn't a symbol master; the stored symbols are kept.</exception>

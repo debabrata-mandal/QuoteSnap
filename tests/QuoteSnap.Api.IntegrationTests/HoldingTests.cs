@@ -434,4 +434,49 @@ public sealed class HoldingTests
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, ex.StatusCode);
     }
+
+    [Fact]
+    public async Task Each_funds_nav_is_estimated_from_its_holdings_weights_and_their_day_changes()
+    {
+        await using QuoteSnapApiFactory factory = await ListedAsync(true, Dsp, Motilal, Parag);
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+        await factory.SeedSessionAsync();
+        await FetchAsync(client);
+
+        NavEstimateList before = await client.GetNavEstimatesAsync();
+        Assert.Null(before.RequestId);
+        Assert.Null(before.PricesAt);
+        Assert.Equal([Dsp, Motilal, Parag], before.Funds.Select(f => f.SchemeCode));
+        Assert.All(before.Funds, f => Assert.Null(f.ChangePercent));
+        Assert.Equal(3, before.Funds[0].TotalHoldings);
+        Assert.Equal(September, before.Funds[0].HoldingsMonth);
+
+        QuoteRequestAccepted accepted = await client.StartHoldingQuotesAsync();
+        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(20));
+        await client.WaitForCompletionAsync(accepted.RequestId, cancellationToken: timeout.Token);
+
+        NavEstimateList after = await client.GetNavEstimatesAsync();
+        Assert.Equal(accepted.RequestId, after.RequestId);
+        Assert.NotNull(after.PricesAt);
+
+        // Every stock moves 1.25 on 99.25 (+1.2594%); DSP's 3.2% in TREPS counts as unchanged.
+        NavEstimate dsp = after.Funds[0];
+        Assert.Equal(0.2204m, dsp.ChangePercent);
+        Assert.Equal(14.285m, dsp.Nav);
+        Assert.Equal(new DateOnly(2026, 10, 29), dsp.NavDate);
+        Assert.Equal(14.3165m, dsp.EstimatedNav);
+        Assert.Equal(17.5m, dsp.PricedPercent);
+        Assert.Equal(2, dsp.PricedHoldings);
+        Assert.Equal(3, dsp.TotalHoldings);
+
+        NavEstimate motilal = after.Funds[1];
+        Assert.Equal(0.2519m, motilal.ChangePercent);
+        Assert.Equal(11.6589m, motilal.EstimatedNav);
+
+        // Parag Parikh has no holdings on ScanX, so it can't be estimated.
+        NavEstimate parag = after.Funds[2];
+        Assert.Null(parag.HoldingsMonth);
+        Assert.Null(parag.ChangePercent);
+        Assert.Equal(92.1m, parag.Nav);
+    }
 }

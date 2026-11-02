@@ -45,6 +45,28 @@ public sealed partial class FundRow : ObservableObject
     [ObservableProperty]
     public partial bool IsAdded { get; set; }
 
+    /// <summary>Today's estimated move, from <see cref="ShowEstimate"/>; null until estimates are loaded.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EstimateChangePercent), nameof(EstimateChangeText), nameof(EstimatedNavText), nameof(HasEstimatedNav))]
+    public partial NavEstimate? Estimate { get; private set; }
+
+    [ObservableProperty]
+    public partial string? EstimateTip { get; private set; }
+
+    public decimal? EstimateChangePercent => Estimate?.ChangePercent;
+
+    public string EstimateChangeText => HoldingText.DayChange(Estimate?.ChangePercent);
+
+    public bool HasEstimatedNav => Estimate?.EstimatedNav is not null;
+
+    public string EstimatedNavText => Estimate?.EstimatedNav is { } nav ? FundText.Nav(nav) : Display.Missing;
+
+    public void ShowEstimate(NavEstimate? estimate, DateTimeOffset? pricesAt)
+    {
+        Estimate = estimate;
+        EstimateTip = estimate is null ? null : FundText.EstimateTip(estimate, pricesAt);
+    }
+
     /// <summary>NAVs are loaded but AMFI's file no longer has this scheme (merged or closed).</summary>
     public bool IsMissing { get; private init; }
 

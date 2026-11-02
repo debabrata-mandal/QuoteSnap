@@ -167,9 +167,7 @@ public sealed class QuoteRequestTests
                 await first.SeedSessionAsync();
                 await using AsyncServiceScope scope = first.Services.CreateAsyncScope();
                 QuoteRequestRepository repository = scope.ServiceProvider.GetRequiredService<QuoteRequestRepository>();
-                QuoteRequest request = await repository.CreateAsync(
-                    [new SymbolEntry("NSE:SBIN-EQ", true), new SymbolEntry("NSE:TCS-EQ", true)],
-                    CancellationToken.None);
+                QuoteRequest request = await repository.CreateAsync([new SymbolEntry("NSE:SBIN-EQ", true), new SymbolEntry("NSE:TCS-EQ", true)], CancellationToken.None);
                 await repository.TryStartAsync(request.Id, CancellationToken.None);
                 requestId = request.Id;
             }

@@ -9,13 +9,7 @@ using QuoteSnap.Contracts;
 namespace QuoteSnap.Api.Services;
 
 /// <summary>Processes quote requests one at a time, fetching their batches sequentially.</summary>
-public sealed class QuoteRequestWorker(
-    QuoteRequestQueue queue,
-    IServiceScopeFactory scopes,
-    SessionService session,
-    IOptions<FyersOptions> fyersOptions,
-    TimeProvider time,
-    ILogger<QuoteRequestWorker> logger) : BackgroundService
+public sealed class QuoteRequestWorker(QuoteRequestQueue queue, IServiceScopeFactory scopes, SessionService session, IOptions<FyersOptions> fyersOptions, TimeProvider time, ILogger<QuoteRequestWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -67,9 +61,7 @@ public sealed class QuoteRequestWorker(
         int batchSize = fyersOptions.Value.BatchSize;
         TimeSpan delay = TimeSpan.FromMilliseconds(fyersOptions.Value.DelayBetweenBatchesMs);
         string[][] batches = pending.Chunk(batchSize).ToArray();
-        logger.LogInformation(
-            "Quote request {RequestId}: fetching {SymbolCount} symbols from Fyers in {BatchCount} batches of up to {BatchSize}, {DelayMs:0} ms apart",
-            requestId, pending.Count, batches.Length, batchSize, delay.TotalMilliseconds);
+        logger.LogInformation("Quote request {RequestId}: fetching {SymbolCount} symbols from Fyers in {BatchCount} batches of up to {BatchSize}, {DelayMs:0} ms apart", requestId, pending.Count, batches.Length, batchSize, delay.TotalMilliseconds);
 
         string? error = null;
         int succeeded = 0, failed = 0;
@@ -83,9 +75,7 @@ public sealed class QuoteRequestWorker(
                     BatchInfo info = new(requestId, i + 1, batches.Length, batches[i].Length);
                     if (i > 0 && delay > TimeSpan.Zero)
                     {
-                        logger.LogDebug(
-                            "Quote request {RequestId}: waiting {DelayMs:0} ms before batch {Batch}/{BatchCount}",
-                            requestId, delay.TotalMilliseconds, info.Number, info.Count);
+                        logger.LogDebug("Quote request {RequestId}: waiting {DelayMs:0} ms before batch {Batch}/{BatchCount}", requestId, delay.TotalMilliseconds, info.Number, info.Count);
                         await Task.Delay(delay, time, cancellationToken);
                     }
 
@@ -104,9 +94,7 @@ public sealed class QuoteRequestWorker(
         }
         catch (FyersReloginRequiredException ex)
         {
-            logger.LogWarning(
-                "Quote request {RequestId}: Fyers needs a new login; the {Remaining} remaining symbols are marked failed",
-                requestId, pending.Count - succeeded - failed);
+            logger.LogWarning("Quote request {RequestId}: Fyers needs a new login; the {Remaining} remaining symbols are marked failed", requestId, pending.Count - succeeded - failed);
             error = ex.Message;
             await repository.FailPendingAsync(requestId, ex.Message, cancellationToken);
         }
@@ -119,12 +107,7 @@ public sealed class QuoteRequestWorker(
 
     private sealed record BatchInfo(Guid RequestId, int Number, int Count, int Symbols);
 
-    private async Task<(IReadOnlyList<ProviderQuote> Quotes, AccessTokenLease Lease)> FetchBatchAsync(
-        IQuoteProvider provider,
-        AccessTokenLease lease,
-        IReadOnlyList<string> batch,
-        BatchInfo info,
-        CancellationToken cancellationToken)
+    private async Task<(IReadOnlyList<ProviderQuote> Quotes, AccessTokenLease Lease)> FetchBatchAsync(IQuoteProvider provider, AccessTokenLease lease, IReadOnlyList<string> batch, BatchInfo info, CancellationToken cancellationToken)
     {
         for (int attempt = 0; ; attempt++)
         {
@@ -134,16 +117,12 @@ public sealed class QuoteRequestWorker(
             }
             catch (FyersAuthException ex) when (attempt == 0)
             {
-                logger.LogInformation(
-                    "Quote request {RequestId}: Fyers rejected the access token on batch {Batch}/{BatchCount} ({Reason}); refreshing it and retrying",
-                    info.RequestId, info.Number, info.Count, ex.Message);
+                logger.LogInformation("Quote request {RequestId}: Fyers rejected the access token on batch {Batch}/{BatchCount} ({Reason}); refreshing it and retrying", info.RequestId, info.Number, info.Count, ex.Message);
                 lease = await session.RefreshAsync(lease.Version, cancellationToken);
             }
             catch (FyersAuthException ex)
             {
-                logger.LogWarning(
-                    "Quote request {RequestId}: Fyers rejected a freshly refreshed access token on batch {Batch}/{BatchCount}: {Reason}",
-                    info.RequestId, info.Number, info.Count, ex.Message);
+                logger.LogWarning("Quote request {RequestId}: Fyers rejected a freshly refreshed access token on batch {Batch}/{BatchCount}: {Reason}", info.RequestId, info.Number, info.Count, ex.Message);
                 throw new FyersReloginRequiredException();
             }
             catch (Exception ex) when (IsFetchFailure(ex, cancellationToken))

@@ -10,13 +10,7 @@ public sealed record ScanxScheme(string Amc, int PlanId, string Name);
 /// <param name="AssetType">ScanX's grouping, e.g. "Equity", "Futures", "TREPS".</param>
 /// <param name="Symbol">The exchange symbol; null for instruments that aren't listed, such as bonds and TREPS.</param>
 /// <param name="Months">Newest first.</param>
-public sealed record ScanxHolding(
-    string AssetType,
-    string Name,
-    string? Symbol,
-    string? Isin,
-    string? Sector,
-    IReadOnlyList<ScanxHoldingMonth> Months);
+public sealed record ScanxHolding(string AssetType, string Name, string? Symbol, string? Isin, string? Sector, IReadOnlyList<ScanxHoldingMonth> Months);
 
 /// <param name="Month">The first day of the month.</param>
 public sealed record ScanxHoldingMonth(DateOnly Month, decimal Percent, decimal Shares);

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using QuoteSnap.Contracts;
 
 namespace QuoteSnap.Desktop.Text;
 
@@ -98,6 +99,30 @@ public static partial class FundText
 
     /// <summary>"1,161.81" or "402.6856": at least 2 decimals, up to the 4 AMFI publishes.</summary>
     public static string Nav(decimal nav) => nav.ToString("#,##0.00##", CultureInfo.CurrentCulture);
+
+    /// <summary>
+    /// How an estimate was made: "From 22 of 24 holdings (94.10% of assets) in the Sep 2026 portfolio · on the NAV of
+    /// 31 Oct 2026 · prices today, 11:20:05", or why there isn't one.
+    /// </summary>
+    public static string EstimateTip(NavEstimate estimate, DateTimeOffset? pricesAt, DateTime? today = null)
+    {
+        if (estimate.HoldingsMonth is not { } month)
+            return "No holdings yet. Fetch them on the Holdings page to estimate this fund.";
+        if (pricesAt is null)
+            return "No live prices yet. Press Get live prices to estimate today's NAV.";
+        if (estimate.ChangePercent is null)
+            return $"None of its {Display.Count(estimate.TotalHoldings, "holding")} has a live price, so it can't be estimated.";
+
+        List<string> parts =
+        [
+            $"From {estimate.PricedHoldings.ToString("N0", CultureInfo.CurrentCulture)} of {Display.Count(estimate.TotalHoldings, "holding")} "
+                + $"({estimate.PricedPercent.ToString("N2", CultureInfo.CurrentCulture)}% of assets) in the {HoldingText.Month(month)} portfolio; the rest count as unchanged",
+        ];
+        if (estimate.NavDate is { } navDate)
+            parts.Add($"on the NAV of {Display.Date(navDate)}");
+        parts.Add($"prices {Display.WhenInSentence(pricesAt, today)}");
+        return string.Join(" · ", parts);
+    }
 
     [GeneratedRegex(@"\b(Schemes?|Oriented)\b", RegexOptions.IgnoreCase)]
     private static partial Regex CategoryNoise();

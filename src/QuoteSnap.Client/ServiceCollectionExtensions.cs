@@ -5,9 +5,7 @@ namespace QuoteSnap.Client;
 
 public static class ServiceCollectionExtensions
 {
-    public static IHttpClientBuilder AddQuoteSnapClient(
-        this IServiceCollection services,
-        Action<QuoteSnapClientOptions> configure)
+    public static IHttpClientBuilder AddQuoteSnapClient(this IServiceCollection services, Action<QuoteSnapClientOptions> configure)
     {
         services.Configure(configure);
         services.AddTransient<FyersLoginFlow>();

@@ -8,9 +8,7 @@ namespace QuoteSnap.Api.Logging;
 /// </summary>
 public sealed class ExternalCallLoggingHandler(string service, ILogger<ExternalCallLoggingHandler> logger) : DelegatingHandler
 {
-    protected override async Task<HttpResponseMessage> SendAsync(
-        HttpRequestMessage request,
-        CancellationToken cancellationToken)
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         string method = request.Method.Method;
         string path = request.RequestUri?.AbsolutePath ?? "";
