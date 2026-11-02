@@ -16,6 +16,7 @@ public static class MyFundEndpoints
         RouteGroupBuilder group = app.MapGroup("/api/my-funds").RequireApiKey().WithTags("My funds");
         group.MapGet("/", GetAllAsync);
         group.MapGet("/estimates", GetEstimatesAsync);
+        group.MapPut("/order", ReorderAsync);
         group.MapPut("/{schemeCode:int}", AddAsync);
         group.MapDelete("/{schemeCode:int}", RemoveAsync);
         return app;
@@ -87,6 +88,17 @@ public static class MyFundEndpoints
                 await events.ChangedAsync(ServerChange.MyFunds);
         }
 
+        return TypedResults.NoContent();
+    }
+
+    /// <summary>Rearranges the list; the body must name every fund on it exactly once.</summary>
+    private static async Task<Results<NoContent, ProblemHttpResult>> ReorderAsync(MyFundOrder order, MyFundRepository funds, EventPublisher events, ILoggerFactory loggers, CancellationToken cancellationToken)
+    {
+        if (!await funds.ReorderAsync(order.SchemeCodes ?? [], cancellationToken))
+            return TypedResults.Problem("The order must list every fund on your list exactly once. Reload the list with GET /api/my-funds and try again.", statusCode: StatusCodes.Status409Conflict, title: "The list has changed");
+
+        loggers.CreateLogger(typeof(MyFundEndpoints)).LogInformation("Reordered my funds: {SchemeCodes}", order.SchemeCodes);
+        await events.ChangedAsync(ServerChange.MyFunds);
         return TypedResults.NoContent();
     }
 

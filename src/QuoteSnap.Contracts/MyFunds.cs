@@ -6,9 +6,13 @@ namespace QuoteSnap.Contracts;
 /// <param name="Holdings">The stored holdings; null until they've been fetched.</param>
 public sealed record MyFund(int SchemeCode, string SchemeName, string? FundHouse, string? Option, string? Category, DateTimeOffset AddedAt, FundNav? Latest, HoldingsSummary? Holdings = null);
 
-/// <param name="Funds">In the order they were added.</param>
+/// <param name="Funds">In the user's order: the order they were added in until rearranged with PUT /api/my-funds/order.</param>
 /// <param name="LoadedAt">When the AMFI file was last downloaded; null until the first refresh.</param>
 public sealed record MyFundList(IReadOnlyList<MyFund> Funds, DateTimeOffset? LoadedAt);
+
+/// <summary>A new order for the fund list.</summary>
+/// <param name="SchemeCodes">Every fund on the list, each once, in the new order.</param>
+public sealed record MyFundOrder(IReadOnlyList<int> SchemeCodes);
 
 /// <summary>Today's NAV estimates for the funds on the list, from their holdings and the last live prices.</summary>
 /// <param name="RequestId">The finished holdings quote request the prices come from; null when none has finished.</param>

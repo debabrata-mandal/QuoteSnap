@@ -18,6 +18,9 @@ public sealed class MyFundRecord
 
     public DateTimeOffset AddedAt { get; set; }
 
+    /// <summary>Where the fund sits in the user's list, from 0; new funds go last.</summary>
+    public int Position { get; set; }
+
     /// <summary>The ScanX scheme the holdings were last fetched from; null until the first fetch finds one.</summary>
     public int? ScanxPlanId { get; set; }
 

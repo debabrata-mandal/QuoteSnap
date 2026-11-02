@@ -45,6 +45,10 @@ public sealed partial class FundRow : ObservableObject
     [ObservableProperty]
     public partial bool IsAdded { get; set; }
 
+    /// <summary>True while the user drags the row to a new place in the list.</summary>
+    [ObservableProperty]
+    public partial bool IsDragging { get; set; }
+
     /// <summary>Today's estimated move, from <see cref="ShowEstimate"/>; null until estimates are loaded.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EstimateChangePercent), nameof(EstimateChangeText), nameof(EstimatedNavText), nameof(HasEstimatedNav))]

@@ -48,6 +48,42 @@ public sealed class MyFundTests
     }
 
     [Fact]
+    public async Task The_list_keeps_the_users_order_and_new_funds_go_last()
+    {
+        await using QuoteSnapApiFactory factory = new() { NavFile = File };
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+        await client.RefreshNavsAsync();
+        await client.AddMyFundAsync(152712);
+        await client.AddMyFundAsync(152045);
+
+        await client.ReorderMyFundsAsync([152045, 152712]);
+        Assert.Equal([152045, 152712], (await client.GetMyFundsAsync()).Funds.Select(f => f.SchemeCode));
+
+        await client.RemoveMyFundAsync(152045);
+        await client.AddMyFundAsync(152045);
+        Assert.Equal([152712, 152045], (await client.GetMyFundsAsync()).Funds.Select(f => f.SchemeCode));
+    }
+
+    [Theory]
+    [InlineData(new[] { 152045 })]
+    [InlineData(new[] { 152045, 152045 })]
+    [InlineData(new[] { 152045, 152712, 999999 })]
+    [InlineData(new[] { 152045, 999999 })]
+    public async Task A_reorder_must_name_every_fund_once(int[] schemeCodes)
+    {
+        await using QuoteSnapApiFactory factory = new() { NavFile = File };
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+        await client.RefreshNavsAsync();
+        await client.AddMyFundAsync(152712);
+        await client.AddMyFundAsync(152045);
+
+        QuoteSnapApiException ex = await Assert.ThrowsAsync<QuoteSnapApiException>(() => client.ReorderMyFundsAsync(schemeCodes));
+
+        Assert.Equal(HttpStatusCode.Conflict, ex.StatusCode);
+        Assert.Equal([152712, 152045], (await client.GetMyFundsAsync()).Funds.Select(f => f.SchemeCode));
+    }
+
+    [Fact]
     public async Task Adding_a_fund_twice_keeps_one_entry()
     {
         await using QuoteSnapApiFactory factory = new() { NavFile = File };

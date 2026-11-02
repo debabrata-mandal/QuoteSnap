@@ -41,7 +41,7 @@ public sealed partial class NavViewModel : ObservableObject
     public ListCollectionView MyFundsView { get; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsReordered), nameof(EstimateHeaderText))]
+    [NotifyPropertyChangedFor(nameof(IsReordered), nameof(EstimateHeaderText), nameof(CanReorder))]
     public partial FundOrder Order { get; private set; }
 
     public bool IsReordered => Order != FundOrder.Original;
@@ -225,6 +225,36 @@ public sealed partial class NavViewModel : ObservableObject
         }
     }
 
+    /// <summary>Whether rows can be dragged: only in the user's own order, not while sorted by estimate.</summary>
+    public bool CanReorder => !IsReordered && MyFunds.Count > 1;
+
+    /// <summary>Moves <paramref name="row"/> to where <paramref name="target"/> is, as the user drags it; <see cref="SaveOrderAsync"/> keeps the result.</summary>
+    public void MoveFund(FundRow row, FundRow target)
+    {
+        int from = MyFunds.IndexOf(row);
+        int to = MyFunds.IndexOf(target);
+        if (from >= 0 && to >= 0 && from != to)
+            MyFunds.Move(from, to);
+    }
+
+    /// <summary>Saves the list's order after a drag, if it changed; reloads the saved order when the save fails.</summary>
+    public async Task SaveOrderAsync(IReadOnlyList<int> before)
+    {
+        List<int> after = [.. MyFunds.Select(f => f.SchemeCode)];
+        if (after.SequenceEqual(before))
+            return;
+
+        try
+        {
+            await _connection.Client.ReorderMyFundsAsync(after);
+        }
+        catch (Exception ex)
+        {
+            Report(StatusLevel.Bad, $"Couldn't save the new order. {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}");
+            await RefreshMyFundsAsync();
+        }
+    }
+
     [RelayCommand]
     private async Task RefreshMyFundsAsync()
     {
@@ -399,6 +429,7 @@ public sealed partial class NavViewModel : ObservableObject
         OnPropertyChanged(nameof(HasFunds));
         OnPropertyChanged(nameof(ShowEmptyState));
         OnPropertyChanged(nameof(MyFundsSummary));
+        OnPropertyChanged(nameof(CanReorder));
         DateOnly? latest = MyFunds.Select(f => f.Nav?.NavDate).Max();
         AsOfText = latest is { } date ? $"NAVs as of {Display.Date(date)}" : null;
         ExportCommand.NotifyCanExecuteChanged();

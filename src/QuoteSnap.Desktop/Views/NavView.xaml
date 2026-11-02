@@ -19,7 +19,7 @@
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
-    <!-- A fund on the user's list: avatar, name, "Growth · Equity · Large & Mid Cap", NAV and date; remove appears on hover. -->
+    <!-- A fund on the user's list: avatar, name, "Growth · Equity · Large & Mid Cap", NAV and date; remove appears on hover. Drag a row to move it. -->
     <DataTemplate x:Key="MyFundTemplate" DataType="{x:Type vm:FundRow}">
       <Border x:Name="Row" Padding="20,12,12,12" Background="Transparent" BorderBrush="{StaticResource DividerBrush}" BorderThickness="0,0,0,1"
               ToolTip="{Binding Details}">
@@ -82,6 +82,13 @@
         <DataTrigger Binding="{Binding IsMissing}" Value="True">
           <Setter TargetName="NavBlock" Property="Visibility" Value="Collapsed" />
           <Setter TargetName="MissingText" Property="Visibility" Value="Visible" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding DataContext.CanReorder, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="True">
+          <Setter TargetName="Row" Property="Cursor" Value="SizeAll" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding IsDragging}" Value="True">
+          <Setter TargetName="Row" Property="Background" Value="{StaticResource HoverBrush}" />
+          <Setter TargetName="Row" Property="Opacity" Value="0.6" />
         </DataTrigger>
       </DataTemplate.Triggers>
     </DataTemplate>
@@ -167,7 +174,7 @@
           <DockPanel DockPanel.Dock="Top" Margin="20,14,14,12">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
               <Button Style="{StaticResource Button.Ghost}" Content="Original order" ui:Ui.Icon="&#xE8CB;" Margin="0,0,6,0" Height="32"
-                      ToolTip="Show the funds in the order you added them" Command="{Binding ShowOriginalOrderCommand}"
+                      ToolTip="Show the funds in your own order" Command="{Binding ShowOriginalOrderCommand}"
                       Visibility="{Binding IsReordered, Converter={StaticResource BoolToVisibility}}" />
               <Button Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE72C;" Margin="0,0,6,0" ToolTip="Reload the NAVs of your funds"
                       AutomationProperties.Name="Reload NAVs" Command="{Binding RefreshMyFundsCommand}"
@@ -208,7 +215,8 @@
           <Grid>
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
               <ItemsControl ItemsSource="{Binding MyFundsView}" ItemTemplate="{StaticResource MyFundTemplate}" Focusable="False"
-                            AutomationProperties.Name="My funds" Margin="0,0,0,8" />
+                            AutomationProperties.Name="My funds" Margin="0,0,0,8" AllowDrop="True"
+                            PreviewMouseLeftButtonDown="OnFundMouseDown" PreviewMouseMove="OnFundMouseMove" DragOver="OnFundDragOver" Drop="OnFundDrop" />
             </ScrollViewer>
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24,40" MaxWidth="360"
                         Visibility="{Binding ShowEmptyState, Converter={StaticResource BoolToVisibility}}">

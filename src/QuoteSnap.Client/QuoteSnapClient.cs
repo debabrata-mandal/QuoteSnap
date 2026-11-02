@@ -68,7 +68,7 @@ public sealed class QuoteSnapClient
         return await ReadAsync<NavLookup>(response, cancellationToken);
     }
 
-    /// <summary>The user's fund list, in the order the funds were added, with their latest NAVs.</summary>
+    /// <summary>The user's fund list, in the user's order, with their latest NAVs.</summary>
     public async Task<MyFundList> GetMyFundsAsync(CancellationToken cancellationToken = default)
     {
         using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "api/my-funds", null, admin: false, cancellationToken);
@@ -96,6 +96,13 @@ public sealed class QuoteSnapClient
     public async Task RemoveMyFundAsync(int schemeCode, CancellationToken cancellationToken = default)
     {
         using HttpResponseMessage response = await SendAsync(HttpMethod.Delete, $"api/my-funds/{schemeCode}", null, admin: false, cancellationToken);
+    }
+
+    /// <summary>Rearranges the user's list. <paramref name="schemeCodes"/> must name every fund on it exactly once; otherwise the API answers 409 Conflict.</summary>
+    public async Task ReorderMyFundsAsync(IReadOnlyList<int> schemeCodes, CancellationToken cancellationToken = default)
+    {
+        JsonContent body = JsonContent.Create(new MyFundOrder(schemeCodes), options: Json);
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Put, "api/my-funds/order", body, admin: false, cancellationToken);
     }
 
     public async Task<NavStatus> GetNavStatusAsync(CancellationToken cancellationToken = default)

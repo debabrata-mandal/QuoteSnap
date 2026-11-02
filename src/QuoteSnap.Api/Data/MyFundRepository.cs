@@ -5,9 +5,9 @@ namespace QuoteSnap.Api.Data;
 
 public sealed class MyFundRepository(QuoteSnapDbContext db)
 {
-    /// <summary>In the order they were added.</summary>
+    /// <summary>In the user's order: the order they were added in until the user rearranges them.</summary>
     public Task<List<MyFundRecord>> GetAllAsync(CancellationToken cancellationToken) =>
-        db.MyFunds.AsNoTracking().OrderBy(f => f.AddedAt).ThenBy(f => f.SchemeCode).ToListAsync(cancellationToken);
+        db.MyFunds.AsNoTracking().OrderBy(f => f.Position).ThenBy(f => f.AddedAt).ThenBy(f => f.SchemeCode).ToListAsync(cancellationToken);
 
     public Task<MyFundRecord?> FindAsync(int schemeCode, CancellationToken cancellationToken) =>
         db.MyFunds.AsNoTracking().SingleOrDefaultAsync(f => f.SchemeCode == schemeCode, cancellationToken);
@@ -18,6 +18,7 @@ public sealed class MyFundRepository(QuoteSnapDbContext db)
         if (await FindAsync(fund.SchemeCode, cancellationToken) is { } existing)
             return (existing, false);
 
+        fund.Position = (await db.MyFunds.MaxAsync(f => (int?)f.Position, cancellationToken) ?? -1) + 1;
         db.MyFunds.Add(fund);
         try
         {
@@ -30,6 +31,21 @@ public sealed class MyFundRepository(QuoteSnapDbContext db)
             db.ChangeTracker.Clear();
             return (await FindAsync(fund.SchemeCode, cancellationToken) ?? fund, false);
         }
+    }
+
+    /// <summary>Rearranges the list.</summary>
+    /// <param name="schemeCodes">Every fund on the list, each once, in the new order.</param>
+    /// <returns>False, changing nothing, when <paramref name="schemeCodes"/> isn't exactly the funds on the list.</returns>
+    public async Task<bool> ReorderAsync(IReadOnlyList<int> schemeCodes, CancellationToken cancellationToken)
+    {
+        Dictionary<int, MyFundRecord> funds = await db.MyFunds.ToDictionaryAsync(f => f.SchemeCode, cancellationToken);
+        if (schemeCodes.Count != funds.Count || schemeCodes.Distinct().Count() != funds.Count || !schemeCodes.All(funds.ContainsKey))
+            return false;
+
+        for (int i = 0; i < schemeCodes.Count; i++)
+            funds[schemeCodes[i]].Position = i;
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     /// <returns>False when the fund wasn't on the list.</returns>
