@@ -1,3 +1,4 @@
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using QuoteSnap.Client;
@@ -9,10 +10,15 @@ namespace QuoteSnap.Desktop.ViewModels;
 
 public sealed partial class NewRequestViewModel : ObservableObject
 {
+    public const string SearchHint = "Search stocks by company name, ticker or ISIN to add their Fyers symbols.";
     private const int InvalidSymbolsShown = 12;
+    private const int MinSearchLength = 2;
+    private const int SearchLimit = 20;
+    private static readonly TimeSpan SearchDelay = TimeSpan.FromMilliseconds(250);
 
     private readonly QuoteSnapConnection _connection;
     private readonly FileDialogs _dialogs;
+    private CancellationTokenSource? _search;
 
     public NewRequestViewModel(QuoteSnapConnection connection, FileDialogs dialogs)
     {
@@ -67,6 +73,26 @@ public sealed partial class NewRequestViewModel : ObservableObject
     [ObservableProperty]
     public partial string? Message { get; set; }
 
+    [ObservableProperty]
+    public partial string SearchText { get; set; } = "";
+
+    [ObservableProperty]
+    public partial IReadOnlyList<SymbolRow> SearchResults { get; set; } = [];
+
+    [ObservableProperty]
+    public partial bool IsSearching { get; set; }
+
+    /// <summary>Whether the results dropdown is open; it opens as you type and closes on Esc or a click elsewhere.</summary>
+    [ObservableProperty]
+    public partial bool IsSearchOpen { get; set; }
+
+    [ObservableProperty]
+    public partial string SearchEmptyText { get; set; } = SearchHint;
+
+    /// <summary>How many Fyers symbols the service has and when they were downloaded, as in "18,432 Fyers symbols, downloaded today, 09:50".</summary>
+    [ObservableProperty]
+    public partial string SymbolStatusText { get; set; } = "";
+
     public string SymbolSummary => SymbolCount == LineCount || SymbolCount == 0
         ? Display.Count(SymbolCount, "symbol")
         : $"{Display.Count(SymbolCount, "unique symbol")} · {Display.Count(LineCount, "line")}";
@@ -90,9 +116,124 @@ public sealed partial class NewRequestViewModel : ObservableObject
 
     partial void OnSymbolsTextChanged(string value)
     {
-        SymbolCount = ListInput.Parse(value).Count;
+        List<string> symbols = ListInput.Parse(value);
+        SymbolCount = symbols.Count;
         LineCount = value.Split('\n').Count(line => line.Trim().Length > 0);
+        HashSet<string> listed = new(symbols, StringComparer.OrdinalIgnoreCase);
+        foreach (SymbolRow row in SearchResults)
+            row.IsAdded = listed.Contains(row.Symbol);
     }
+
+    /// <summary>Called when the page is opened.</summary>
+    public Task ActivateAsync() => LoadSymbolStatusAsync();
+
+    partial void OnSearchTextChanged(string value)
+    {
+        _search?.Cancel();
+        _search?.Dispose();
+        _search = null;
+
+        string query = value.Trim();
+        if (query.Length < MinSearchLength)
+        {
+            IsSearching = false;
+            SearchResults = [];
+            SearchEmptyText = query.Length == 0 ? SearchHint : "Keep typing…";
+            IsSearchOpen = query.Length > 0;
+            return;
+        }
+
+        IsSearchOpen = true;
+        _search = new CancellationTokenSource();
+        _ = SearchAsync(query, _search.Token);
+    }
+
+    private async Task SearchAsync(string query, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(SearchDelay, cancellationToken);
+            IsSearching = true;
+            FyersSymbolSearchResult result = await _connection.Client.SearchSymbolsAsync(query, SearchLimit, cancellationToken);
+            if (cancellationToken.IsCancellationRequested)
+                return;
+
+            HashSet<string> listed = new(ListInput.Parse(SymbolsText), StringComparer.OrdinalIgnoreCase);
+            SearchResults = [.. result.Symbols.Select(s => new SymbolRow(s, listed.Contains(s.Symbol)))];
+            SearchEmptyText = $"No listed stock matches “{query}”. Try part of the company name or the NSE ticker.";
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            SearchResults = [];
+            SearchEmptyText = ErrorText.Describe(ex, _connection.Settings.BaseAddress);
+        }
+
+        IsSearching = false;
+    }
+
+    [RelayCommand]
+    private void ClearSearch()
+    {
+        SearchText = "";
+        IsSearchOpen = false;
+    }
+
+    /// <summary>Adds the stock's symbol to the end of the list, unless it's already there.</summary>
+    [RelayCommand]
+    private void AddSymbol(SymbolRow? row)
+    {
+        if (row is null)
+            return;
+
+        if (!ListInput.Parse(SymbolsText).Contains(row.Symbol, StringComparer.OrdinalIgnoreCase))
+        {
+            string text = SymbolsText.TrimEnd();
+            SymbolsText = text.Length == 0 ? row.Symbol : $"{text}{Environment.NewLine}{row.Symbol}";
+        }
+
+        row.IsAdded = true;
+    }
+
+    /// <summary>Enter in the search box adds the best match not yet on the list.</summary>
+    [RelayCommand]
+    private void AddTopResult() => AddSymbol(SearchResults.FirstOrDefault(r => !r.IsAdded));
+
+    [RelayCommand]
+    private async Task RefreshSymbolsAsync()
+    {
+        Message = null;
+        try
+        {
+            FyersSymbolRefreshResult result = await _connection.Client.RefreshSymbolsAsync();
+            ShowSymbolStatus(new FyersSymbolStatus(result.SymbolCount, result.LoadedAt));
+            Report(StatusLevel.Good,
+                $"Downloaded {Display.Count(result.SymbolCount, "Fyers symbol")}: {Display.Count(result.NseCount, "stock")} on NSE and {result.BseOnlyCount.ToString("N0", CultureInfo.CurrentCulture)} only on BSE. Fetch holdings again to apply them to fund holdings.");
+        }
+        catch (Exception ex)
+        {
+            Report(StatusLevel.Bad, $"Couldn't refresh the Fyers symbols. {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}");
+        }
+    }
+
+    private async Task LoadSymbolStatusAsync()
+    {
+        try
+        {
+            ShowSymbolStatus(await _connection.Client.GetSymbolStatusAsync());
+        }
+        catch (Exception)
+        {
+            SymbolStatusText = "Fyers symbols: unavailable";
+        }
+    }
+
+    private void ShowSymbolStatus(FyersSymbolStatus status) => SymbolStatusText = status.LoadedAt is { } loadedAt
+        ? $"{Display.Count(status.SymbolCount, "Fyers symbol")} for search and holdings, downloaded {Display.WhenInSentence(loadedAt)}"
+        : "Fyers symbols not downloaded yet. Refresh them to search stocks by name and to fetch fund holdings.";
 
     private bool CanSubmit() => SymbolCount > 0;
 

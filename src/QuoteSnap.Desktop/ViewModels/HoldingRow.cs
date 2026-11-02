@@ -33,7 +33,7 @@ public sealed class HoldingRow
 
     public string? Isin { get; }
 
-    /// <summary>"HDFCBANK · INE040A01034", or the asset type for unlisted lines such as TREPS.</summary>
+    /// <summary>"NSE:HDFCBANK-EQ · INE040A01034", or the asset type for unlisted lines such as TREPS.</summary>
     public string Details => string.Join(" · ", new[] { Symbol, Isin }.OfType<string>()) is { Length: > 0 } details ? details : AssetType;
 
     public string AssetType { get; }

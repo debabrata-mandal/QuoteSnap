@@ -43,6 +43,18 @@ public sealed class HoldingTests
 
     private const string Headers = """["sym","disp","exch","isin","shares","assetPerc","date","sector"]""";
 
+    // ICICI Bank is left out of the NSE file so its BSE symbol is used.
+    private const string NseMaster = """
+        10100000001333,HDFC BANK LTD,0,1,0.1,INE040A01034,0915-1530|1815-1915:,2026-10-30,,NSE:HDFCBANK-EQ,10,10,1333,HDFCBANK,1333,-1.0,XX,10100000001333,None,1,3.7
+        10100000002303,HINDUSTAN AERONAUTICS LTD,0,1,0.1,INE066F01020,0915-1530|1815-1915:,2026-10-30,,NSE:HAL-EQ,10,10,2303,HAL,2303,-1.0,XX,10100000002303,None,1,3.7
+        10100000000383,BHARAT ELECTRONICS LTD,0,1,0.05,INE263A01024,0915-1530|1815-1915:,2026-10-30,,NSE:BEL-EQ,10,10,383,BEL,383,-1.0,XX,10100000000383,None,1,3.7
+        """;
+
+    private const string BseMaster = """
+        1210000000500180,HDFC BANK LTD.,0,1,0.05,INE040A01034,0915-1530|1815-1915:,2026-10-30,,BSE:HDFCBANK-A,12,10,500180,HDFCBANK,500180,-1.0,XX,1210000000500180,None,0,0.0
+        1210000000532174,ICICI BANK LTD.,0,1,0.05,INE090A01021,0915-1530|1815-1915:,2026-10-30,,BSE:ICICIBANK-A,12,10,532174,ICICIBANK,532174,-1.0,XX,1210000000532174,None,0,0.0
+        """;
+
     /// <param name="percents">September, then August.</param>
     /// <param name="shares">September, then August.</param>
     private static string Row(string symbol, string name, string isin, string percents, string shares, string sector = "") =>
@@ -68,14 +80,21 @@ public sealed class HoldingTests
             """),
     ];
 
-    /// <summary>A service with NAVs loaded, the given funds on the list, and ScanX holdings for the DSP and Motilal funds.</summary>
+    /// <summary>A service with NAVs loaded, the given funds on the list, Fyers' symbol masters, and ScanX holdings for the DSP and Motilal funds.</summary>
     private static async Task<QuoteSnapApiFactory> ListedAsync(bool startWorker, params int[] schemeCodes)
     {
-        QuoteSnapApiFactory factory = new(startWorker: startWorker) { NavFile = NavFile, ScanxSchemes = Schemes };
+        QuoteSnapApiFactory factory = new(startWorker: startWorker)
+        {
+            NavFile = NavFile,
+            ScanxSchemes = Schemes,
+            NseSymbolMaster = NseMaster,
+            BseSymbolMaster = BseMaster,
+        };
         factory.ScanxHoldings[DspPlan] = DspPages;
         factory.ScanxHoldings[MotilalPlan] = MotilalPages;
         QuoteSnapClient client = factory.CreateQuoteSnapClient();
         await client.RefreshNavsAsync();
+        await client.RefreshSymbolsAsync();
         foreach (int code in schemeCodes)
             await client.AddMyFundAsync(code);
         return factory;
@@ -119,14 +138,15 @@ public sealed class HoldingTests
         Assert.Equal([September, August], dsp.Months);
         Assert.Equal(
             [
-                new FundHolding("HDFC Bank", "HDFCBANK", "INE040A01034", "Equity", "Banks", 9.5m, 1200m, 9.0m),
-                new FundHolding("ICICI Bank", "ICICIBANK", "INE090A01021", "Equity", "Banks", 8.0m, 700m, 8.5m),
+                new FundHolding("HDFC Bank", "NSE:HDFCBANK-EQ", "INE040A01034", "Equity", "Banks", 9.5m, 1200m, 9.0m),
+                new FundHolding("ICICI Bank", "BSE:ICICIBANK-A", "INE090A01021", "Equity", "Banks", 8.0m, 700m, 8.5m),
                 new FundHolding("Reverse Repo", null, null, "TREPS", null, 3.2m, null, null),
             ],
             dsp.Holdings);
 
         FundHoldings motilalAugust = await client.GetFundHoldingsAsync(Motilal, August);
         Assert.Equal(["Hindustan Aeronautics", "Bharat Electronics"], motilalAugust.Holdings.Select(h => h.Name));
+        Assert.Equal(["NSE:HAL-EQ", "NSE:BEL-EQ"], motilalAugust.Holdings.Select(h => h.Symbol));
         Assert.Equal([19.0m, 17.5m], motilalAugust.Holdings.Select(h => h.Percent));
         Assert.All(motilalAugust.Holdings, h => Assert.Null(h.PreviousPercent));
     }
@@ -183,6 +203,84 @@ public sealed class HoldingTests
         Assert.StartsWith("Couldn't load ScanX's list of schemes", fetch.Error);
         Assert.All(fetch.Funds, f => Assert.Equal(HoldingFetchFundStatus.Error, f.Status));
         Assert.Null((await client.GetMyFundsAsync()).Funds[0].Holdings);
+    }
+
+    [Fact]
+    public async Task Symbols_come_from_both_masters_and_are_kept_when_a_refresh_fails()
+    {
+        await using QuoteSnapApiFactory factory = await ListedAsync(true, Motilal);
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+        FyersSymbolStatus loaded = await client.GetSymbolStatusAsync();
+        Assert.Equal(4, loaded.SymbolCount);
+        Assert.NotNull(loaded.LoadedAt);
+
+        factory.BseSymbolMaster = null;
+        QuoteSnapApiException ex = await Assert.ThrowsAsync<QuoteSnapApiException>(() => client.RefreshSymbolsAsync());
+        Assert.Equal(HttpStatusCode.BadGateway, ex.StatusCode);
+        Assert.Equal(loaded, await client.GetSymbolStatusAsync());
+
+        // Fetches use the stored symbols, so they work while Fyers' files are unavailable.
+        factory.NseSymbolMaster = null;
+        HoldingFetch fetch = await FetchAsync(client);
+        Assert.Equal(HoldingFetchStatus.Completed, fetch.Status);
+        Assert.Equal(["NSE:HAL-EQ"], (await client.GetFundHoldingsAsync(Motilal)).Holdings.Select(h => h.Symbol));
+    }
+
+    [Fact]
+    public async Task A_symbol_refresh_counts_isins_listed_only_on_bse()
+    {
+        await using QuoteSnapApiFactory factory = await ListedAsync(true);
+
+        FyersSymbolRefreshResult result = await factory.CreateQuoteSnapClient().RefreshSymbolsAsync();
+
+        Assert.Equal((4, 3, 1), (result.SymbolCount, result.NseCount, result.BseOnlyCount));
+    }
+
+    [Fact]
+    public async Task Stocks_are_found_by_name_ticker_or_isin()
+    {
+        await using QuoteSnapApiFactory factory = await ListedAsync(true);
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+
+        async Task<string[]> SearchAsync(string query) => [.. (await client.SearchSymbolsAsync(query)).Symbols.Select(s => s.Symbol)];
+
+        Assert.Equal(["NSE:HDFCBANK-EQ"], await SearchAsync("hdfc bank"));
+        Assert.Equal(["NSE:HDFCBANK-EQ"], await SearchAsync("HDFCBANK"));
+        Assert.Equal(["BSE:ICICIBANK-A"], await SearchAsync("INE090A01021"));
+        Assert.Equal(["NSE:HAL-EQ"], await SearchAsync("hindustan aero"));
+        Assert.Equal(["NSE:HDFCBANK-EQ", "BSE:ICICIBANK-A"], await SearchAsync("bank"));
+        Assert.Empty(await SearchAsync("%%"));
+        FyersSymbolMatch hdfc = Assert.Single((await client.SearchSymbolsAsync("hdfc")).Symbols);
+        Assert.Equal(new FyersSymbolMatch("NSE:HDFCBANK-EQ", "HDFC BANK LTD", "INE040A01034"), hdfc);
+        QuoteSnapApiException tooShort = await Assert.ThrowsAsync<QuoteSnapApiException>(() => client.SearchSymbolsAsync("h"));
+        Assert.Equal(HttpStatusCode.BadRequest, tooShort.StatusCode);
+    }
+
+    [Fact]
+    public async Task Exact_tickers_come_before_other_matches()
+    {
+        await using QuoteSnapApiFactory factory = await ListedAsync(true);
+
+        FyersSymbolSearchResult result = await factory.CreateQuoteSnapClient().SearchSymbolsAsync("bel");
+
+        Assert.Equal("NSE:BEL-EQ", result.Symbols[0].Symbol);
+    }
+
+    [Fact]
+    public async Task Fetching_needs_the_fyers_symbols_downloaded_first()
+    {
+        await using QuoteSnapApiFactory factory = new(startWorker: true) { NavFile = NavFile, ScanxSchemes = Schemes };
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+        await client.RefreshNavsAsync();
+        await client.AddMyFundAsync(Motilal);
+        Assert.Equal(new FyersSymbolStatus(0, null), await client.GetSymbolStatusAsync());
+
+        QuoteSnapApiException ex = await Assert.ThrowsAsync<QuoteSnapApiException>(() => client.StartHoldingFetchAsync());
+        QuoteSnapApiException search = await Assert.ThrowsAsync<QuoteSnapApiException>(() => client.SearchSymbolsAsync("hdfc"));
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, ex.StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, search.StatusCode);
+        Assert.Null(await client.GetLatestHoldingFetchAsync());
     }
 
     [Fact]

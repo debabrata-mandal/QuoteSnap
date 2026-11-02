@@ -95,7 +95,7 @@ dotnet run --project src/QuoteSnap.Desktop
 The app talks to the API at `http://127.0.0.1:8080/` with `Auth__ApiKey` from `.env`, so it needs no setup. The pages in its sidebar:
 
 - **Dashboard:** whether the API is reachable, the Fyers login state and when it expires, whether NAVs have been downloaded, and today's quote requests. It refreshes every 15 seconds; the title bar repeats the three states on every page. When the API is offline or a Fyers login is needed it says what to do, with Try again and Open Settings buttons. Click a recent request to open it in History.
-- **New request:** paste symbols, or drop or load a `.txt` or `.csv` file, then fetch. Progress and results update live as the batches complete; invalid symbols are listed. Filter the results and export them to CSV.
+- **New request:** find stocks by company name, ticker or ISIN ("tata motors", "hdfcbank") and add their Fyers symbols to the list, or paste symbols, or drop or load a `.txt` or `.csv` file, then fetch. Enter in the search box adds the best match. The page shows how many Fyers symbols the service has and when they were downloaded; **Refresh symbols** downloads them again. Progress and results update live as the batches complete; invalid symbols are listed. Filter the results and export them to CSV.
 - **History:** every past request, filtered by status; select one to see, filter and export its quotes.
 - **Mutual funds:** your own list of funds with their latest NAVs. Search by any part of the name (word order, typos, "midcap" or "mid cap", "absl", "dividend" for IDCW all work) or by ISIN or scheme code, and add or remove funds. The list is stored by the API (`/api/my-funds`), so every app pointed at the same service shares it, and it can be exported to CSV. The page also shows when AMFI's NAV file was last downloaded and can download it again.
 - **Holdings:** what the funds on your list own. Fetch holdings downloads every listed fund's portfolio and shows live progress: a progress bar, the fund being fetched and a status per fund (waiting, fetching, updated, not available, failed). A fetch keeps running in the service if you leave the page or close the app, and the page picks it up again when reopened. Select a fund to see its holdings with weight, sector, shares and the change in weight since the month before; step back through the 12 stored months, filter, and export to CSV.
@@ -131,6 +131,9 @@ Invoke-RestMethod "http://127.0.0.1:8080$($r.statusUrl)" -Headers $h
 | `GET /api/my-funds/{schemeCode}/holdings?month=yyyy-MM` | A listed fund's stored portfolio for a month (default: the latest) |
 | `POST /api/nav/refresh` | Download AMFI's latest NAV file into the service |
 | `GET /api/nav/status` | How many NAVs are stored, the latest NAV date, and when they were downloaded (`loadedAt` is null before the first refresh) |
+| `POST /api/symbols/refresh` | Download Fyers' NSE and BSE symbol masters into the service; symbol search and holdings fetches use them |
+| `GET /api/symbols/search?q=tata motors` | Listed stocks whose name, ticker or ISIN contains every word, best matches first, with their Fyers symbols (`limit` up to 50, default 20; `503` before the first refresh) |
+| `GET /api/symbols/status` | How many Fyers symbols are stored and when they were downloaded (`loadedAt` is null before the first refresh) |
 | `GET /api/status` | Service version and Fyers session state |
 | `GET /health` | Liveness check, no key needed |
 | `GET /openapi/v1.json` | OpenAPI description |
@@ -200,9 +203,10 @@ Invoke-RestMethod http://127.0.0.1:8080/api/my-funds/122639 -Method Delete -Head
 
 ### Fund holdings
 
-`POST /api/holdings/fetches` downloads the last 12 months of portfolio data for every fund on your list and stores it in the `FundHoldings` table. No browser or login is needed.
+`POST /api/holdings/fetches` downloads the last 12 months of portfolio data for every fund on your list and stores it in the `FundHoldings` table. No browser or login is needed. Download the Fyers symbols once before the first fetch; until then it returns `503`.
 
 ```powershell
+Invoke-RestMethod http://127.0.0.1:8080/api/symbols/refresh -Method Post -Headers $h
 $f = Invoke-RestMethod http://127.0.0.1:8080/api/holdings/fetches -Method Post -Headers $h
 Invoke-RestMethod "http://127.0.0.1:8080/api/holdings/fetches/$($f.id)" -Headers $h
 Invoke-RestMethod "http://127.0.0.1:8080/api/my-funds/152712/holdings?month=2026-09" -Headers $h
@@ -212,8 +216,9 @@ Invoke-RestMethod "http://127.0.0.1:8080/api/my-funds/152712/holdings?month=2026
 - Each fund ends `Ok` with its holding count and month, `NotFound`, or `Error` with the reason. The fetch ends `Completed`, `CompletedWithErrors`, or `Failed` when no fund succeeded.
 - Funds are matched to the source's schemes by name and fund house. Plan, option, punctuation and words like "Fund" are ignored, and small spelling differences are tolerated within the same fund house. Equity, hybrid, index and most other funds are covered, but few debt, liquid or fixed-maturity ones; those come back `NotFound`.
 - A successful fetch replaces all 12 months stored for the fund. A failed one leaves them as they were. Removing a fund from the list deletes its holdings.
-- Each holding has its name, NSE symbol (for listed shares), ISIN, asset type (Equity, Debt, TREPS, Net Payables, ...), sector, weight in percent of the fund's assets and share count. The holdings endpoint also returns the stored months and each holding's weight in the month before (`previousPercent`), ordered by weight. `GET /api/my-funds` includes a `holdings` summary (month, count, fetch time) for funds that have them.
+- Each holding has its name, Fyers symbol (for listed shares, e.g. `NSE:HDFCBANK-EQ`, ready for `POST /api/quote-requests`), ISIN, asset type (Equity, Debt, TREPS, Net Payables, ...), sector, weight in percent of the fund's assets and share count. The holdings endpoint also returns the stored months and each holding's weight in the month before (`previousPercent`), ordered by weight. `GET /api/my-funds` includes a `holdings` summary (month, count, fetch time) for funds that have them.
 - The source's address is `Holdings__BaseUrl`; `Holdings__PageSize` (default 500) sets how many holdings each call returns.
+- Symbols come from Fyers' public symbol masters (`NSE_CM.csv` and `BSE_CM.csv`), matched by ISIN. The NSE symbol is used when there is one, otherwise the BSE one. Like the NAV file, they are downloaded only when you ask: `POST /api/symbols/refresh` (or **Refresh symbols** on the New request page) fetches both from `Holdings__SymbolMasterBaseUrl` (default `https://public.fyers.in/sym_details/`) and replaces the `FyersSymbols` table. Fetches then read symbols from that table. Listings change rarely, so refresh after a new listing or symbol change, then fetch holdings again to apply it. A failed download returns `502` and leaves the stored symbols untouched.
 
 ## Deploying with Docker
 

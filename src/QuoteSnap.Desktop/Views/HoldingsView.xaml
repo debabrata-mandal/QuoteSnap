@@ -63,7 +63,7 @@
       <Button DockPanel.Dock="Right" Style="{StaticResource Button.Primary}" ui:Ui.Icon="&#xE896;" VerticalAlignment="Center"
               Content="Fetch holdings" AutomationProperties.Name="Fetch holdings" Command="{Binding FetchCommand}"
               ui:Ui.IsSpinning="{Binding IsFetching}"
-              ToolTip="Scrapes the latest portfolio of every fund on your list from ScanX and stores it in the QuoteSnap service. Takes a few seconds per fund." />
+              ToolTip="Scrapes the latest portfolio of every fund on your list from ScanX and stores it in the QuoteSnap service, with each holding's Fyers symbol. Takes a few seconds per fund." />
       <StackPanel>
         <TextBlock Text="Holdings" Style="{StaticResource Text.PageTitle}" />
         <TextBlock Text="What the funds on your list own, with each holding's weight and how it moved since the month before. Portfolios come from ScanX (scanx.trade)."

@@ -69,6 +69,12 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
     /// <summary>The (plan ID, page) of each holdings call, in order.</summary>
     public ConcurrentQueue<(int PlanId, int Page)> ScanxHoldingsCalls { get; } = new();
 
+    /// <summary>What the fake Fyers NSE_CM.csv returns; null makes it fail with 404.</summary>
+    public string? NseSymbolMaster { get; set; }
+
+    /// <summary>What the fake Fyers BSE_CM.csv returns; null makes it fail with 404.</summary>
+    public string? BseSymbolMaster { get; set; }
+
     /// <summary>The (method, path, Authorization header) of each call to the Fyers auth API, in order.</summary>
     public ConcurrentQueue<(string Method, string Path, string? Authorization)> FyersAuthCalls { get; } = new();
 
@@ -114,6 +120,7 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
 
             services.AddHttpClient<NavImporter>().ConfigurePrimaryHttpMessageHandler(() => new FakeAmfiHandler(this));
             services.AddHttpClient<ScanxClient>().ConfigurePrimaryHttpMessageHandler(() => new FakeScanxHandler(this));
+            services.AddHttpClient<FyersSymbolImporter>().ConfigurePrimaryHttpMessageHandler(() => new FakeSymbolMasterHandler(this));
             services.AddHttpClient<FyersAuthClient>().ConfigurePrimaryHttpMessageHandler(() => new FakeFyersAuthHandler(this));
 
             if (!StartWorker)
@@ -227,6 +234,21 @@ internal sealed class FakeScanxHandler(QuoteSnapApiFactory factory) : HttpMessag
 
     private static HttpResponseMessage Json(string json) =>
         new(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
+}
+
+/// <summary>Serves <see cref="QuoteSnapApiFactory.NseSymbolMaster"/> and <see cref="QuoteSnapApiFactory.BseSymbolMaster"/>.</summary>
+internal sealed class FakeSymbolMasterHandler(QuoteSnapApiFactory factory) : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        string path = request.RequestUri?.AbsolutePath ?? "";
+        string? file = path.EndsWith("/NSE_CM.csv", StringComparison.Ordinal) ? factory.NseSymbolMaster
+            : path.EndsWith("/BSE_CM.csv", StringComparison.Ordinal) ? factory.BseSymbolMaster
+            : null;
+        return Task.FromResult(file is null
+            ? new HttpResponseMessage(HttpStatusCode.NotFound)
+            : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(file) });
+    }
 }
 
 /// <summary>Answers the Fyers logout with <see cref="QuoteSnapApiFactory.FyersLogoutResponse"/>; other auth calls get 404.</summary>

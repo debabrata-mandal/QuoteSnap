@@ -11,6 +11,10 @@ public sealed class HoldingsOptions
     [Required, Url]
     public string BaseUrl { get; set; } = "https://ow-static-scanx.dhan.co/staticscanx/";
 
+    /// <summary>Where Fyers publishes NSE_CM.csv and BSE_CM.csv, which give each holding's Fyers symbol by ISIN.</summary>
+    [Required, Url]
+    public string SymbolMasterBaseUrl { get; set; } = "https://public.fyers.in/sym_details/";
+
     /// <summary>Holdings rows per request. Large funds with many futures and bonds have over 600.</summary>
     [Range(25, 1000)]
     public int PageSize { get; set; } = 500;

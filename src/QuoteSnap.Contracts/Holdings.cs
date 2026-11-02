@@ -75,6 +75,7 @@ public sealed record FundHoldings(
     DateTimeOffset FetchedAt,
     IReadOnlyList<FundHolding> Holdings);
 
+/// <param name="Symbol">The Fyers symbol for <paramref name="Isin"/>, e.g. "NSE:HDFCBANK-EQ", or "BSE:…" when it isn't on NSE; ready for a quote request. Null for unlisted lines such as TREPS.</param>
 /// <param name="AssetType">ScanX's grouping, e.g. "Equity", "Futures", "TREPS", "Certificate of Deposit".</param>
 /// <param name="Percent">Share of the fund's assets, in percent; negative for short positions such as futures.</param>
 /// <param name="PreviousPercent">The weight a month earlier; null when it wasn't held then or that month isn't stored.</param>

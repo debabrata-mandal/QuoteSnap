@@ -22,6 +22,8 @@ public sealed class QuoteSnapDbContext(DbContextOptions<QuoteSnapDbContext> opti
 
     public DbSet<HoldingFetchFundRecord> HoldingFetchFunds => Set<HoldingFetchFundRecord>();
 
+    public DbSet<FyersSymbol> FyersSymbols => Set<FyersSymbol>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         configurationBuilder.Properties<QuoteRequestStatus>().HaveConversion<string>().HaveMaxLength(32);
@@ -129,6 +131,16 @@ public sealed class QuoteSnapDbContext(DbContextOptions<QuoteSnapDbContext> opti
             entity.Property(f => f.SchemeName).HasMaxLength(500);
             entity.Property(f => f.ScanxScheme).HasMaxLength(300);
             entity.Property(f => f.Error).HasMaxLength(500);
+        });
+
+        // No foreign key from FundHoldings: every symbol refresh deletes and reinserts this table.
+        modelBuilder.Entity<FyersSymbol>(entity =>
+        {
+            entity.ToTable("FyersSymbols");
+            entity.HasKey(s => s.Isin);
+            entity.Property(s => s.Isin).HasMaxLength(12);
+            entity.Property(s => s.Symbol).HasMaxLength(100);
+            entity.Property(s => s.Name).HasMaxLength(300);
         });
     }
 }

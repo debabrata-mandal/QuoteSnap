@@ -104,6 +104,30 @@ public sealed class QuoteSnapClient
         return await ReadAsync<NavRefreshResult>(response, cancellationToken);
     }
 
+    public async Task<FyersSymbolStatus> GetSymbolStatusAsync(CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "api/symbols/status", null, admin: false, cancellationToken);
+        return await ReadAsync<FyersSymbolStatus>(response, cancellationToken);
+    }
+
+    /// <summary>Finds listed stocks by company name, ticker or ISIN, to get their Fyers symbols.</summary>
+    public async Task<FyersSymbolSearchResult> SearchSymbolsAsync(string query, int limit = 20, CancellationToken cancellationToken = default)
+    {
+        string path = $"api/symbols/search?q={Uri.EscapeDataString(query)}&limit={limit}";
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, path, null, admin: false, cancellationToken);
+        return await ReadAsync<FyersSymbolSearchResult>(response, cancellationToken);
+    }
+
+    /// <summary>
+    /// Downloads Fyers' NSE and BSE symbol masters into the service, replacing the stored symbols that symbol search and
+    /// holdings fetches use. Takes a few seconds.
+    /// </summary>
+    public async Task<FyersSymbolRefreshResult> RefreshSymbolsAsync(CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Post, "api/symbols/refresh", null, admin: false, cancellationToken);
+        return await ReadAsync<FyersSymbolRefreshResult>(response, cancellationToken);
+    }
+
     /// <summary>
     /// Starts scraping the holdings of every listed fund from ScanX; poll it with <see cref="GetHoldingFetchAsync"/>.
     /// While one is already queued or running, that one is returned instead.

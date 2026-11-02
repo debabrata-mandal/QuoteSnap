@@ -34,11 +34,18 @@
       <RowDefinition Height="*" MinHeight="220" />
     </Grid.RowDefinitions>
 
-    <StackPanel Margin="0,0,0,22">
-      <TextBlock Text="New request" Style="{StaticResource Text.PageTitle}" />
-      <TextBlock Text="Paste Fyers symbols, one per line or separated by commas. QuoteSnap fetches them in batches of 50 and streams the results."
-                 Style="{StaticResource Text.PageSubtitle}" />
-    </StackPanel>
+    <DockPanel Margin="0,0,0,22">
+      <Button DockPanel.Dock="Right" ui:Ui.Icon="&#xE72C;" VerticalAlignment="Center"
+              Content="Refresh symbols" AutomationProperties.Name="Refresh Fyers symbols" Command="{Binding RefreshSymbolsCommand}"
+              ui:Ui.IsSpinning="{Binding RefreshSymbolsCommand.IsRunning}"
+              ToolTip="Downloads Fyers' NSE and BSE symbol lists again (about 2 MB each) and replaces the stored symbols used by stock search and fund holdings." />
+      <StackPanel>
+        <TextBlock Text="New request" Style="{StaticResource Text.PageTitle}" />
+        <TextBlock Text="Search stocks by name or paste Fyers symbols, one per line or separated by commas. QuoteSnap fetches them in batches of 50 and streams the results."
+                   Style="{StaticResource Text.PageSubtitle}" />
+        <TextBlock Text="{Binding SymbolStatusText}" Style="{StaticResource Text.Muted}" Margin="0,4,0,0" />
+      </StackPanel>
+    </DockPanel>
 
     <Border Grid.Row="1" Style="{StaticResource Banner}" Tag="{Binding MessageLevel}" Margin="0,0,0,16"
             Visibility="{Binding Message, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
@@ -49,7 +56,7 @@
       </DockPanel>
     </Border>
 
-    <Grid Grid.Row="2" Height="316" Margin="0,0,0,16">
+    <Grid Grid.Row="2" Height="364" Margin="0,0,0,16">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="7*" />
         <ColumnDefinition Width="16" />
@@ -66,6 +73,74 @@
             </StackPanel>
             <TextBlock Text="Symbols" Style="{StaticResource Text.Section}" />
           </DockPanel>
+
+          <!-- Stock search: results drop down below the box; Add appends the symbol to the list. -->
+          <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+            <TextBox x:Name="SymbolSearch" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Padding="34,9,34,9"
+                     ui:Ui.Placeholder="Find a stock: tata motors, hdfcbank or an ISIN" AutomationProperties.Name="Search stocks"
+                     GotKeyboardFocus="SymbolSearch_Reopen" PreviewMouseLeftButtonUp="SymbolSearch_Reopen">
+              <TextBox.InputBindings>
+                <KeyBinding Key="Escape" Command="{Binding ClearSearchCommand}" />
+                <KeyBinding Key="Enter" Command="{Binding AddTopResultCommand}" />
+              </TextBox.InputBindings>
+            </TextBox>
+            <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE721;" FontSize="13" HorizontalAlignment="Left" Margin="13,0,0,0"
+                       Foreground="{StaticResource TextSubtleBrush}" IsHitTestVisible="False" />
+            <Button Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE711;" Width="26" Height="26" HorizontalAlignment="Right" Margin="0,0,5,0"
+                    ToolTip="Clear (Esc)" AutomationProperties.Name="Clear search" Command="{Binding ClearSearchCommand}"
+                    Visibility="{Binding SearchText, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}" />
+
+            <Popup IsOpen="{Binding IsSearchOpen}" PlacementTarget="{Binding ElementName=SymbolSearch}" Placement="Bottom"
+                   StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" VerticalOffset="2"
+                   Width="{Binding ActualWidth, ElementName=SymbolSearch}">
+              <Border Background="{StaticResource SurfaceRaisedBrush}" BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1"
+                      CornerRadius="8" Padding="6" Margin="0,0,0,8">
+                <Border.Effect>
+                  <DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.45" Color="#000000" />
+                </Border.Effect>
+                <DockPanel>
+                  <Grid DockPanel.Dock="Top" Height="3" Margin="4,0,4,2">
+                    <ProgressBar IsIndeterminate="True" Visibility="{Binding IsSearching, Converter={StaticResource BoolToVisibility}}" />
+                  </Grid>
+                  <Grid>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="300">
+                      <ItemsControl ItemsSource="{Binding SearchResults}" Focusable="False" AutomationProperties.Name="Stock search results">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate DataType="{x:Type vm:SymbolRow}">
+                            <Border x:Name="Row" Padding="10,7" CornerRadius="{StaticResource RadiusControl}" Background="Transparent" ToolTip="{Binding Details}">
+                              <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="Add" ui:Ui.Icon="&#xE710;" Height="28" Padding="10,0" FontSize="{StaticResource FontSizeSmall}"
+                                        AutomationProperties.Name="Add to symbols" ToolTip="Add to the symbols list"
+                                        Visibility="{Binding IsAdded, Converter={StaticResource InverseBoolToVisibility}}"
+                                        Command="{Binding DataContext.AddSymbolCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0"
+                                            Visibility="{Binding IsAdded, Converter={StaticResource BoolToVisibility}}">
+                                  <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE73E;" FontSize="12" Foreground="{StaticResource SuccessBrush}" Margin="0,0,6,0" />
+                                  <TextBlock Text="Added" FontSize="{StaticResource FontSizeSmall}" Foreground="{StaticResource SuccessBrush}" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,10,0" VerticalAlignment="Center">
+                                  <TextBlock Text="{Binding Name}" FontWeight="Medium" Foreground="{StaticResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                  <TextBlock Text="{Binding Symbol}" Style="{StaticResource Text.Mono}" Foreground="{StaticResource TextMutedBrush}"
+                                             FontSize="{StaticResource FontSizeCaption}" Margin="0,2,0,0" />
+                                </StackPanel>
+                              </DockPanel>
+                            </Border>
+                            <DataTemplate.Triggers>
+                              <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Row" Property="Background" Value="{StaticResource HoverBrush}" />
+                              </Trigger>
+                            </DataTemplate.Triggers>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </ScrollViewer>
+                    <TextBlock Text="{Binding SearchEmptyText}" Style="{StaticResource Text.Muted}" TextAlignment="Center" Margin="12,14"
+                               Visibility="{Binding SearchResults, Converter={StaticResource VisibleWhenEmpty}}" />
+                  </Grid>
+                </DockPanel>
+              </Border>
+            </Popup>
+          </Grid>
 
           <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
             <Grid DockPanel.Dock="Right">

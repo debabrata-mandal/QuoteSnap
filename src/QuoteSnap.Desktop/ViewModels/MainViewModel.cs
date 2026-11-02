@@ -89,6 +89,8 @@ public sealed partial class MainViewModel : ObservableObject
     {
         if (value == HistoryTab)
             _ = History.RefreshIfIdleAsync();
+        else if (value == NewRequestTab)
+            _ = NewRequest.ActivateAsync();
         else if (value == NavTab)
             _ = Nav.ActivateAsync();
         else if (value == HoldingsTab)

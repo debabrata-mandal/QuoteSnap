@@ -56,6 +56,7 @@ public sealed class HoldingFetchWorker(
         HoldingRepository repository = scope.ServiceProvider.GetRequiredService<HoldingRepository>();
         MyFundRepository myFunds = scope.ServiceProvider.GetRequiredService<MyFundRepository>();
         ScanxClient scanx = scope.ServiceProvider.GetRequiredService<ScanxClient>();
+        FyersSymbolRepository symbols = scope.ServiceProvider.GetRequiredService<FyersSymbolRepository>();
 
         if (!await repository.TryStartAsync(fetchId, cancellationToken))
         {
@@ -66,6 +67,15 @@ public sealed class HoldingFetchWorker(
         long start = Stopwatch.GetTimestamp();
         List<HoldingFetchFundRecord> funds = await repository.GetUnfinishedFundsAsync(fetchId, cancellationToken);
         logger.LogInformation("Holdings fetch {FetchId}: fetching holdings of {FundCount} funds from ScanX", fetchId, funds.Count);
+
+        if ((await symbols.GetStatusAsync(cancellationToken)).SymbolCount == 0)
+        {
+            logger.LogWarning("Holdings fetch {FetchId}: no Fyers symbols are stored", fetchId);
+            const string error = "Fyers symbols haven't been downloaded yet. Refresh them, then fetch again.";
+            await repository.FailUnfinishedFundsAsync(fetchId, error, cancellationToken);
+            await repository.CompleteAsync(fetchId, error, cancellationToken);
+            return;
+        }
 
         IReadOnlyList<ScanxScheme> schemes;
         try
@@ -108,7 +118,8 @@ public sealed class HoldingFetchWorker(
                 long fundStart = Stopwatch.GetTimestamp();
                 List<ScanxHolding> holdings = await FetchAllPagesAsync(scanx, scheme, first, cancellationToken);
                 first = false;
-                List<FundHoldingRecord> rows = ToRecords(holdings);
+                List<string> isins = [.. holdings.Select(h => h.Isin).OfType<string>().Distinct()];
+                List<FundHoldingRecord> rows = ToRecords(holdings, await symbols.GetSymbolsByIsinAsync(isins, cancellationToken));
                 if (rows.Count == 0)
                 {
                     await repository.UpdateFundAsync(fetchId, fund.SchemeCode, HoldingFetchFundStatus.NotFound, scheme.Name, null, null,
@@ -170,8 +181,11 @@ public sealed class HoldingFetchWorker(
         ? Task.Delay(TimeSpan.FromMilliseconds(options.Value.DelayBetweenRequestsMs), time, cancellationToken)
         : Task.CompletedTask;
 
-    /// <summary>A row per instrument and month it was held in; ScanX repeats every instrument for all twelve months.</summary>
-    private static List<FundHoldingRecord> ToRecords(IEnumerable<ScanxHolding> holdings) =>
+    /// <summary>
+    /// A row per instrument and month it was held in; ScanX repeats every instrument for all twelve months. The symbol is
+    /// the Fyers one for the holding's ISIN, so it can be passed straight to a quote request.
+    /// </summary>
+    private static List<FundHoldingRecord> ToRecords(IEnumerable<ScanxHolding> holdings, IReadOnlyDictionary<string, string> symbols) =>
     [
         .. holdings.SelectMany(h => h.Months
             .Where(m => m.Percent != 0 || m.Shares != 0)
@@ -180,7 +194,7 @@ public sealed class HoldingFetchWorker(
                 Month = m.Month,
                 AssetType = Clip(h.AssetType, 100),
                 Name = Clip(h.Name, 300),
-                Symbol = h.Symbol is null ? null : Clip(h.Symbol, 100),
+                Symbol = h.Isin is { } listedIsin && symbols.TryGetValue(listedIsin, out string? symbol) ? Clip(symbol, 100) : null,
                 Isin = h.Isin is { Length: 12 } isin ? isin : null,
                 Sector = h.Sector is null ? null : Clip(h.Sector, 200),
                 Percent = m.Percent,

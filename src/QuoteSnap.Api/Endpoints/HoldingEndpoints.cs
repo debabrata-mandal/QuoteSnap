@@ -29,6 +29,7 @@ public static class HoldingEndpoints
     private static async Task<Results<Accepted<HoldingFetch>, Ok<HoldingFetch>, ProblemHttpResult>> StartAsync(
         HoldingRepository holdings,
         MyFundRepository funds,
+        FyersSymbolRepository symbols,
         HoldingFetchQueue queue,
         ILoggerFactory loggers,
         CancellationToken cancellationToken)
@@ -45,6 +46,9 @@ public static class HoldingEndpoints
                 statusCode: StatusCodes.Status400BadRequest,
                 title: "No funds to fetch");
         }
+
+        if ((await symbols.GetStatusAsync(cancellationToken)).SymbolCount == 0)
+            return FyersSymbolEndpoints.NotLoaded();
 
         HoldingFetchRecord fetch = await holdings.CreateFetchAsync(listed, cancellationToken);
         queue.Enqueue(fetch.Id);

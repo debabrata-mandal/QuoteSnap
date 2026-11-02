@@ -61,6 +61,7 @@ builder.Services.AddScoped<SessionStore>();
 builder.Services.AddScoped<NavRepository>();
 builder.Services.AddScoped<MyFundRepository>();
 builder.Services.AddScoped<HoldingRepository>();
+builder.Services.AddScoped<FyersSymbolRepository>();
 builder.Services.AddSingleton<FundSearchCache>();
 
 IDataProtectionBuilder dataProtection = builder.Services.AddDataProtection().SetApplicationName("QuoteSnap");
@@ -98,6 +99,15 @@ IHttpClientBuilder scanx = builder.Services.AddHttpClient<ScanxClient>((services
 scanx.AddStandardResilienceHandler();
 scanx.AddExternalCallLogging("ScanX");
 
+// The two symbol masters are about 2 MB each.
+builder.Services.AddHttpClient<FyersSymbolImporter>((services, client) =>
+    {
+        client.BaseAddress = new Uri(services.GetRequiredService<IOptions<HoldingsOptions>>().Value.SymbolMasterBaseUrl);
+        client.Timeout = TimeSpan.FromMinutes(2);
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("QuoteSnap");
+    })
+    .AddExternalCallLogging("Fyers symbol master");
+
 builder.Services.AddProblemDetails();
 // 3.0 rather than the 3.1 default: import tools such as Bruno and Postman read 3.0 reliably.
 builder.Services.AddOpenApi(options => options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_0);
@@ -118,6 +128,7 @@ app.MapAdminEndpoints();
 app.MapNavEndpoints();
 app.MapMyFundEndpoints();
 app.MapHoldingEndpoints();
+app.MapFyersSymbolEndpoints();
 
 app.Run();
 

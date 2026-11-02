@@ -237,6 +237,30 @@ namespace QuoteSnap.Api.Data.Migrations
                     b.ToTable("MyFunds", (string)null);
                 });
 
+            modelBuilder.Entity("QuoteSnap.Api.Domain.FyersSymbol", b =>
+                {
+                    b.Property<string>("Isin")
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)");
+
+                    b.Property<DateTimeOffset>("LoadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Isin");
+
+                    b.ToTable("FyersSymbols", (string)null);
+                });
+
             modelBuilder.Entity("QuoteSnap.Api.Domain.MutualFundNav", b =>
                 {
                     b.Property<int>("SchemeCode")

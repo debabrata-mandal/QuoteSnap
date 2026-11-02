@@ -14,6 +14,7 @@ public sealed class FundHoldingRecord
 
     public required string Name { get; set; }
 
+    /// <summary>The Fyers symbol for the ISIN, e.g. NSE:RELIANCE-EQ (or BSE:… when not on NSE); null for unlisted lines.</summary>
     public string? Symbol { get; set; }
 
     public string? Isin { get; set; }
