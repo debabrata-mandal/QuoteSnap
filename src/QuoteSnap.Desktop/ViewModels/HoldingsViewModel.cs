@@ -13,6 +13,8 @@ namespace QuoteSnap.Desktop.ViewModels;
 /// </summary>
 public sealed partial class HoldingsViewModel : ObservableObject
 {
+    private const string PricesLoadFailed = "Couldn't load the last live prices.";
+
     private readonly QuoteSnapConnection _connection;
     private readonly FileDialogs _dialogs;
     private IReadOnlyList<HoldingRow> _allHoldings = [];
@@ -21,6 +23,7 @@ public sealed partial class HoldingsViewModel : ObservableObject
     private Guid? _watching;
     private Guid? _watchingQuotes;
     private int _loadVersion;
+    private bool _activated;
 
     public HoldingsViewModel(QuoteSnapConnection connection, FileDialogs dialogs)
     {
@@ -36,6 +39,11 @@ public sealed partial class HoldingsViewModel : ObservableObject
         };
         connection.LiveQuotesUpdated += ShowLiveQuotes;
         connection.Changed += (_, _) => _live.Clear();
+        connection.HubConnected += async () =>
+        {
+            if (_activated)
+                await ReloadAsync();
+        };
     }
 
     /// <summary>Raised to open the Mutual funds page, where funds are added.</summary>
@@ -148,6 +156,12 @@ public sealed partial class HoldingsViewModel : ObservableObject
 
     /// <summary>Called when the page is opened.</summary>
     public async Task ActivateAsync()
+    {
+        _activated = true;
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
     {
         await LoadFundsAsync();
         await LoadLatestPricesAsync();
@@ -391,7 +405,10 @@ public sealed partial class HoldingsViewModel : ObservableObject
             return;
         try
         {
-            if (await _connection.Client.GetLatestHoldingQuotesAsync() is not { } latest)
+            QuoteRequestDetails? latest = await _connection.Client.GetLatestHoldingQuotesAsync();
+            if (Message?.StartsWith(PricesLoadFailed, StringComparison.Ordinal) == true)
+                Message = null;
+            if (latest is null)
                 return;
             if (latest.Status.IsTerminal())
                 ShowPrices(latest);
@@ -400,7 +417,7 @@ public sealed partial class HoldingsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Report(StatusLevel.Warning, $"Couldn't load the last live prices. {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}");
+            Report(StatusLevel.Warning, $"{PricesLoadFailed} {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}");
         }
     }
 
