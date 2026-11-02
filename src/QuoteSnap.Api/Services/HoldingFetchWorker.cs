@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using Polly;
 using QuoteSnap.Api.Data;
 using QuoteSnap.Api.Holdings;
+using QuoteSnap.Api.Live;
 using QuoteSnap.Contracts;
 
 namespace QuoteSnap.Api.Services;
@@ -11,7 +12,7 @@ namespace QuoteSnap.Api.Services;
 /// Runs holdings fetches one at a time: matches each listed fund to its ScanX scheme, downloads every page of its
 /// past holdings and replaces the fund's stored holdings, recording progress per fund as it goes.
 /// </summary>
-public sealed class HoldingFetchWorker(HoldingFetchQueue queue, IServiceScopeFactory scopes, IOptions<HoldingsOptions> options, TimeProvider time, ILogger<HoldingFetchWorker> logger) : BackgroundService
+public sealed class HoldingFetchWorker(HoldingFetchQueue queue, LiveFeedSignal liveFeed, IServiceScopeFactory scopes, IOptions<HoldingsOptions> options, TimeProvider time, ILogger<HoldingFetchWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -148,6 +149,7 @@ public sealed class HoldingFetchWorker(HoldingFetchQueue queue, IServiceScopeFac
         }
 
         HoldingFetchStatus status = await repository.CompleteAsync(fetchId, null, cancellationToken);
+        liveFeed.Notify();
         logger.LogInformation("Holdings fetch {FetchId} finished as {Status} in {ElapsedMs:0} ms",
             fetchId, status, Stopwatch.GetElapsedTime(start).TotalMilliseconds);
     }

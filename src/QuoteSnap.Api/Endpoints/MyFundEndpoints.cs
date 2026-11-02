@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using QuoteSnap.Api.Data;
 using QuoteSnap.Api.Domain;
+using QuoteSnap.Api.Live;
 using QuoteSnap.Api.Services;
 using QuoteSnap.Contracts;
 
@@ -54,7 +55,7 @@ public static class MyFundEndpoints
 
     /// <summary>Adds a Direct Plan scheme from AMFI's NAV file; adding a fund that's already on the list returns it unchanged.</summary>
     /// <param name="schemeCode">The AMFI scheme code, as returned by GET /api/nav/search.</param>
-    private static async Task<Results<Created<MyFund>, Ok<MyFund>, ProblemHttpResult>> AddAsync(int schemeCode, MyFundRepository funds, NavRepository navs, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken)
+    private static async Task<Results<Created<MyFund>, Ok<MyFund>, ProblemHttpResult>> AddAsync(int schemeCode, MyFundRepository funds, NavRepository navs, LiveFeedSignal liveFeed, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         if (await navs.GetLoadedAtAsync(cancellationToken) is null)
             return NavEndpoints.NotLoaded();
@@ -80,14 +81,19 @@ public static class MyFundEndpoints
             return TypedResults.Ok(dto);
 
         loggers.CreateLogger(typeof(MyFundEndpoints)).LogInformation("Added {SchemeCode} {SchemeName} to my funds", fund.SchemeCode, fund.SchemeName);
+        liveFeed.Notify();
         return TypedResults.Created($"/api/my-funds/{fund.SchemeCode}", dto);
     }
 
     /// <summary>Removes a fund from the list. Removing one that isn't on it also succeeds.</summary>
-    private static async Task<NoContent> RemoveAsync(int schemeCode, MyFundRepository funds, ILoggerFactory loggers, CancellationToken cancellationToken)
+    private static async Task<NoContent> RemoveAsync(int schemeCode, MyFundRepository funds, LiveFeedSignal liveFeed, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         if (await funds.RemoveAsync(schemeCode, cancellationToken))
+        {
             loggers.CreateLogger(typeof(MyFundEndpoints)).LogInformation("Removed {SchemeCode} from my funds", schemeCode);
+            liveFeed.Notify();
+        }
+
         return TypedResults.NoContent();
     }
 

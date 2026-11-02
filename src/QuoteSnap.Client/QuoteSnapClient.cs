@@ -192,6 +192,19 @@ public sealed class QuoteSnapClient
         return await ReadAsync<TopHoldingList>(response, cancellationToken);
     }
 
+    /// <summary>The latest streamed tick of each top holding, largest weight first.</summary>
+    public async Task<LiveQuoteList> GetLiveQuotesAsync(CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "api/live/quotes", null, admin: false, cancellationToken);
+        return await ReadAsync<LiveQuoteList>(response, cancellationToken);
+    }
+
+    public async Task<LiveFeedStatus> GetLiveFeedStatusAsync(CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "api/live/status", null, admin: false, cancellationToken);
+        return await ReadAsync<LiveFeedStatus>(response, cancellationToken);
+    }
+
     /// <summary>Polls a holdings fetch until it finishes, reporting each snapshot of its progress.</summary>
     public async Task<HoldingFetch> WaitForHoldingFetchAsync(Guid fetchId, IProgress<HoldingFetch>? progress = null, CancellationToken cancellationToken = default)
     {

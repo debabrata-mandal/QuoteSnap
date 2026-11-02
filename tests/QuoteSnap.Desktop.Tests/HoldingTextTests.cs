@@ -236,6 +236,25 @@ public sealed class HoldingTextTests
         Assert.StartsWith("Average weight across 1 fund · prices from ", DashboardViewModel.TopHoldingsText(new TopHoldingList(1, Guid.NewGuid(), Created, [])));
     }
 
+    [Fact]
+    public void The_live_feed_tile_shows_how_many_stocks_are_hooked_and_the_last_tick()
+    {
+        LiveFeedTile live = LiveFeedTile.From(new LiveFeedStatus(LiveFeedState.Connected, ["NSE:HAL-EQ", "NSE:BEL-EQ"], 2, Created, DateTimeOffset.Now, null, null));
+        Assert.Equal((StatusLevel.Good, "Live", "2", 0.02), (live.Level, live.Summary, live.Value, live.CapFraction));
+        Assert.StartsWith("last tick today, ", live.Detail);
+        Assert.Equal("2 stocks of Fyers' 100-symbol limit", live.Tip);
+
+        LiveFeedTile partial = LiveFeedTile.From(new LiveFeedStatus(LiveFeedState.Connected, ["NSE:HAL-EQ", "NSE:BEL-EQ"], 1, Created, null, null, null));
+        Assert.Equal("1 of 2 priced · waiting for ticks", partial.Detail);
+
+        LiveFeedTile error = LiveFeedTile.From(new LiveFeedStatus(LiveFeedState.Error, ["NSE:HAL-EQ"], 0, null, null, "Could not re-connect", Created));
+        Assert.Equal((StatusLevel.Bad, "Error", "Could not re-connect"), (error.Level, error.Summary, error.Detail));
+        Assert.StartsWith("Last error ", error.Tip);
+
+        LiveFeedTile closed = LiveFeedTile.From(new LiveFeedStatus(LiveFeedState.MarketClosed, [], 0, null, null, null, null));
+        Assert.Equal((StatusLevel.Unknown, "Market closed", Display.Missing, false), (closed.Level, closed.Summary, closed.Value, closed.HasValue));
+    }
+
     private static QuoteResultDto Quote(string symbol, QuoteResultStatus status, decimal? ltp, decimal? changePercent) =>
         new(symbol, status, ltp, null, changePercent, null, null, null, null, null, null, status == QuoteResultStatus.Ok ? Created : null, null);
 

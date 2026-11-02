@@ -94,7 +94,7 @@ dotnet run --project src/QuoteSnap.Desktop
 
 The app talks to the API at `http://127.0.0.1:8080/` with `Auth__ApiKey` from `.env`, so it needs no setup. The pages in its sidebar:
 
-- **Dashboard:** whether the API is reachable, the Fyers login state and when it expires, whether NAVs have been downloaded, today's quote requests, your funds' estimated move today (the average of their NAV estimates, with the best and worst fund), and the top 10 stocks across your funds by average weight, with how many funds hold each and their last live price and day change. It refreshes every 15 seconds; the title bar repeats the three states on every page. When the API is offline or a Fyers login is needed it says what to do, with Try again and Open Settings buttons.
+- **Dashboard:** whether the API is reachable, the Fyers login state and when it expires, the live price feed (its state, how many stocks it streams out of Fyers' 100-symbol limit, and the last tick), whether NAVs have been downloaded, today's quote requests, your funds' estimated move today (the average of their NAV estimates, with the best and worst fund), and the top 10 stocks across your funds by average weight, with how many funds hold each and their last live price and day change. It refreshes every 15 seconds; the title bar repeats the three states on every page. When the API is offline or a Fyers login is needed it says what to do, with Try again and Open Settings buttons.
 - **New request:** find stocks by company name, ticker or ISIN ("tata motors", "hdfcbank") and add their Fyers symbols to the list, or paste symbols, or drop or load a `.txt` or `.csv` file, then fetch. Enter in the search box adds the best match. The page shows how many Fyers symbols the service has and when they were downloaded; **Refresh symbols** downloads them again. Progress and results update live as the batches complete; invalid symbols are listed. Filter the results and export them to CSV.
 - **History:** every past request, filtered by status; select one to see, filter and export its quotes.
 - **Mutual funds:** your own list of funds with their latest NAVs. Search by any part of the name (word order, typos, "midcap" or "mid cap", "absl", "dividend" for IDCW all work) or by ISIN or scheme code, and add or remove funds. The list is stored by the API (`/api/my-funds`), so every app pointed at the same service shares it, and it can be exported to CSV. The page also shows when AMFI's NAV file was last downloaded and can download it again. The red **Get live prices** button fetches prices for every holding's stock, and the Est. % and Est. NAV columns show each fund's estimated move today (see [Today's NAV estimate](#todays-nav-estimate)); hover them to see what the estimate is based on.
@@ -133,6 +133,8 @@ Invoke-RestMethod "http://127.0.0.1:8080$($r.statusUrl)" -Headers $h
 | `POST /api/holdings/quotes` | Request quotes for the distinct stock symbols in every listed fund's latest holdings (`202`; `200` with the running request if one is already going; `400` with no symbols) |
 | `GET /api/holdings/quotes/latest` | The most recent holdings quote request with its results |
 | `GET /api/holdings/top?limit=10` | The stocks your funds hold most, by weight averaged over the funds with holdings, with the last live prices (see below) |
+| `GET /api/live/quotes` | Streamed LTP and day change of the top holdings during market hours (see below) |
+| `GET /api/live/status` | State of the live price feed |
 | `POST /api/nav/refresh` | Download AMFI's latest NAV file into the service |
 | `GET /api/nav/status` | How many NAVs are stored, the latest NAV date, and when they were downloaded (`loadedAt` is null before the first refresh) |
 | `POST /api/symbols/refresh` | Download Fyers' NSE and BSE symbol masters into the service; symbol search and holdings fetches use them |
@@ -237,6 +239,15 @@ Invoke-RestMethod "http://127.0.0.1:8080/api/my-funds/152712/holdings?month=2026
 ### Top holdings
 
 `GET /api/holdings/top?limit=10` lists the stocks your funds hold most, as if the same amount were invested in each listed fund that has holdings. A stock's weight is the sum of its weights in those funds divided by their number, so a fund that doesn't hold it counts as 0%. Lines without a Fyers symbol are left out. Each stock also has how many funds hold it and, from the last finished holdings live-prices request, its LTP and day change %. `limit` is 1 to 100 (default 10). The desktop dashboard shows the top 10.
+
+### Live prices of the top holdings
+
+The service streams the LTP and day change of the top 95 holdings (ranked like `GET /api/holdings/top`) over the Fyers Data Socket. It stays connected whenever there is a Fyers login, so special sessions such as Muhurat trading or a weekend budget-day session are covered too (outside trading the connection is idle and the quotes keep the last prices). It re-ranks after every holdings fetch and every My funds add or remove, subscribing only the symbols that changed. Prices are kept in memory only.
+
+- `GET /api/live/quotes` returns the feed state and the latest quote of each streamed stock, in rank order.
+- `GET /api/live/status` returns the state (`Disabled`, `MarketClosed`, `NoSession`, `NoHoldings`, `Connecting`, `Connected`, `Reconnecting`, `Error`), the streamed symbols, the connection and last tick times, and the last error.
+
+Settings (`LiveQuotes__...`): `Enabled` (default `true`), `SymbolCount` (1 to 100, default 95), `MarketHoursOnly` (default `false`; `true` connects only Monday to Friday from `MarketOpen` to `MarketClose`, 09:15 to 15:30 in `TimeZone`, `Asia/Kolkata`) and `CheckIntervalSeconds` (15). Fyers allows 100 symbols per user across all its sockets, so leave room for anything else you stream.
 
 ## Deploying with Docker
 

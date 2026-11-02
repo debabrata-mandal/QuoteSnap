@@ -175,6 +175,7 @@
           <ColumnDefinition Width="*" />
           <ColumnDefinition Width="*" />
           <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
         <Border Style="{StaticResource KpiCard}" ToolTip="{Binding ApiDetailTooltip}">
@@ -212,7 +213,28 @@
           </StackPanel>
         </Border>
 
-        <Border Grid.Column="2" Style="{StaticResource KpiCard}" ToolTip="{Binding NavDetail}">
+        <Border Grid.Column="2" Style="{StaticResource KpiCard}" ToolTip="{Binding LiveFeed.Tip}">
+          <StackPanel DataContext="{Binding LiveFeed}">
+            <DockPanel LastChildFill="False">
+              <ContentControl Style="{StaticResource IconBadge}" Tag="{Binding Level}" Content="&#xE9D9;" />
+              <ui:StatusPill DockPanel.Dock="Right" Text="{Binding Summary}" Tone="{Binding Level, Converter={StaticResource Tone}}" />
+            </DockPanel>
+            <TextBlock Text="LIVE FEED" Style="{StaticResource Text.Label}" Margin="0,10,0,0" />
+            <Border Style="{StaticResource KpiValueSkeleton}" Visibility="{Binding DataContext.LastChecked, RelativeSource={RelativeSource AncestorType=Grid}, Converter={StaticResource VisibleWhenNull}}" />
+            <StackPanel Orientation="Horizontal" Margin="0,2,0,2"
+                        Visibility="{Binding DataContext.LastChecked, RelativeSource={RelativeSource AncestorType=Grid}, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
+              <TextBlock Text="{Binding Value}" Style="{StaticResource Text.KpiMedium}" />
+              <TextBlock Text="stocks hooked" Style="{StaticResource Text.Muted}" VerticalAlignment="Bottom" Margin="6,0,0,3"
+                         Visibility="{Binding HasValue, Converter={StaticResource BoolToVisibility}}" />
+            </StackPanel>
+            <ProgressBar Height="4" Maximum="1" Value="{Binding CapFraction, Mode=OneWay}" Margin="0,2,0,10"
+                         Visibility="{Binding HasValue, Converter={StaticResource BoolToVisibility}}"
+                         Foreground="{Binding Level, Converter={StaticResource ToneBrush}}" />
+            <TextBlock Text="{Binding Detail}" Style="{StaticResource Text.Muted}" TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="3" Style="{StaticResource KpiCard}" ToolTip="{Binding NavDetail}">
           <StackPanel>
             <DockPanel LastChildFill="False">
               <ContentControl Style="{StaticResource IconBadge}" Tag="{Binding NavLevel}" Content="&#xE825;" />
@@ -230,7 +252,7 @@
           </StackPanel>
         </Border>
 
-        <Border Grid.Column="3" Style="{StaticResource KpiCard}" ToolTip="{Binding RequestsDetail}">
+        <Border Grid.Column="4" Style="{StaticResource KpiCard}" ToolTip="{Binding RequestsDetail}">
           <StackPanel>
             <DockPanel LastChildFill="False">
               <ContentControl Style="{StaticResource IconBadge}" Tag="{x:Static ui:Tone.Accent}" Content="&#xE945;" />

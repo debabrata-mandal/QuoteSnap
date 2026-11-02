@@ -96,6 +96,9 @@ public sealed partial class DashboardViewModel : ObservableObject
     public partial string? RequestsDetail { get; set; }
 
     [ObservableProperty]
+    public partial LiveFeedTile LiveFeed { get; set; } = LiveFeedTile.Unknown("Checking", "Shown once the API responds.");
+
+    [ObservableProperty]
     public partial IReadOnlyList<TopHoldingRow> TopHoldings { get; set; } = [];
 
     /// <summary>Today's estimated move of all listed funds together; null without live prices.</summary>
@@ -189,6 +192,15 @@ public sealed partial class DashboardViewModel : ObservableObject
 
         try
         {
+            LiveFeed = LiveFeedTile.From(await client.GetLiveFeedStatusAsync());
+        }
+        catch (Exception ex)
+        {
+            LiveFeed = LiveFeedTile.Unknown("Unavailable", ErrorText.Describe(ex, baseAddress));
+        }
+
+        try
+        {
             ShowTopHoldings(await client.GetTopHoldingsAsync(TopCount));
         }
         catch (Exception ex)
@@ -224,6 +236,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         FyersValue = NavValue = RequestsValue = Display.Missing;
         FyersDetail = NavDetail = RequestsDetail = "Shown once the API responds.";
         FyersValidity = 0;
+        LiveFeed = LiveFeedTile.Unknown("Unknown", "Shown once the API responds.");
         TopHoldings = [];
         Portfolio = null;
         TopHoldingsCaption = null;

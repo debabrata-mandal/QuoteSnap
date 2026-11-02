@@ -80,16 +80,15 @@ public sealed class HoldingTests
             """),
     ];
 
+    private static Task<QuoteSnapApiFactory> ListedAsync(bool startWorker, params int[] schemeCodes) => ListedAsync(new QuoteSnapApiFactory(startWorker: startWorker), schemeCodes);
+
     /// <summary>A service with NAVs loaded, the given funds on the list, Fyers' symbol masters, and ScanX holdings for the DSP and Motilal funds.</summary>
-    private static async Task<QuoteSnapApiFactory> ListedAsync(bool startWorker, params int[] schemeCodes)
+    private static async Task<QuoteSnapApiFactory> ListedAsync(QuoteSnapApiFactory factory, params int[] schemeCodes)
     {
-        QuoteSnapApiFactory factory = new(startWorker: startWorker)
-        {
-            NavFile = NavFile,
-            ScanxSchemes = Schemes,
-            NseSymbolMaster = NseMaster,
-            BseSymbolMaster = BseMaster,
-        };
+        factory.NavFile = NavFile;
+        factory.ScanxSchemes = Schemes;
+        factory.NseSymbolMaster = NseMaster;
+        factory.BseSymbolMaster = BseMaster;
         factory.ScanxHoldings[DspPlan] = DspPages;
         factory.ScanxHoldings[MotilalPlan] = MotilalPages;
         QuoteSnapClient client = factory.CreateQuoteSnapClient();
@@ -509,5 +508,50 @@ public sealed class HoldingTests
         Assert.NotNull(after.PricesAt);
         Assert.All(after.Holdings, h => Assert.Equal(100.5m, h.Ltp));
         Assert.All(after.Holdings, h => Assert.Equal(1.2594m, h.ChangePercent));
+    }
+
+    [Fact]
+    public async Task The_top_holdings_are_streamed_live_and_re_ranked_when_the_holdings_or_the_list_change()
+    {
+        await using QuoteSnapApiFactory factory = await ListedAsync(new QuoteSnapApiFactory(liveFeed: true), Dsp, Motilal);
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+        await WaitForAsync(async () => (await client.GetLiveFeedStatusAsync()).State == LiveFeedState.NoSession);
+
+        await factory.SeedSessionAsync();
+        await WaitForAsync(async () => (await client.GetLiveFeedStatusAsync()).State == LiveFeedState.NoHoldings);
+
+        await FetchAsync(client);
+        await WaitForAsync(async () => (await client.GetLiveFeedStatusAsync()).Symbols.Count == 3);
+        LiveFeedStatus status = await client.GetLiveFeedStatusAsync();
+        Assert.Equal(LiveFeedState.Connected, status.State);
+        Assert.Equal(["NSE:HAL-EQ", "NSE:HDFCBANK-EQ", "BSE:ICICIBANK-A"], status.Symbols);
+        Assert.NotNull(status.ConnectedAt);
+        Assert.Equal(["+NSE:HAL-EQ,NSE:HDFCBANK-EQ,BSE:ICICIBANK-A"], factory.LiveFeed.Calls);
+
+        // A later tick keeps the values the earlier one sent and this one left out; unstreamed symbols are ignored.
+        factory.LiveFeed.Tick("NSE:HDFCBANK-EQ", 1650.25m, 12.5m, 0.7631m);
+        factory.LiveFeed.Tick("NSE:HDFCBANK-EQ", 1651m, null, null);
+        factory.LiveFeed.Tick("NSE:HAL-EQ", 4500.5m, -20m, -0.4425m);
+        factory.LiveFeed.Tick("NSE:SBIN-EQ", 800m, 1m, 0.125m);
+        LiveQuoteList quotes = await client.GetLiveQuotesAsync();
+        Assert.Equal(LiveFeedState.Connected, quotes.State);
+        Assert.NotNull(quotes.LastTickAt);
+        Assert.Equal(["NSE:HAL-EQ", "NSE:HDFCBANK-EQ"], quotes.Quotes.Select(q => q.Symbol));
+        Assert.Equal((1651m, 12.5m, 0.7631m), (quotes.Quotes[1].Ltp, quotes.Quotes[1].Change, quotes.Quotes[1].ChangePercent));
+        Assert.Equal(2, (await client.GetLiveFeedStatusAsync()).QuoteCount);
+
+        // Only Motilal holds HAL, so removing it unsubscribes HAL and drops its quote, on the same socket.
+        await client.RemoveMyFundAsync(Motilal);
+        await WaitForAsync(async () => (await client.GetLiveFeedStatusAsync()).Symbols.Count == 2);
+        Assert.Equal(["+NSE:HAL-EQ,NSE:HDFCBANK-EQ,BSE:ICICIBANK-A", "-NSE:HAL-EQ"], factory.LiveFeed.Calls);
+        Assert.Equal(["NSE:HDFCBANK-EQ"], (await client.GetLiveQuotesAsync()).Quotes.Select(q => q.Symbol));
+        Assert.Equal(1, factory.LiveFeed.Connections);
+    }
+
+    private static async Task WaitForAsync(Func<Task<bool>> condition)
+    {
+        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(20));
+        while (!await condition())
+            await Task.Delay(50, timeout.Token);
     }
 }

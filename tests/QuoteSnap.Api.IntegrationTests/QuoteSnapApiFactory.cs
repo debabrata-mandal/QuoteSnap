@@ -12,6 +12,7 @@ using QuoteSnap.Api.Data;
 using QuoteSnap.Api.Domain;
 using QuoteSnap.Api.Fyers;
 using QuoteSnap.Api.Holdings;
+using QuoteSnap.Api.Live;
 using QuoteSnap.Api.Nav;
 using QuoteSnap.Api.Services;
 using QuoteSnap.Client;
@@ -33,12 +34,13 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
     /// Pass the same directory to two factories to simulate a restart: they share the database and encryption keys.
     /// </param>
     /// <param name="delayBetweenBatchesMs">Zero by default so tests aren't slowed down by the production pause.</param>
-    public QuoteSnapApiFactory(string? dataDirectory = null, bool startWorker = true, int delayBetweenBatchesMs = 0)
+    public QuoteSnapApiFactory(string? dataDirectory = null, bool startWorker = true, int delayBetweenBatchesMs = 0, bool liveFeed = false)
     {
         _ownsDataDirectory = dataDirectory is null;
         DataDirectory = dataDirectory ?? NewDataDirectory();
         StartWorker = startWorker;
         DelayBetweenBatchesMs = delayBetweenBatchesMs;
+        LiveFeedEnabled = liveFeed;
     }
 
     public string DataDirectory { get; }
@@ -48,6 +50,11 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
     public bool StartWorker { get; }
 
     public int DelayBetweenBatchesMs { get; }
+
+    /// <summary>Runs the live feed around the clock against <see cref="LiveFeed"/>; off by default.</summary>
+    public bool LiveFeedEnabled { get; }
+
+    public FakeLiveFeed LiveFeed => (FakeLiveFeed)Services.GetRequiredService<ILiveFeedConnectionFactory>();
 
     public FakeQuoteProvider QuoteProvider => (FakeQuoteProvider)Services.GetRequiredService<IQuoteProvider>();
 
@@ -110,11 +117,16 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Auth:AdminApiKey", AdminApiKey);
         builder.UseSetting("Fyers:DelayBetweenBatchesMs", DelayBetweenBatchesMs.ToString(CultureInfo.InvariantCulture));
         builder.UseSetting("Holdings:DelayBetweenRequestsMs", "0");
+        builder.UseSetting("LiveQuotes:Enabled", LiveFeedEnabled.ToString());
+        builder.UseSetting("LiveQuotes:MarketHoursOnly", "false");
+        builder.UseSetting("LiveQuotes:CheckIntervalSeconds", "1");
 
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IQuoteProvider>();
             services.AddSingleton<IQuoteProvider, FakeQuoteProvider>();
+            services.RemoveAll<ILiveFeedConnectionFactory>();
+            services.AddSingleton<ILiveFeedConnectionFactory, FakeLiveFeed>();
 
             services.AddHttpClient<NavImporter>().ConfigurePrimaryHttpMessageHandler(() => new FakeAmfiHandler(this));
             services.AddHttpClient<ScanxClient>().ConfigurePrimaryHttpMessageHandler(() => new FakeScanxHandler(this));
@@ -152,6 +164,41 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
         catch (UnauthorizedAccessException)
         {
         }
+    }
+}
+
+/// <summary>Opens fake sockets that authenticate at once and record what they're asked to stream.</summary>
+public sealed class FakeLiveFeed : ILiveFeedConnectionFactory
+{
+    private ILiveFeedListener? _listener;
+
+    /// <summary>"+symbols" per subscribe, "-symbols" per unsubscribe and "close", in order.</summary>
+    public ConcurrentQueue<string> Calls { get; } = new();
+
+    public int Connections { get; private set; }
+
+    /// <summary>Sends a tick on the latest socket.</summary>
+    public void Tick(string symbol, decimal? ltp, decimal? change, decimal? changePercent) =>
+        _listener!.OnTick(new LiveTick(symbol, ltp, change, changePercent));
+
+    public ILiveFeedConnection Create(string appId, string accessToken, ILiveFeedListener listener)
+    {
+        if (appId != QuoteSnapApiFactory.App.AppId)
+            throw new InvalidOperationException($"Expected the stored App ID, got '{appId}'.");
+        _listener = listener;
+        Connections++;
+        return new Connection(this, listener);
+    }
+
+    private sealed class Connection(FakeLiveFeed feed, ILiveFeedListener listener) : ILiveFeedConnection
+    {
+        public void Connect() => listener.OnOpened();
+
+        public void Subscribe(IReadOnlyList<string> symbols) => feed.Calls.Enqueue("+" + string.Join(",", symbols));
+
+        public void Unsubscribe(IReadOnlyList<string> symbols) => feed.Calls.Enqueue("-" + string.Join(",", symbols));
+
+        public void Dispose() => feed.Calls.Enqueue("close");
     }
 }
 
