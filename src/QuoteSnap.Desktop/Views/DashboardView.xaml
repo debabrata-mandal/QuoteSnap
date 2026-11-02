@@ -93,19 +93,31 @@
           <Border Grid.Column="1" Width="240" Margin="16,0,0,0" Padding="14,12" CornerRadius="{StaticResource RadiusCard}"
                   Background="{StaticResource FillSubtleBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" ToolTip="{Binding Best.SchemeName}">
             <StackPanel>
-              <TextBlock Text="BEST FUND" Style="{StaticResource Text.Label}" />
-              <TextBlock Text="{Binding Best.SchemeName}" FontWeight="SemiBold" Margin="0,6,0,0" TextTrimming="CharacterEllipsis" />
-              <TextBlock Text="{Binding BestText}" FontWeight="SemiBold" FontSize="{StaticResource FontSizeSection}" Margin="0,4,0,0"
-                         Foreground="{Binding BestChange, Converter={StaticResource SignBrush}}" />
+              <DockPanel>
+                <Border DockPanel.Dock="Right" CornerRadius="{StaticResource RadiusPill}" Padding="7,1" VerticalAlignment="Center"
+                        Background="{Binding BestChange, Converter={StaticResource SignBrush}, ConverterParameter=subtle}">
+                  <TextBlock Text="{Binding BestText}" FontSize="{StaticResource FontSizeSmall}" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"
+                             Foreground="{Binding BestChange, Converter={StaticResource SignBrush}}" />
+                </Border>
+                <TextBlock Text="BEST FUND" Style="{StaticResource Text.Label}" VerticalAlignment="Center" />
+              </DockPanel>
+              <TextBlock Text="{Binding Best.SchemeName}" FontWeight="SemiBold" Margin="0,7,0,0" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                         LineHeight="17" LineStackingStrategy="BlockLineHeight" Height="34" />
             </StackPanel>
           </Border>
           <Border Grid.Column="2" Width="240" Margin="12,0,0,0" Padding="14,12" CornerRadius="{StaticResource RadiusCard}"
                   Background="{StaticResource FillSubtleBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" ToolTip="{Binding Worst.SchemeName}">
             <StackPanel>
-              <TextBlock Text="WORST FUND" Style="{StaticResource Text.Label}" />
-              <TextBlock Text="{Binding Worst.SchemeName}" FontWeight="SemiBold" Margin="0,6,0,0" TextTrimming="CharacterEllipsis" />
-              <TextBlock Text="{Binding WorstText}" FontWeight="SemiBold" FontSize="{StaticResource FontSizeSection}" Margin="0,4,0,0"
-                         Foreground="{Binding WorstChange, Converter={StaticResource SignBrush}}" />
+              <DockPanel>
+                <Border DockPanel.Dock="Right" CornerRadius="{StaticResource RadiusPill}" Padding="7,1" VerticalAlignment="Center"
+                        Background="{Binding WorstChange, Converter={StaticResource SignBrush}, ConverterParameter=subtle}">
+                  <TextBlock Text="{Binding WorstText}" FontSize="{StaticResource FontSizeSmall}" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"
+                             Foreground="{Binding WorstChange, Converter={StaticResource SignBrush}}" />
+                </Border>
+                <TextBlock Text="WORST FUND" Style="{StaticResource Text.Label}" VerticalAlignment="Center" />
+              </DockPanel>
+              <TextBlock Text="{Binding Worst.SchemeName}" FontWeight="SemiBold" Margin="0,7,0,0" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                         LineHeight="17" LineStackingStrategy="BlockLineHeight" Height="34" />
             </StackPanel>
           </Border>
         </Grid>

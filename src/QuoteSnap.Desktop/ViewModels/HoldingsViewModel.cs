@@ -13,8 +13,6 @@ namespace QuoteSnap.Desktop.ViewModels;
 /// </summary>
 public sealed partial class HoldingsViewModel : ObservableObject
 {
-    private const string PricesLoadFailed = "Couldn't load the last live prices.";
-
     private readonly QuoteSnapConnection _connection;
     private readonly FileDialogs _dialogs;
     private IReadOnlyList<HoldingRow> _allHoldings = [];
@@ -24,6 +22,7 @@ public sealed partial class HoldingsViewModel : ObservableObject
     private Guid? _watchingQuotes;
     private int _loadVersion;
     private bool _activated;
+    private bool _showingLoadWarning;
 
     public HoldingsViewModel(QuoteSnapConnection connection, FileDialogs dialogs)
     {
@@ -42,7 +41,7 @@ public sealed partial class HoldingsViewModel : ObservableObject
         connection.HubConnected += async () =>
         {
             if (_activated)
-                await ReloadAsync();
+                await RefreshAsync();
         };
     }
 
@@ -158,15 +157,7 @@ public sealed partial class HoldingsViewModel : ObservableObject
     public async Task ActivateAsync()
     {
         _activated = true;
-        await ReloadAsync();
-    }
-
-    private async Task ReloadAsync()
-    {
-        await LoadFundsAsync();
-        await LoadLatestPricesAsync();
-        await LoadLivePricesAsync();
-        await ResumeRunningFetchAsync();
+        await RefreshAsync();
     }
 
     partial void OnFilterTextChanged(string value) => ApplyFilter();
@@ -189,6 +180,8 @@ public sealed partial class HoldingsViewModel : ObservableObject
     [RelayCommand]
     private async Task RefreshAsync()
     {
+        if (_showingLoadWarning)
+            Message = null;
         await LoadFundsAsync();
         await LoadLatestPricesAsync();
         await LoadLivePricesAsync();
@@ -405,10 +398,7 @@ public sealed partial class HoldingsViewModel : ObservableObject
             return;
         try
         {
-            QuoteRequestDetails? latest = await _connection.Client.GetLatestHoldingQuotesAsync();
-            if (Message?.StartsWith(PricesLoadFailed, StringComparison.Ordinal) == true)
-                Message = null;
-            if (latest is null)
+            if (await _connection.Client.GetLatestHoldingQuotesAsync() is not { } latest)
                 return;
             if (latest.Status.IsTerminal())
                 ShowPrices(latest);
@@ -417,7 +407,7 @@ public sealed partial class HoldingsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Report(StatusLevel.Warning, $"{PricesLoadFailed} {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}");
+            ReportLoadWarning($"Couldn't load the last live prices. {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}");
         }
     }
 
@@ -483,7 +473,7 @@ public sealed partial class HoldingsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Report(StatusLevel.Warning, $"Couldn't check for a running holdings fetch. {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}");
+            ReportLoadWarning($"Couldn't check for a running holdings fetch. {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}");
         }
     }
 
@@ -552,6 +542,14 @@ public sealed partial class HoldingsViewModel : ObservableObject
     {
         MessageLevel = level;
         Message = message;
+        _showingLoadWarning = false;
+    }
+
+    /// <summary>A warning from loading the page, cleared by the next refresh (it comes back if the API is still unreachable).</summary>
+    private void ReportLoadWarning(string message)
+    {
+        Report(StatusLevel.Warning, message);
+        _showingLoadWarning = true;
     }
 }
 
