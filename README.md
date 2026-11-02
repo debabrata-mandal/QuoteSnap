@@ -1,6 +1,6 @@
 # QuoteSnap
 
-Self-hosted C#/.NET microservice that fetches last traded prices (LTP) for hundreds of NSE/BSE stocks in one request via the Fyers API. Submit a batch, get a request ID, poll for results. It also serves the latest mutual fund NAVs from AMFI's daily file, and the month-by-month portfolios of the funds you follow, scraped from ScanX. PostgreSQL storage.
+Self-hosted C#/.NET microservice that fetches last traded prices (LTP) for hundreds of NSE/BSE stocks in one request via the Fyers API. Submit a batch, get a request ID, poll for results. It also serves the latest mutual fund NAVs from AMFI's daily file, and the month-by-month portfolios of the funds you follow. PostgreSQL storage.
 
 ## How it works
 
@@ -98,7 +98,7 @@ The app talks to the API at `http://127.0.0.1:8080/` with `Auth__ApiKey` from `.
 - **New request:** paste symbols, or drop or load a `.txt` or `.csv` file, then fetch. Progress and results update live as the batches complete; invalid symbols are listed. Filter the results and export them to CSV.
 - **History:** every past request, filtered by status; select one to see, filter and export its quotes.
 - **Mutual funds:** your own list of funds with their latest NAVs. Search by any part of the name (word order, typos, "midcap" or "mid cap", "absl", "dividend" for IDCW all work) or by ISIN or scheme code, and add or remove funds. The list is stored by the API (`/api/my-funds`), so every app pointed at the same service shares it, and it can be exported to CSV. The page also shows when AMFI's NAV file was last downloaded and can download it again.
-- **Holdings:** what the funds on your list own. Fetch holdings scrapes every listed fund's portfolio from ScanX and shows live progress: a progress bar, the fund being fetched and a status per fund (Waiting, Fetching, Updated, Not on ScanX, Failed). A fetch keeps running in the service if you leave the page or close the app, and the page picks it up again when reopened. Select a fund to see its holdings with weight, sector, shares and the change in weight since the month before; step back through the 12 stored months, filter, and export to CSV.
+- **Holdings:** what the funds on your list own. Fetch holdings downloads every listed fund's portfolio and shows live progress: a progress bar, the fund being fetched and a status per fund (waiting, fetching, updated, not available, failed). A fetch keeps running in the service if you leave the page or close the app, and the page picks it up again when reopened. Select a fund to see its holdings with weight, sector, shares and the change in weight since the month before; step back through the 12 stored months, filter, and export to CSV.
 - **Fyers login:** the stored Fyers session (account, days left, when the token renews) and the login itself, without the login tool. Enter the App ID, Secret ID and PIN (prefilled from `Fyers__AppId`, `Fyers__SecretId` and `Fyers__Pin` in `.env` if set) and press **Log in with Fyers**. The Fyers page opens in your browser; after you log in, Fyers redirects to `http://127.0.0.1:8085/callback`, where the app receives it and hands the login to the service. If that port can't be used, **Paste the redirect URL instead** has you copy the address from the browser. Turn on **Remember these details on this PC** to keep them for next time in `%LOCALAPPDATA%\QuoteSnap\fyers-login.json`, with the Secret ID and PIN encrypted for your Windows account. **Log out** on the session card (after a confirmation) revokes the token at Fyers and makes the service forget the login, as `quotesnap-login logout` does; the details remembered on this PC stay, ready for the next login. Logging in and out needs the admin API key (`Auth__AdminApiKey`), which the app reads from `.env` or Settings. The dashboard's "Fyers login needed" alert links here.
 - **Settings:** point the app at another API address, API key or admin API key. Saved settings go to `%LOCALAPPDATA%\QuoteSnap\desktop-settings.json`, with the keys encrypted for your Windows account; until you save, the app keeps reading `.env`.
 
@@ -126,7 +126,7 @@ Invoke-RestMethod "http://127.0.0.1:8080$($r.statusUrl)" -Headers $h
 | `GET /api/my-funds` | Your fund list, in the order added, each with its latest NAV |
 | `PUT /api/my-funds/{schemeCode}` | Add a Direct Plan scheme to your list (`201`, or `200` if it's already there) |
 | `DELETE /api/my-funds/{schemeCode}` | Remove a scheme from your list (`204`, also when it wasn't there) |
-| `POST /api/holdings/fetches` | Start fetching the holdings of every listed fund from ScanX (`202`; `200` with the running fetch if one is already going) |
+| `POST /api/holdings/fetches` | Start fetching the holdings of every listed fund (`202`; `200` with the running fetch if one is already going) |
 | `GET /api/holdings/fetches/{id}` | A fetch's status and per-fund progress; `GET /api/holdings/fetches/latest` for the most recent one |
 | `GET /api/my-funds/{schemeCode}/holdings?month=yyyy-MM` | A listed fund's stored portfolio for a month (default: the latest) |
 | `POST /api/nav/refresh` | Download AMFI's latest NAV file into the service |
@@ -200,7 +200,7 @@ Invoke-RestMethod http://127.0.0.1:8080/api/my-funds/122639 -Method Delete -Head
 
 ### Fund holdings
 
-[ScanX](https://scanx.trade/insight/) publishes each fund's portfolio for the last 12 months. `POST /api/holdings/fetches` fetches it for every fund on your list and stores it in the `FundHoldings` table. It reads the JSON behind ScanX's pages, so no browser or login is needed.
+`POST /api/holdings/fetches` downloads the last 12 months of portfolio data for every fund on your list and stores it in the `FundHoldings` table. No browser or login is needed.
 
 ```powershell
 $f = Invoke-RestMethod http://127.0.0.1:8080/api/holdings/fetches -Method Post -Headers $h
@@ -208,12 +208,12 @@ Invoke-RestMethod "http://127.0.0.1:8080/api/holdings/fetches/$($f.id)" -Headers
 Invoke-RestMethod "http://127.0.0.1:8080/api/my-funds/152712/holdings?month=2026-09" -Headers $h
 ```
 
-- A background worker goes through the funds one at a time, pausing between ScanX calls (`Holdings__DelayBetweenRequestsMs`, default 750). A fund takes one or two seconds, so the fetch returns `202` straight away. Poll it for progress; while it runs, the response carries `Retry-After: 1`. Only one fetch runs at a time, and one cut short by a restart resumes when the service starts.
+- A background worker goes through the funds one at a time, pausing between calls (`Holdings__DelayBetweenRequestsMs`, default 750). A fund takes one or two seconds, so the fetch returns `202` straight away. Poll it for progress; while it runs, the response carries `Retry-After: 1`. Only one fetch runs at a time, and one cut short by a restart resumes when the service starts.
 - Each fund ends `Ok` with its holding count and month, `NotFound`, or `Error` with the reason. The fetch ends `Completed`, `CompletedWithErrors`, or `Failed` when no fund succeeded.
-- Funds are matched to ScanX schemes by name and fund house. Plan, option, punctuation and words like "Fund" are ignored, and small spelling differences are tolerated within the same fund house. ScanX covers equity, hybrid, index and most other funds but few debt, liquid or fixed-maturity ones; those come back `NotFound`.
+- Funds are matched to the source's schemes by name and fund house. Plan, option, punctuation and words like "Fund" are ignored, and small spelling differences are tolerated within the same fund house. Equity, hybrid, index and most other funds are covered, but few debt, liquid or fixed-maturity ones; those come back `NotFound`.
 - A successful fetch replaces all 12 months stored for the fund. A failed one leaves them as they were. Removing a fund from the list deletes its holdings.
 - Each holding has its name, NSE symbol (for listed shares), ISIN, asset type (Equity, Debt, TREPS, Net Payables, ...), sector, weight in percent of the fund's assets and share count. The holdings endpoint also returns the stored months and each holding's weight in the month before (`previousPercent`), ordered by weight. `GET /api/my-funds` includes a `holdings` summary (month, count, fetch time) for funds that have them.
-- ScanX's address is `Holdings__BaseUrl`; `Holdings__PageSize` (default 500) sets how many holdings each call returns.
+- The source's address is `Holdings__BaseUrl`; `Holdings__PageSize` (default 500) sets how many holdings each call returns.
 
 ## Deploying with Docker
 
