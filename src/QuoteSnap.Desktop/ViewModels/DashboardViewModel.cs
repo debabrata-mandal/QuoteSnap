@@ -1,8 +1,7 @@
-using System.Diagnostics;
 using System.Net;
-using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.AspNetCore.SignalR.Client;
 using QuoteSnap.Client;
 using QuoteSnap.Contracts;
 using QuoteSnap.Desktop.Services;
@@ -14,22 +13,40 @@ public sealed partial class DashboardViewModel : ObservableObject
 {
     private const int TopCount = 10;
     private const int TodayPageSize = 50;
-    private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan LoginExpiryWarning = TimeSpan.FromDays(2);
     private static readonly TimeSpan LoginLifetime = TimeSpan.FromDays(15);
 
     private readonly QuoteSnapConnection _connection;
-    private readonly DispatcherTimer _timer;
+    private bool _online;
+    private bool _refreshAgain;
+    private HubConnectionState _hubState;
+    private LiveFeedStatus? _liveStatus;
+    private TopHoldingList? _top;
 
+    /// <summary>Reads everything once, then follows the pushes from the API's event hub; there is no polling.</summary>
     public DashboardViewModel(QuoteSnapConnection connection)
     {
         _connection = connection;
-        _timer = new DispatcherTimer { Interval = RefreshInterval };
-        _timer.Tick += async (_, _) => await RefreshIfIdleAsync();
+        _hubState = connection.HubState;
         connection.Changed += async (_, _) =>
         {
             OnPropertyChanged(nameof(ConnectionHost));
             await RefreshIfIdleAsync();
+        };
+        connection.HubConnected += async () => await RefreshIfIdleAsync();
+        connection.HubStateChanged += async () => await OnHubStateChangedAsync();
+        connection.ServerChanged += async _ => await RefreshIfIdleAsync();
+        connection.QuoteRequestUpdated += async r =>
+        {
+            if (r.Status == QuoteRequestStatus.Queued || r.Status.IsTerminal())
+                await RefreshIfIdleAsync();
+        };
+        connection.LiveFeedStatusChanged += ShowLiveFeed;
+        connection.LiveQuotesUpdated += ShowLiveQuotes;
+        connection.EstimatesUpdated += e =>
+        {
+            Portfolio = PortfolioMove.From(e);
+            LastChecked = DateTimeOffset.Now;
         };
     }
 
@@ -130,16 +147,67 @@ public sealed partial class DashboardViewModel : ObservableObject
     [ObservableProperty]
     public partial DateTimeOffset? LastChecked { get; set; }
 
-    public void Start()
-    {
-        _timer.Start();
-        _ = RefreshIfIdleAsync();
-    }
+    public void Start() => _ = RefreshIfIdleAsync();
 
+    /// <summary>Refreshes, or refreshes once more after the one already running, so no change is missed.</summary>
     public async Task RefreshIfIdleAsync()
     {
-        if (!RefreshCommand.IsRunning)
+        if (RefreshCommand.IsRunning)
+        {
+            _refreshAgain = true;
+            return;
+        }
+
+        do
+        {
+            _refreshAgain = false;
             await RefreshCommand.ExecuteAsync(null);
+        }
+        while (_refreshAgain);
+    }
+
+    private async Task OnHubStateChangedAsync()
+    {
+        HubConnectionState previous = _hubState;
+        _hubState = _connection.HubState;
+        if (_online)
+            ShowHub();
+        // A dropped hub usually means the API went away; check, since nothing is polled.
+        if (previous == HubConnectionState.Connected && _hubState != HubConnectionState.Connected)
+            await RefreshIfIdleAsync();
+    }
+
+    private void ShowHub()
+    {
+        (ApiLevel, ApiValue) = _hubState switch
+        {
+            HubConnectionState.Connected => (StatusLevel.Good, "Connected"),
+            HubConnectionState.Reconnecting => (StatusLevel.Warning, "Reconnecting"),
+            _ => (StatusLevel.Warning, "Connecting"),
+        };
+    }
+
+    private void ShowLiveFeed(LiveFeedStatus status)
+    {
+        _liveStatus = status;
+        LiveFeed = LiveFeedTile.From(status);
+    }
+
+    private void ShowLiveQuotes(LiveQuoteList batch)
+    {
+        if (_liveStatus is { } status && (status.State != batch.State || status.LastTickAt != batch.LastTickAt))
+            ShowLiveFeed(status with { State = batch.State, LastTickAt = batch.LastTickAt });
+
+        Dictionary<string, LiveQuote> quotes = batch.Quotes.ToDictionary(q => q.Symbol, StringComparer.OrdinalIgnoreCase);
+        if (_top is null || !TopHoldings.Any(r => quotes.ContainsKey(r.Symbol)))
+            return;
+
+        TopHoldings = [.. TopHoldings.Select(r => quotes.TryGetValue(r.Symbol, out LiveQuote? q) ? r.WithPrice(q) : r)];
+        DateTimeOffset latest = quotes.Values.Max(q => q.UpdatedAt);
+        if (_top.PricesAt is null || latest > _top.PricesAt)
+            _top = _top with { PricesAt = latest };
+        TopHoldingsCaption = TopHoldingsText(_top);
+        LastChecked = DateTimeOffset.Now;
     }
 
     [RelayCommand]
@@ -149,14 +217,13 @@ public sealed partial class DashboardViewModel : ObservableObject
         Uri baseAddress = _connection.Settings.BaseAddress;
         try
         {
-            long start = Stopwatch.GetTimestamp();
             ServiceStatus status = await client.GetStatusAsync();
-            double latencyMs = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
-            ApiLevel = StatusLevel.Good;
+            _online = true;
+            _hubState = _connection.HubState;
             ApiSummary = "Online";
-            ApiValue = $"{latencyMs:0} ms";
+            ShowHub();
             ApiDetail = $"v{Display.Version(status.Version)} · {baseAddress.Authority}";
-            ApiDetailTooltip = $"Response time of the last status check. Server time {Display.Time(status.ServerTime)}.";
+            ApiDetailTooltip = $"State of the live connection the API pushes updates over. Server time {Display.Time(status.ServerTime)}.";
             ClearAlert();
             ShowFyers(status.Fyers, status.ServerTime);
         }
@@ -192,7 +259,7 @@ public sealed partial class DashboardViewModel : ObservableObject
 
         try
         {
-            LiveFeed = LiveFeedTile.From(await client.GetLiveFeedStatusAsync());
+            ShowLiveFeed(await client.GetLiveFeedStatusAsync());
         }
         catch (Exception ex)
         {
@@ -205,6 +272,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            _top = null;
             TopHoldings = [];
             TopHoldingsCaption = null;
             TopHoldingsEmptyText = ErrorText.Describe(ex, baseAddress);
@@ -225,6 +293,9 @@ public sealed partial class DashboardViewModel : ObservableObject
     private void ShowOffline(Exception ex, Uri baseAddress)
     {
         bool keyRejected = ex is QuoteSnapApiException { StatusCode: HttpStatusCode.Unauthorized };
+        _online = false;
+        _liveStatus = null;
+        _top = null;
         ApiLevel = StatusLevel.Bad;
         ApiSummary = keyRejected ? "Key rejected" : "Offline";
         ApiValue = keyRejected ? "401" : "Offline";
@@ -325,6 +396,7 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     private void ShowTopHoldings(TopHoldingList list)
     {
+        _top = list;
         decimal largest = list.Holdings.Count > 0 ? list.Holdings.Max(h => h.Percent) : 0;
         TopHoldings = [.. list.Holdings.Select((h, i) => new TopHoldingRow(i + 1, h, largest, list.FundCount))];
         TopHoldingsCaption = TopHoldingsText(list);

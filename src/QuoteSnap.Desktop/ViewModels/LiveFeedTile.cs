@@ -29,7 +29,6 @@ public sealed record LiveFeedTile(StatusLevel Level, string Summary, string Valu
             LiveFeedState.Error => (StatusLevel.Bad, "Error", status.LastError ?? "Retrying in a minute"),
             LiveFeedState.NoSession => (StatusLevel.Bad, "Login needed", "Streams once you log in to Fyers"),
             LiveFeedState.NoHoldings => (StatusLevel.Warning, "No holdings", "Fetch holdings on the Holdings page"),
-            LiveFeedState.MarketClosed => (StatusLevel.Unknown, "Market closed", "Connects when the market opens"),
             LiveFeedState.Disabled => (StatusLevel.Unknown, "Off", "Turned off in the API settings"),
             _ => (StatusLevel.Unknown, "Starting", "Waiting for the feed to start"),
         };

@@ -3,13 +3,14 @@ using Microsoft.Extensions.Options;
 using Polly;
 using QuoteSnap.Api.Data;
 using QuoteSnap.Api.Domain;
+using QuoteSnap.Api.Events;
 using QuoteSnap.Api.Fyers;
 using QuoteSnap.Contracts;
 
 namespace QuoteSnap.Api.Services;
 
 /// <summary>Processes quote requests one at a time, fetching their batches sequentially.</summary>
-public sealed class QuoteRequestWorker(QuoteRequestQueue queue, IServiceScopeFactory scopes, SessionService session, IOptions<FyersOptions> fyersOptions, TimeProvider time, ILogger<QuoteRequestWorker> logger) : BackgroundService
+public sealed class QuoteRequestWorker(QuoteRequestQueue queue, IServiceScopeFactory scopes, SessionService session, EventPublisher events, IOptions<FyersOptions> fyersOptions, TimeProvider time, ILogger<QuoteRequestWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -56,6 +57,7 @@ public sealed class QuoteRequestWorker(QuoteRequestQueue queue, IServiceScopeFac
             return;
         }
 
+        await events.QuoteRequestUpdatedAsync(repository, requestId, cancellationToken);
         long start = Stopwatch.GetTimestamp();
         List<string> pending = await repository.GetPendingSymbolsAsync(requestId, cancellationToken);
         int batchSize = fyersOptions.Value.BatchSize;
@@ -82,6 +84,7 @@ public sealed class QuoteRequestWorker(QuoteRequestQueue queue, IServiceScopeFac
                     long batchStart = Stopwatch.GetTimestamp();
                     (IReadOnlyList<ProviderQuote> quotes, lease) = await FetchBatchAsync(provider, lease, batches[i], info, cancellationToken);
                     await repository.SaveBatchAsync(requestId, quotes, cancellationToken);
+                    await events.QuoteRequestUpdatedAsync(repository, requestId, cancellationToken);
 
                     int ok = quotes.Count(q => q.IsOk);
                     succeeded += ok;
@@ -100,6 +103,7 @@ public sealed class QuoteRequestWorker(QuoteRequestQueue queue, IServiceScopeFac
         }
 
         QuoteRequestStatus status = await repository.CompleteAsync(requestId, error, cancellationToken);
+        await events.QuoteRequestUpdatedAsync(repository, requestId, cancellationToken);
         logger.LogInformation(
             "Quote request {RequestId} finished as {Status} in {ElapsedMs:0} ms: {Succeeded} ok, {Failed} failed of {SymbolCount} fetched",
             requestId, status, Stopwatch.GetElapsedTime(start).TotalMilliseconds, succeeded, failed, pending.Count);
@@ -148,6 +152,7 @@ public sealed class QuoteRequestWorker(QuoteRequestQueue queue, IServiceScopeFac
             QuoteRequestRepository repository = scope.ServiceProvider.GetRequiredService<QuoteRequestRepository>();
             await repository.FailPendingAsync(requestId, error, cancellationToken);
             await repository.CompleteAsync(requestId, error, cancellationToken);
+            await events.QuoteRequestUpdatedAsync(repository, requestId, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

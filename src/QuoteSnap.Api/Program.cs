@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.OpenApi;
 using QuoteSnap.Api.Data;
 using QuoteSnap.Api.Endpoints;
+using QuoteSnap.Api.Events;
 using QuoteSnap.Api.Fyers;
 using QuoteSnap.Api.Holdings;
 using QuoteSnap.Api.Live;
@@ -16,6 +17,7 @@ using QuoteSnap.Api.Logging;
 using QuoteSnap.Api.Nav;
 using QuoteSnap.Api.Options;
 using QuoteSnap.Api.Services;
+using QuoteSnap.Contracts;
 using Serilog;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -90,6 +92,10 @@ builder.Services.AddSingleton<LiveQuoteStore>();
 builder.Services.AddSingleton<LiveFeedSignal>();
 builder.Services.AddSingleton<ILiveFeedConnectionFactory, FyersLiveFeedConnectionFactory>();
 builder.Services.AddHostedService<LiveFeedService>();
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<HubPresence>();
+builder.Services.AddSingleton<EventPublisher>();
+builder.Services.AddHostedService<EventBroadcaster>();
 
 // The NAV file is about 1.5 MB and the scheme master about 4 MB.
 builder.Services.AddHttpClient<NavImporter>(client =>
@@ -129,6 +135,7 @@ await app.Services.InitializeDatabaseAsync();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseSerilogRequestLogging();
+app.RequireApiKey(QuoteSnapEvents.HubPath);
 
 app.MapOpenApi();
 app.MapQuoteRequestEndpoints();
@@ -139,6 +146,7 @@ app.MapMyFundEndpoints();
 app.MapHoldingEndpoints();
 app.MapFyersSymbolEndpoints();
 app.MapLiveEndpoints();
+app.MapHub<EventHub>(QuoteSnapEvents.HubPath);
 
 app.Run();
 

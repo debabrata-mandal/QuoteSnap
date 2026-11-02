@@ -8,7 +8,7 @@ namespace QuoteSnap.Api.Live;
 
 /// <summary>
 /// Streams LTP and the day's change of the listed funds' top holdings, ranked as on the dashboard, over one Fyers
-/// Data Socket during market hours. Ranks again when <see cref="LiveFeedSignal"/> fires and changes only the symbols
+/// Data Socket. Ranks again when <see cref="LiveFeedSignal"/> fires and changes only the symbols
 /// that moved in or out; opens a new socket when the access token changes or the SDK gives up reconnecting.
 /// </summary>
 public sealed class LiveFeedService(LiveQuoteStore store, LiveFeedSignal signal, ILiveFeedConnectionFactory connections, SessionService sessions, IServiceScopeFactory scopes, IOptions<LiveQuotesOptions> options, TimeProvider time, ILogger<LiveFeedService> logger) : BackgroundService
@@ -68,12 +68,6 @@ public sealed class LiveFeedService(LiveQuoteStore store, LiveFeedSignal signal,
     private async Task CheckAsync(LiveQuotesOptions settings, CancellationToken cancellationToken)
     {
         DateTimeOffset now = time.GetUtcNow();
-        if (settings.MarketHoursOnly && !MarketHours.IsOpen(now, settings))
-        {
-            Close(LiveFeedState.MarketClosed);
-            return;
-        }
-
         if ((await sessions.GetInfoAsync(cancellationToken)).State == FyersAuthState.ReloginRequired)
         {
             Close(LiveFeedState.NoSession);
@@ -234,8 +228,10 @@ public sealed class LiveFeedService(LiveQuoteStore store, LiveFeedSignal signal,
 
         public void OnTick(LiveTick tick)
         {
-            if (!_closed)
-                store.Record(tick);
+            if (_closed)
+                return;
+            logger.LogTrace("Live tick {Symbol} LTP {Ltp} change {ChangePercent}%", tick.Symbol, tick.Ltp, tick.ChangePercent);
+            store.Record(tick);
         }
 
         public void OnError(string message, bool fatal)

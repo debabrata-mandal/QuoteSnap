@@ -9,6 +9,10 @@ namespace QuoteSnap.Desktop.ViewModels;
 /// <param name="fundCount">How many funds the weights are averaged over.</param>
 public sealed class TopHoldingRow(int rank, TopHolding holding, decimal largest, int fundCount)
 {
+    private readonly TopHolding _holding = holding;
+    private readonly decimal _largest = largest;
+    private readonly int _fundCount = fundCount;
+
     public int Rank { get; } = rank;
 
     public string RankText { get; } = $"#{rank}";
@@ -49,4 +53,7 @@ public sealed class TopHoldingRow(int rank, TopHolding holding, decimal largest,
         < 0 and { } down => $"▼ {Math.Abs(down).ToString("N2", CultureInfo.CurrentCulture)}%",
         _ => "0.00%",
     };
+
+    /// <summary>The same tile with a streamed price.</summary>
+    public TopHoldingRow WithPrice(LiveQuote quote) => new(Rank, _holding with { Ltp = quote.Ltp, ChangePercent = quote.ChangePercent }, _largest, _fundCount);
 }

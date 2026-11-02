@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using QuoteSnap.Api.Data;
 using QuoteSnap.Api.Domain;
+using QuoteSnap.Api.Events;
 using QuoteSnap.Api.Fyers;
 using QuoteSnap.Contracts;
 
@@ -22,7 +23,7 @@ public sealed class FyersAccountMismatchException(string message) : Exception(me
 public sealed record AccessTokenLease(string AppId, string Token, int Version);
 
 /// <summary>Owns the Fyers session lifecycle: login, on-demand refresh, and status.</summary>
-public sealed class SessionService(IServiceScopeFactory scopes, IOptions<FyersOptions> options, TimeProvider time, ILogger<SessionService> logger)
+public sealed class SessionService(IServiceScopeFactory scopes, EventPublisher events, IOptions<FyersOptions> options, TimeProvider time, ILogger<SessionService> logger)
 {
     private static readonly TimeSpan ExpirySkew = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan FallbackAccessTokenLifetime = TimeSpan.FromHours(8);
@@ -93,6 +94,7 @@ public sealed class SessionService(IServiceScopeFactory scopes, IOptions<FyersOp
             {
                 logger.LogWarning("Fyers rejected the refresh token: {Reason}", ex.Message);
                 await store.TryInvalidateRefreshTokenAsync(session.Version, cancellationToken);
+                await events.ChangedAsync(ServerChange.FyersSession);
                 throw new FyersReloginRequiredException();
             }
 
@@ -100,6 +102,7 @@ public sealed class SessionService(IServiceScopeFactory scopes, IOptions<FyersOp
             if (await store.TryUpdateAccessTokenAsync(session.Version, accessToken, expiresAt, cancellationToken))
             {
                 logger.LogInformation("Fyers access token refreshed; valid until {ExpiresAt}", expiresAt);
+                await events.ChangedAsync(ServerChange.FyersSession);
                 return new AccessTokenLease(session.App.AppId, accessToken, session.Version + 1);
             }
 
@@ -144,6 +147,7 @@ public sealed class SessionService(IServiceScopeFactory scopes, IOptions<FyersOp
             cancellationToken);
 
         logger.LogInformation("Stored a new Fyers login for {FyersId} (app {AppId}); refresh token valid until {RefreshTokenExpiresAt}", profile.FyersId, app.AppId, refreshTokenExpiresAt);
+        await events.ChangedAsync(ServerChange.FyersSession);
         return ToInfo(await store.GetAsync(cancellationToken));
     }
 
@@ -191,6 +195,7 @@ public sealed class SessionService(IServiceScopeFactory scopes, IOptions<FyersOp
 
             await store.DeleteAsync(cancellationToken);
             logger.LogInformation("Logged out of Fyers: forgot the login for {FyersId} (app {AppId}); access token revoked at Fyers: {Revoked}", session.FyersId, session.App.AppId, revoked);
+            await events.ChangedAsync(ServerChange.FyersSession);
             return new FyersLogoutResult(session.FyersId, revoked, error);
         }
         finally

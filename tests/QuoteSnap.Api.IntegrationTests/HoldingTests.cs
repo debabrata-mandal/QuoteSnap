@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using QuoteSnap.Client;
 using QuoteSnap.Contracts;
@@ -546,6 +547,50 @@ public sealed class HoldingTests
         Assert.Equal(["+NSE:HAL-EQ,NSE:HDFCBANK-EQ,BSE:ICICIBANK-A", "-NSE:HAL-EQ"], factory.LiveFeed.Calls);
         Assert.Equal(["NSE:HDFCBANK-EQ"], (await client.GetLiveQuotesAsync()).Quotes.Select(q => q.Symbol));
         Assert.Equal(1, factory.LiveFeed.Connections);
+    }
+
+    [Fact]
+    public async Task The_hub_pushes_fetch_progress_live_status_quotes_and_estimates()
+    {
+        await using QuoteSnapApiFactory factory = await ListedAsync(new QuoteSnapApiFactory(liveFeed: true), Dsp, Motilal);
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+        await using QuoteSnapHubClient hub = factory.CreateHubClient();
+        ConcurrentQueue<HoldingFetch> fetches = new();
+        ConcurrentQueue<ServerChange> changes = new();
+        ConcurrentQueue<LiveFeedStatus> statuses = new();
+        ConcurrentQueue<LiveQuoteList> quotes = new();
+        ConcurrentQueue<NavEstimateList> estimates = new();
+        hub.HoldingFetchUpdated += fetches.Enqueue;
+        hub.Changed += changes.Enqueue;
+        hub.LiveFeedStatusChanged += statuses.Enqueue;
+        hub.LiveQuotesUpdated += quotes.Enqueue;
+        hub.EstimatesUpdated += estimates.Enqueue;
+        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(20));
+        await hub.StartAsync(timeout.Token);
+
+        HoldingFetch started = await client.StartHoldingFetchAsync(timeout.Token);
+        HoldingFetch fetch = await hub.WaitForHoldingFetchAsync(client, started.Id, cancellationToken: timeout.Token);
+        Assert.Equal(HoldingFetchStatus.Completed, fetch.Status);
+        await EventHubTests.WaitForAsync(() => changes.Contains(ServerChange.Holdings), timeout.Token);
+        Assert.Equal(HoldingFetchStatus.Queued, fetches.First().Status);
+        Assert.Contains(fetches, f => f.Status == HoldingFetchStatus.Running && f.FinishedFunds == 1);
+
+        await factory.SeedSessionAsync();
+        await EventHubTests.WaitForAsync(() => statuses.Any(s => s.State == LiveFeedState.Connected && s.Symbols.Count == 3), timeout.Token);
+
+        factory.LiveFeed.Tick("NSE:HDFCBANK-EQ", 1650.25m, 12.5m, 0.7631m);
+        await EventHubTests.WaitForAsync(() => quotes.Any(q => q.Quotes.Any(x => x.Symbol == "NSE:HDFCBANK-EQ")), timeout.Token);
+        LiveQuoteList batch = quotes.First(q => q.Quotes.Count > 0);
+        Assert.Equal([new LiveQuote("NSE:HDFCBANK-EQ", 1650.25m, 12.5m, 0.7631m, batch.Quotes[0].UpdatedAt)], batch.Quotes);
+        Assert.Equal(LiveFeedState.Connected, batch.State);
+
+        // DSP holds HDFC Bank, so its estimate moves with the tick, without any quote request.
+        await EventHubTests.WaitForAsync(() => estimates.Any(e => e.PricesAt is not null && e.Funds.Any(f => f.SchemeCode == Dsp && f.PricedHoldings > 0)), timeout.Token);
+        NavEstimateList list = estimates.Last();
+        Assert.Null(list.RequestId);
+        Assert.NotNull(list.Funds.Single(f => f.SchemeCode == Dsp).EstimatedNav);
+        TopHoldingList top = await client.GetTopHoldingsAsync(10, timeout.Token);
+        Assert.Equal(1650.25m, top.Holdings.Single(h => h.Symbol == "NSE:HDFCBANK-EQ").Ltp);
     }
 
     private static async Task WaitForAsync(Func<Task<bool>> condition)

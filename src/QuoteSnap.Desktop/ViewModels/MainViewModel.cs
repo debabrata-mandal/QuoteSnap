@@ -57,7 +57,11 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     public partial int SelectedTabIndex { get; set; }
 
-    public void Start() => Dashboard.Start();
+    public void Start()
+    {
+        Dashboard.Start();
+        _connection.Start();
+    }
 
     [RelayCommand]
     private void GoTo(string tab) => SelectedTabIndex = int.Parse(tab, System.Globalization.CultureInfo.InvariantCulture);

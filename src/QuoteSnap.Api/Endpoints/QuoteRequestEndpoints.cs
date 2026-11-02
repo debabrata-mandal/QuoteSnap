@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using QuoteSnap.Api.Data;
 using QuoteSnap.Api.Domain;
+using QuoteSnap.Api.Events;
 using QuoteSnap.Api.Services;
 using QuoteSnap.Contracts;
 
@@ -19,11 +20,11 @@ public static class QuoteRequestEndpoints
         return app;
     }
 
-    private static Task<Results<Accepted<QuoteRequestAccepted>, ProblemHttpResult>> CreateAsync(CreateQuoteRequest body, QuoteRequestRepository repository, QuoteRequestQueue queue, SessionService session, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken) =>
-        SubmitAsync(body.Symbols, forHoldings: false, repository, queue, session, time, loggers, cancellationToken);
+    private static Task<Results<Accepted<QuoteRequestAccepted>, ProblemHttpResult>> CreateAsync(CreateQuoteRequest body, QuoteRequestRepository repository, QuoteRequestQueue queue, SessionService session, EventPublisher events, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken) =>
+        SubmitAsync(body.Symbols, forHoldings: false, repository, queue, session, events, time, loggers, cancellationToken);
 
     /// <summary>Validates the symbols, checks the Fyers login, then stores and queues the request.</summary>
-    internal static async Task<Results<Accepted<QuoteRequestAccepted>, ProblemHttpResult>> SubmitAsync(IReadOnlyList<string>? symbols, bool forHoldings, QuoteRequestRepository repository, QuoteRequestQueue queue, SessionService session, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken)
+    internal static async Task<Results<Accepted<QuoteRequestAccepted>, ProblemHttpResult>> SubmitAsync(IReadOnlyList<string>? symbols, bool forHoldings, QuoteRequestRepository repository, QuoteRequestQueue queue, SessionService session, EventPublisher events, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         ILogger logger = loggers.CreateLogger(typeof(QuoteRequestEndpoints));
         if (symbols is not { Count: > 0 })
@@ -44,6 +45,7 @@ public static class QuoteRequestEndpoints
 
         QuoteRequest request = await repository.CreateAsync(validation.Entries, cancellationToken, forHoldings);
         queue.Enqueue(request.Id);
+        await events.QuoteRequestUpdatedAsync(request);
         logger.LogInformation("Queued quote request {RequestId}: {SymbolCount} symbols, {InvalidCount} invalid, for holdings: {ForHoldings}", request.Id, request.TotalSymbols, validation.Invalid.Count, forHoldings);
 
         string statusUrl = $"/api/quote-requests/{request.Id}";

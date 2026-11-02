@@ -286,6 +286,27 @@
     <Setter Property="Height" Value="32" />
     <Setter Property="Padding" Value="0" />
   </Style>
+  <!-- A clickable column heading: just its label, which brightens on hover. -->
+  <Style x:Key="Button.Header" TargetType="ButtonBase">
+    <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ButtonBase">
+          <Border Background="{TemplateBinding Background}">
+            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
   <Style x:Key="Button.Caption" TargetType="Button" BasedOn="{StaticResource Button.Ghost}">
     <Setter Property="Width" Value="46" />
     <Setter Property="Height" Value="{StaticResource TitleBarHeight}" />

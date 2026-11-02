@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using QuoteSnap.Api.Data;
 using QuoteSnap.Api.Domain;
+using QuoteSnap.Api.Events;
 using QuoteSnap.Api.Nav;
 using QuoteSnap.Contracts;
 
@@ -100,11 +101,13 @@ public static class NavEndpoints
         return TypedResults.Ok(new NavLookup(funds, notFound, loadedAt));
     }
 
-    private static async Task<Results<Ok<NavRefreshResult>, ProblemHttpResult>> RefreshAsync(NavImporter importer, ILoggerFactory loggers, CancellationToken cancellationToken)
+    private static async Task<Results<Ok<NavRefreshResult>, ProblemHttpResult>> RefreshAsync(NavImporter importer, EventPublisher events, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         try
         {
-            return TypedResults.Ok(await importer.RefreshAsync(cancellationToken));
+            NavRefreshResult result = await importer.RefreshAsync(cancellationToken);
+            await events.ChangedAsync(ServerChange.Navs);
+            return TypedResults.Ok(result);
         }
         catch (Exception ex) when (ex is HttpRequestException or FormatException
             || ex is TaskCanceledException && !cancellationToken.IsCancellationRequested)

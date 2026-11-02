@@ -101,6 +101,14 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
             MaxPollInterval = TimeSpan.FromMilliseconds(100),
         }));
 
+    /// <summary>A hub connection over long polling, since the test server has no real sockets.</summary>
+    public QuoteSnapHubClient CreateHubClient() =>
+        new(new QuoteSnapClientOptions { BaseAddress = Server.BaseAddress, ApiKey = ApiKey, DefaultPollInterval = TimeSpan.FromMilliseconds(100) }, o =>
+        {
+            o.Transports = Microsoft.AspNetCore.Http.Connections.HttpTransportType.LongPolling;
+            o.HttpMessageHandlerFactory = _ => Server.CreateHandler();
+        });
+
     public async Task SeedSessionAsync()
     {
         await using AsyncServiceScope scope = Services.CreateAsyncScope();
@@ -118,7 +126,6 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Fyers:DelayBetweenBatchesMs", DelayBetweenBatchesMs.ToString(CultureInfo.InvariantCulture));
         builder.UseSetting("Holdings:DelayBetweenRequestsMs", "0");
         builder.UseSetting("LiveQuotes:Enabled", LiveFeedEnabled.ToString());
-        builder.UseSetting("LiveQuotes:MarketHoursOnly", "false");
         builder.UseSetting("LiveQuotes:CheckIntervalSeconds", "1");
 
         builder.ConfigureTestServices(services =>

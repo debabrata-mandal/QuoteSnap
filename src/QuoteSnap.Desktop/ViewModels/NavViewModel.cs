@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Windows.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using QuoteSnap.Contracts;
@@ -26,13 +27,45 @@ public sealed partial class NavViewModel : ObservableObject
     {
         _connection = connection;
         _dialogs = dialogs;
+        MyFundsView = new ListCollectionView(MyFunds);
         MyFunds.CollectionChanged += (_, _) => OnMyFundsChanged();
+        connection.EstimatesUpdated += ShowEstimates;
     }
 
     public event EventHandler? NavsRefreshed;
 
     /// <summary>Stored by the service, so every app pointed at it shares the list.</summary>
     public ObservableCollection<FundRow> MyFunds { get; } = [];
+
+    /// <summary><see cref="MyFunds"/> in the chosen <see cref="Order"/>, re-sorted as estimates change.</summary>
+    public ListCollectionView MyFundsView { get; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsReordered), nameof(EstimateHeaderText))]
+    public partial FundOrder Order { get; private set; }
+
+    public bool IsReordered => Order != FundOrder.Original;
+
+    public string EstimateHeaderText => Order switch
+    {
+        FundOrder.HighestEstimateFirst => "EST. % ↓",
+        FundOrder.LowestEstimateFirst => "EST. % ↑",
+        _ => "EST. %",
+    };
+
+    /// <summary>Highest first, then lowest first, then back to the original order.</summary>
+    [RelayCommand]
+    private void SortByEstimate() => Order = Order switch
+    {
+        FundOrder.Original => FundOrder.HighestEstimateFirst,
+        FundOrder.HighestEstimateFirst => FundOrder.LowestEstimateFirst,
+        _ => FundOrder.Original,
+    };
+
+    [RelayCommand]
+    private void ShowOriginalOrder() => Order = FundOrder.Original;
+
+    partial void OnOrderChanged(FundOrder value) => MyFundsView.CustomSort = value == FundOrder.Original ? null : new FundEstimateComparer(MyFunds, value == FundOrder.HighestEstimateFirst);
 
     public bool HasFunds => MyFunds.Count > 0;
 
@@ -264,7 +297,7 @@ public sealed partial class NavViewModel : ObservableObject
         try
         {
             Progress<QuoteRequestDetails> progress = new(r => PricesText = HoldingText.QuotesTitle(r));
-            QuoteRequestDetails finished = await _connection.Client.WaitForCompletionAsync(request.RequestId, progress);
+            QuoteRequestDetails finished = await _connection.WaitForCompletionAsync(request.RequestId, progress);
             if (finished.Status == QuoteRequestStatus.Failed)
                 Report(StatusLevel.Bad, $"Couldn't get live prices. {finished.Error}");
         }
@@ -282,9 +315,10 @@ public sealed partial class NavViewModel : ObservableObject
 
     private async Task LoadEstimatesAsync()
     {
+        NavEstimateList estimates;
         try
         {
-            _estimates = await _connection.Client.GetNavEstimatesAsync();
+            estimates = await _connection.Client.GetNavEstimatesAsync();
         }
         catch (Exception ex)
         {
@@ -295,9 +329,16 @@ public sealed partial class NavViewModel : ObservableObject
             return;
         }
 
+        ShowEstimates(estimates);
+    }
+
+    /// <summary>Also called for every estimate the API pushes as live prices tick.</summary>
+    private void ShowEstimates(NavEstimateList estimates)
+    {
+        _estimates = estimates;
         ApplyEstimates();
         if (!IsGettingPrices)
-            PricesText = _estimates.PricesAt is { } at ? $"Estimates use prices from {Display.WhenInSentence(at)}" : null;
+            PricesText = estimates.PricesAt is { } at ? $"Estimates use prices from {Display.WhenInSentence(at)}" : null;
     }
 
     private void ApplyEstimates()
@@ -305,6 +346,8 @@ public sealed partial class NavViewModel : ObservableObject
         Dictionary<int, NavEstimate> byScheme = _estimates?.Funds.ToDictionary(e => e.SchemeCode) ?? [];
         foreach (FundRow row in MyFunds)
             row.ShowEstimate(byScheme.GetValueOrDefault(row.SchemeCode), _estimates?.PricesAt);
+        if (IsReordered)
+            MyFundsView.Refresh();
     }
 
     [RelayCommand]

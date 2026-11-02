@@ -2,6 +2,8 @@ using System.Globalization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using QuoteSnap.Api.Data;
 using QuoteSnap.Api.Domain;
+using QuoteSnap.Api.Events;
+using QuoteSnap.Api.Live;
 using QuoteSnap.Api.Services;
 using QuoteSnap.Contracts;
 
@@ -34,19 +36,20 @@ public static class HoldingEndpoints
 
     /// <summary>The stocks the listed funds hold most, by weight averaged over the funds, with the last live prices.</summary>
     /// <param name="limit">At most 100; 10 by default.</param>
-    private static async Task<Ok<TopHoldingList>> GetTopAsync(int? limit, HoldingRepository holdings, QuoteRequestRepository requests, CancellationToken cancellationToken)
+    private static async Task<Ok<TopHoldingList>> GetTopAsync(int? limit, HoldingRepository holdings, QuoteRequestRepository requests, LiveQuoteStore live, CancellationToken cancellationToken)
     {
         Dictionary<int, List<FundHoldingRecord>> portfolios = await holdings.GetLatestHoldingsAsync(cancellationToken);
-        QuoteRequest? prices = await requests.GetLatestFinishedForHoldingsAsync(cancellationToken);
-        IReadOnlyList<TopHolding> top = TopHoldings.Rank(portfolios, prices?.Results, Math.Clamp(limit ?? DefaultTopLimit, 1, MaxTopLimit));
-        return TypedResults.Ok(new TopHoldingList(portfolios.Count, prices?.Id, prices?.CompletedAt, top));
+        QuoteRequest? request = await requests.GetLatestFinishedForHoldingsAsync(cancellationToken);
+        Dictionary<string, Price> prices = Prices.Merge(request?.Results, live.GetQuotes().Quotes);
+        IReadOnlyList<TopHolding> top = TopHoldings.Rank(portfolios, prices, Math.Clamp(limit ?? DefaultTopLimit, 1, MaxTopLimit));
+        return TypedResults.Ok(new TopHoldingList(portfolios.Count, request?.Id, Prices.LatestAt(request, prices), top));
     }
 
     /// <summary>
     /// Submits one quote request for the distinct stock symbols in the latest month of every listed fund. While such
     /// a request is queued or running, starting another returns that one instead.
     /// </summary>
-    private static async Task<Results<Accepted<QuoteRequestAccepted>, Ok<QuoteRequestAccepted>, ProblemHttpResult>> StartQuotesAsync(HoldingRepository holdings, QuoteRequestRepository requests, QuoteRequestQueue queue, SessionService session, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken)
+    private static async Task<Results<Accepted<QuoteRequestAccepted>, Ok<QuoteRequestAccepted>, ProblemHttpResult>> StartQuotesAsync(HoldingRepository holdings, QuoteRequestRepository requests, QuoteRequestQueue queue, SessionService session, EventPublisher events, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         if (await requests.GetLatestForHoldingsAsync(includeResults: false, cancellationToken) is { } latest
             && !latest.Status.IsTerminal())
@@ -61,7 +64,7 @@ public static class HoldingEndpoints
             return TypedResults.Problem("No listed fund has stock holdings with a Fyers symbol. Fetch holdings with POST /api/holdings/fetches first.", statusCode: StatusCodes.Status400BadRequest, title: "No holdings symbols");
         }
 
-        Results<Accepted<QuoteRequestAccepted>, ProblemHttpResult> submitted = await QuoteRequestEndpoints.SubmitAsync(symbols, forHoldings: true, requests, queue, session, time, loggers, cancellationToken);
+        Results<Accepted<QuoteRequestAccepted>, ProblemHttpResult> submitted = await QuoteRequestEndpoints.SubmitAsync(symbols, forHoldings: true, requests, queue, session, events, time, loggers, cancellationToken);
         return submitted.Result switch
         {
             Accepted<QuoteRequestAccepted> accepted => accepted,
@@ -85,7 +88,7 @@ public static class HoldingEndpoints
     /// Starts fetching the holdings of every fund on the list. Poll the returned status URL for progress. While a
     /// fetch is queued or running, starting another returns that one instead.
     /// </summary>
-    private static async Task<Results<Accepted<HoldingFetch>, Ok<HoldingFetch>, ProblemHttpResult>> StartAsync(HoldingRepository holdings, MyFundRepository funds, FyersSymbolRepository symbols, HoldingFetchQueue queue, ILoggerFactory loggers, CancellationToken cancellationToken)
+    private static async Task<Results<Accepted<HoldingFetch>, Ok<HoldingFetch>, ProblemHttpResult>> StartAsync(HoldingRepository holdings, MyFundRepository funds, FyersSymbolRepository symbols, HoldingFetchQueue queue, EventPublisher events, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         List<Guid> unfinished = await holdings.GetUnfinishedFetchIdsAsync(cancellationToken);
         if (unfinished.Count > 0 && await holdings.GetFetchAsync(unfinished[^1], cancellationToken) is { } running)
@@ -103,6 +106,7 @@ public static class HoldingEndpoints
         HoldingFetchRecord fetch = await holdings.CreateFetchAsync(listed, cancellationToken);
         queue.Enqueue(fetch.Id);
         loggers.CreateLogger(typeof(HoldingEndpoints)).LogInformation("Queued holdings fetch {FetchId} for {FundCount} funds", fetch.Id, listed.Count);
+        await events.HoldingFetchUpdatedAsync(holdings, fetch.Id, cancellationToken);
         return TypedResults.Accepted($"/api/holdings/fetches/{fetch.Id}", ToDto(fetch));
     }
 
@@ -173,7 +177,7 @@ public static class HoldingEndpoints
         return TypedResults.Ok(ToDto(fetch));
     }
 
-    private static HoldingFetch ToDto(HoldingFetchRecord f) => new(
+    public static HoldingFetch ToDto(this HoldingFetchRecord f) => new(
         f.Id,
         f.Status,
         f.CreatedAt,

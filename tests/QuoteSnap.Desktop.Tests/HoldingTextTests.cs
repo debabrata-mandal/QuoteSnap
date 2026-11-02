@@ -251,8 +251,8 @@ public sealed class HoldingTextTests
         Assert.Equal((StatusLevel.Bad, "Error", "Could not re-connect"), (error.Level, error.Summary, error.Detail));
         Assert.StartsWith("Last error ", error.Tip);
 
-        LiveFeedTile closed = LiveFeedTile.From(new LiveFeedStatus(LiveFeedState.MarketClosed, [], 0, null, null, null, null));
-        Assert.Equal((StatusLevel.Unknown, "Market closed", Display.Missing, false), (closed.Level, closed.Summary, closed.Value, closed.HasValue));
+        LiveFeedTile off = LiveFeedTile.From(new LiveFeedStatus(LiveFeedState.Disabled, [], 0, null, null, null, null));
+        Assert.Equal((StatusLevel.Unknown, "Off", Display.Missing, false), (off.Level, off.Summary, off.Value, off.HasValue));
     }
 
     private static QuoteResultDto Quote(string symbol, QuoteResultStatus status, decimal? ltp, decimal? changePercent) =>

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using QuoteSnap.Api.Data;
 using QuoteSnap.Api.Domain;
+using QuoteSnap.Api.Events;
 using QuoteSnap.Api.Live;
 using QuoteSnap.Api.Services;
 using QuoteSnap.Contracts;
@@ -33,29 +34,19 @@ public static class MyFundEndpoints
     }
 
     /// <summary>
-    /// Estimates today's NAV of each listed fund: its latest month's holding weights times the day changes from the
-    /// last finished POST /api/holdings/quotes request, applied to the latest published NAV.
+    /// Estimates today's NAV of each listed fund: its latest month's holding weights times each stock's day change,
+    /// applied to the latest published NAV. A stock's day change comes from the live feed or the last finished
+    /// POST /api/holdings/quotes request, whichever is newer.
     /// </summary>
-    private static async Task<Ok<NavEstimateList>> GetEstimatesAsync(MyFundRepository funds, NavRepository navs, HoldingRepository holdings, QuoteRequestRepository requests, CancellationToken cancellationToken)
+    private static async Task<Ok<NavEstimateList>> GetEstimatesAsync(MyFundRepository funds, NavRepository navs, HoldingRepository holdings, QuoteRequestRepository requests, LiveQuoteStore live, CancellationToken cancellationToken)
     {
-        List<MyFundRecord> saved = await funds.GetAllAsync(cancellationToken);
-        Dictionary<int, MutualFundNav> latest = saved.Count == 0
-            ? []
-            : (await navs.FindBySchemeCodesAsync([.. saved.Select(f => f.SchemeCode)], cancellationToken)).ToDictionary(n => n.SchemeCode);
-        Dictionary<int, List<FundHoldingRecord>> portfolios = await holdings.GetLatestHoldingsAsync(cancellationToken);
-        QuoteRequest? prices = await requests.GetLatestFinishedForHoldingsAsync(cancellationToken);
-        Dictionary<string, decimal>? dayChanges = prices is null ? null : NavEstimator.DayChanges(prices.Results);
-
-        List<NavEstimate> estimates = [.. saved.Select(f => Estimate(f, latest.GetValueOrDefault(f.SchemeCode), portfolios.GetValueOrDefault(f.SchemeCode) ?? [], dayChanges))];
-        return TypedResults.Ok(new NavEstimateList(prices?.Id, prices?.CompletedAt, estimates));
-
-        static NavEstimate Estimate(MyFundRecord fund, MutualFundNav? nav, List<FundHoldingRecord> holdings, Dictionary<string, decimal>? dayChanges) =>
-            NavEstimator.Estimate(fund.SchemeCode, nav?.SchemeName ?? fund.SchemeName, nav, holdings, dayChanges);
+        EstimateBasis basis = await EstimateBasis.LoadAsync(funds, navs, holdings, requests, cancellationToken);
+        return TypedResults.Ok(basis.Estimate(live.GetQuotes().Quotes));
     }
 
     /// <summary>Adds a Direct Plan scheme from AMFI's NAV file; adding a fund that's already on the list returns it unchanged.</summary>
     /// <param name="schemeCode">The AMFI scheme code, as returned by GET /api/nav/search.</param>
-    private static async Task<Results<Created<MyFund>, Ok<MyFund>, ProblemHttpResult>> AddAsync(int schemeCode, MyFundRepository funds, NavRepository navs, LiveFeedSignal liveFeed, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken)
+    private static async Task<Results<Created<MyFund>, Ok<MyFund>, ProblemHttpResult>> AddAsync(int schemeCode, MyFundRepository funds, NavRepository navs, LiveFeedSignal liveFeed, EventPublisher events, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         if (await navs.GetLoadedAtAsync(cancellationToken) is null)
             return NavEndpoints.NotLoaded();
@@ -82,16 +73,18 @@ public static class MyFundEndpoints
 
         loggers.CreateLogger(typeof(MyFundEndpoints)).LogInformation("Added {SchemeCode} {SchemeName} to my funds", fund.SchemeCode, fund.SchemeName);
         liveFeed.Notify();
+        await events.ChangedAsync(ServerChange.MyFunds);
         return TypedResults.Created($"/api/my-funds/{fund.SchemeCode}", dto);
     }
 
     /// <summary>Removes a fund from the list. Removing one that isn't on it also succeeds.</summary>
-    private static async Task<NoContent> RemoveAsync(int schemeCode, MyFundRepository funds, LiveFeedSignal liveFeed, ILoggerFactory loggers, CancellationToken cancellationToken)
+    private static async Task<NoContent> RemoveAsync(int schemeCode,     MyFundRepository funds, LiveFeedSignal liveFeed, EventPublisher events, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         if (await funds.RemoveAsync(schemeCode, cancellationToken))
         {
             loggers.CreateLogger(typeof(MyFundEndpoints)).LogInformation("Removed {SchemeCode} from my funds", schemeCode);
             liveFeed.Notify();
+                await events.ChangedAsync(ServerChange.MyFunds);
         }
 
         return TypedResults.NoContent();

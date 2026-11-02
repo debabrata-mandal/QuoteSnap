@@ -1,11 +1,12 @@
 using System.Globalization;
+using CommunityToolkit.Mvvm.ComponentModel;
 using QuoteSnap.Contracts;
 using QuoteSnap.Desktop.Text;
 
 namespace QuoteSnap.Desktop.ViewModels;
 
 /// <summary>One line of a fund's portfolio in the holdings table.</summary>
-public sealed class HoldingRow
+public sealed class HoldingRow : ObservableObject
 {
     /// <summary>The widest weight bar, for the largest holding.</summary>
     public const double MaxBarWidth = 72;
@@ -13,7 +14,8 @@ public sealed class HoldingRow
     /// <param name="largest">The largest weight in the table, which gets the full bar.</param>
     /// <param name="previousMonthStored">Whether the month before is stored, so a holding without a previous weight is new.</param>
     /// <param name="quote">The holding's quote from the last live-prices request, if any.</param>
-    public HoldingRow(FundHolding holding, decimal largest, bool previousMonthStored, QuoteResultDto? quote = null)
+    /// <param name="live">The holding's latest streamed price, used when it is newer than <paramref name="quote"/>.</param>
+    public HoldingRow(FundHolding holding, decimal largest, bool previousMonthStored, QuoteResultDto? quote = null, LiveQuote? live = null)
     {
         Name = holding.Name;
         Symbol = holding.Symbol;
@@ -31,10 +33,9 @@ public sealed class HoldingRow
         {
             Ltp = quote.Ltp;
             DayChangePercent = quote.ChangePercent;
+            _pricedAt = quote.FetchedAt;
         }
 
-        LtpText = Symbol is null ? "" : Ltp?.ToString("N2", CultureInfo.CurrentCulture) ?? Display.Missing;
-        DayChangeText = Symbol is null ? "" : HoldingText.DayChange(DayChangePercent);
         QuoteTip = quote switch
         {
             null => null,
@@ -42,6 +43,26 @@ public sealed class HoldingRow
             { Status: QuoteResultStatus.Pending } => $"{quote.Symbol} · waiting for its price",
             _ => $"{quote.Symbol} · {quote.Error ?? "no price"}",
         };
+        if (live is not null)
+            ApplyLive(live);
+    }
+
+    private DateTimeOffset? _pricedAt;
+
+    /// <summary>Shows a streamed price, unless the row already has a newer one.</summary>
+    public void ApplyLive(LiveQuote live)
+    {
+        if (_pricedAt is { } at && live.UpdatedAt < at)
+            return;
+        _pricedAt = live.UpdatedAt;
+        Ltp = live.Ltp;
+        DayChangePercent = live.ChangePercent;
+        QuoteTip = $"{live.Symbol} · live, {Display.WhenInSentence(live.UpdatedAt)}";
+        OnPropertyChanged(nameof(Ltp));
+        OnPropertyChanged(nameof(DayChangePercent));
+        OnPropertyChanged(nameof(LtpText));
+        OnPropertyChanged(nameof(DayChangeText));
+        OnPropertyChanged(nameof(QuoteTip));
     }
 
     public string Name { get; }
@@ -72,18 +93,18 @@ public sealed class HoldingRow
 
     public double BarWidth { get; }
 
-    /// <summary>Last traded price from the last live-prices request; null without one.</summary>
-    public decimal? Ltp { get; }
+    /// <summary>Last traded price, from the live stream or the last live-prices request, whichever is newer; null without one.</summary>
+    public decimal? Ltp { get; private set; }
 
-    public decimal? DayChangePercent { get; }
+    public decimal? DayChangePercent { get; private set; }
 
     /// <summary>The price, a dash when a listed stock has none, or empty for unlisted lines.</summary>
-    public string LtpText { get; }
+    public string LtpText => Symbol is null ? "" : Ltp?.ToString("N2", CultureInfo.CurrentCulture) ?? Display.Missing;
 
-    public string DayChangeText { get; }
+    public string DayChangeText => Symbol is null ? "" : HoldingText.DayChange(DayChangePercent);
 
-    /// <summary>The quote's symbol and when it was fetched, or why it has no price.</summary>
-    public string? QuoteTip { get; }
+    /// <summary>The quote's symbol and when it was priced, or why it has no price.</summary>
+    public string? QuoteTip { get; private set; }
 
     public bool Matches(string filter) =>
         Name.Contains(filter, StringComparison.CurrentCultureIgnoreCase)

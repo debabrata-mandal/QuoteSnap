@@ -15,7 +15,7 @@ public static class LiveEndpoints
         return app;
     }
 
-    /// <summary>The latest tick of each streamed holding, largest weight first. Kept after market hours until the next session re-ranks them.</summary>
+    /// <summary>The latest tick of each streamed holding, largest weight first. Kept while the socket is closed, until it streams again.</summary>
     private static Ok<LiveQuoteList> GetQuotes(LiveQuoteStore store) => TypedResults.Ok(store.GetQuotes());
 
     private static Ok<LiveFeedStatus> GetStatus(LiveQuoteStore store) => TypedResults.Ok(store.GetStatus());

@@ -258,7 +258,7 @@ public sealed partial class NewRequestViewModel : ObservableObject
             InvalidSymbolsText = DescribeInvalid(accepted.InvalidSymbols);
             ProgressText = "Queued…";
             Progress<QuoteRequestDetails> progress = new(Show);
-            Show(await client.WaitForCompletionAsync(accepted.RequestId, progress, cancellationToken));
+            Show(await _connection.WaitForCompletionAsync(accepted.RequestId, progress, cancellationToken));
             RequestFinished?.Invoke(this, EventArgs.Empty);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

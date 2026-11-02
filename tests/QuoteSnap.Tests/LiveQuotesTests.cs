@@ -6,15 +6,6 @@ namespace QuoteSnap.Tests;
 
 public sealed class LiveQuotesTests
 {
-    [Theory]
-    [InlineData("2026-10-30T03:44:59Z", false)] // Friday 09:14:59 IST
-    [InlineData("2026-10-30T03:45:00Z", true)] // 09:15 IST
-    [InlineData("2026-10-30T09:59:59Z", true)] // 15:29:59 IST
-    [InlineData("2026-10-30T10:00:00Z", false)] // 15:30 IST
-    [InlineData("2026-10-31T05:00:00Z", false)] // Saturday 10:30 IST
-    [InlineData("2026-11-01T05:00:00Z", false)] // Sunday
-    public void The_market_is_open_on_weekdays_from_9_15_to_15_30_india_time(string utc, bool open) =>
-        Assert.Equal(open, MarketHours.IsOpen(DateTimeOffset.Parse(utc, System.Globalization.CultureInfo.InvariantCulture), new LiveQuotesOptions()));
 
     [Fact]
     public void A_lite_mode_scrip_update_is_read_as_a_tick()
@@ -63,6 +54,28 @@ public sealed class LiveQuotesTests
         Assert.True(store.SetState(LiveFeedState.Reconnecting));
         Assert.Null(store.GetStatus().ConnectedAt);
         Assert.False(store.SetState(LiveFeedState.Reconnecting));
+    }
+
+    [Fact]
+    public void Changed_quotes_are_those_ticked_since_the_given_version()
+    {
+        LiveQuoteStore store = new(TimeProvider.System);
+        store.SetSymbols(["NSE:HAL-EQ", "NSE:BEL-EQ"]);
+        (IReadOnlyList<LiveQuote> none, long start) = store.GetChangedSince(0);
+        Assert.Empty(none);
+
+        store.Record(new LiveTick("NSE:BEL-EQ", 300m, 1m, 0.5m));
+        store.Record(new LiveTick("NSE:HAL-EQ", 4500m, 20m, 0.45m));
+        (IReadOnlyList<LiveQuote> both, long afterBoth) = store.GetChangedSince(start);
+        Assert.Equal(["NSE:HAL-EQ", "NSE:BEL-EQ"], both.Select(q => q.Symbol));
+
+        store.Record(new LiveTick("NSE:BEL-EQ", 301m, null, null));
+        (IReadOnlyList<LiveQuote> one, long afterOne) = store.GetChangedSince(afterBoth);
+        Assert.Equal(301m, Assert.Single(one).Ltp);
+        Assert.Empty(store.GetChangedSince(afterOne).Quotes);
+
+        store.SetSymbols(["NSE:HAL-EQ"]);
+        Assert.Equal(["NSE:HAL-EQ"], store.GetChangedSince(start).Quotes.Select(q => q.Symbol));
     }
 
     private sealed class ManualTime : TimeProvider

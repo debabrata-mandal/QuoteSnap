@@ -10,8 +10,6 @@ public enum LiveFeedState
     /// <summary>Turned off with LiveQuotes:Enabled.</summary>
     Disabled,
 
-    /// <summary>Outside market hours; the socket is closed and the last quotes are kept.</summary>
-    MarketClosed,
 
     /// <summary>No usable Fyers session; log in again.</summary>
     NoSession,

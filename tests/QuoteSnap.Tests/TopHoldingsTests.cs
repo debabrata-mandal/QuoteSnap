@@ -51,7 +51,7 @@ public sealed class TopHoldingsTests
             new() { Symbol = "NSE:BEL-EQ", Status = QuoteResultStatus.Error, Ltp = 50m, ChangePercent = 3m },
         ];
 
-        IReadOnlyList<TopHolding> top = TopHoldings.Rank(portfolios, quotes, 10);
+        IReadOnlyList<TopHolding> top = TopHoldings.Rank(portfolios, Prices.Merge(quotes, []), 10);
 
         Assert.Equal(101m, top[0].Ltp);
         Assert.Equal(1m, top[0].ChangePercent);

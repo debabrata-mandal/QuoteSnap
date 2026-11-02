@@ -17,6 +17,7 @@ public sealed partial class HoldingsViewModel : ObservableObject
     private readonly FileDialogs _dialogs;
     private IReadOnlyList<HoldingRow> _allHoldings = [];
     private Dictionary<string, QuoteResultDto> _quotes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, LiveQuote> _live = new(StringComparer.OrdinalIgnoreCase);
     private Guid? _watching;
     private Guid? _watchingQuotes;
     private int _loadVersion;
@@ -33,6 +34,8 @@ public sealed partial class HoldingsViewModel : ObservableObject
             FetchCommand.NotifyCanExecuteChanged();
             GetPricesCommand.NotifyCanExecuteChanged();
         };
+        connection.LiveQuotesUpdated += ShowLiveQuotes;
+        connection.Changed += (_, _) => _live.Clear();
     }
 
     /// <summary>Raised to open the Mutual funds page, where funds are added.</summary>
@@ -148,6 +151,7 @@ public sealed partial class HoldingsViewModel : ObservableObject
     {
         await LoadFundsAsync();
         await LoadLatestPricesAsync();
+        await LoadLivePricesAsync();
         await ResumeRunningFetchAsync();
     }
 
@@ -173,6 +177,7 @@ public sealed partial class HoldingsViewModel : ObservableObject
     {
         await LoadFundsAsync();
         await LoadLatestPricesAsync();
+        await LoadLivePricesAsync();
         await ResumeRunningFetchAsync();
     }
 
@@ -339,7 +344,7 @@ public sealed partial class HoldingsViewModel : ObservableObject
         bool previousStored = portfolio.Months.Contains(portfolio.Month.AddMonths(-1));
         decimal largest = portfolio.Holdings.Count == 0 ? 0 : portfolio.Holdings.Max(h => h.Percent);
         _allHoldings = [.. portfolio.Holdings.Select(h => new HoldingRow(
-            h, largest, previousStored, h.Symbol is { } symbol ? _quotes.GetValueOrDefault(symbol) : null))];
+            h, largest, previousStored, h.Symbol is { } symbol ? _quotes.GetValueOrDefault(symbol) : null, h.Symbol is { } live ? _live.GetValueOrDefault(live) : null))];
         AssetMix = [.. HoldingText.AssetMix(portfolio.Holdings).Select(t => new AssetShare(t.Label, HoldingText.Weight(t.Percent)))];
         ApplyFilter();
     }
@@ -351,6 +356,32 @@ public sealed partial class HoldingsViewModel : ObservableObject
         HoldingsCountText = Holdings.Count == _allHoldings.Count
             ? Display.Count(_allHoldings.Count, "holding")
             : $"{Holdings.Count} of {_allHoldings.Count}";
+    }
+
+    /// <summary>Re-prices the rows of the stocks that ticked, in place, so the table keeps its scroll and selection.</summary>
+    private void ShowLiveQuotes(LiveQuoteList batch)
+    {
+        Dictionary<string, LiveQuote> ticked = batch.Quotes.ToDictionary(q => q.Symbol, StringComparer.OrdinalIgnoreCase);
+        foreach (LiveQuote quote in batch.Quotes)
+            _live[quote.Symbol] = quote;
+        foreach (HoldingRow row in _allHoldings)
+        {
+            if (row.Symbol is { } symbol && ticked.TryGetValue(symbol, out LiveQuote? quote))
+                row.ApplyLive(quote);
+        }
+    }
+
+    /// <summary>The streamed prices so far, for rows built before the next tick; pushes keep them current after this.</summary>
+    private async Task LoadLivePricesAsync()
+    {
+        try
+        {
+            ShowLiveQuotes(await _connection.Client.GetLiveQuotesAsync());
+        }
+        catch (Exception)
+        {
+            // The table still has the last live-prices request; the feed is optional.
+        }
     }
 
     /// <summary>Shows the last live-prices request, and follows it when it's still running.</summary>
@@ -384,7 +415,7 @@ public sealed partial class HoldingsViewModel : ObservableObject
         try
         {
             Progress<QuoteRequestDetails> progress = new(ShowPrices);
-            QuoteRequestDetails finished = await _connection.Client.WaitForCompletionAsync(request.RequestId, progress);
+            QuoteRequestDetails finished = await _connection.WaitForCompletionAsync(request.RequestId, progress);
             ShowPrices(finished);
         }
         catch (Exception ex)
@@ -450,7 +481,7 @@ public sealed partial class HoldingsViewModel : ObservableObject
         try
         {
             Progress<HoldingFetch> progress = new(ShowProgress);
-            HoldingFetch finished = await _connection.Client.WaitForHoldingFetchAsync(fetch.Id, progress);
+            HoldingFetch finished = await _connection.WaitForHoldingFetchAsync(fetch.Id, progress);
             ShowProgress(finished);
         }
         catch (Exception ex)

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using QuoteSnap.Api.Data;
 using QuoteSnap.Api.Domain;
+using QuoteSnap.Api.Events;
 using QuoteSnap.Api.Holdings;
 using QuoteSnap.Contracts;
 
@@ -41,11 +42,13 @@ public static class FyersSymbolEndpoints
     internal static ProblemHttpResult NotLoaded() => TypedResults.Problem("Fyers symbols haven't been downloaded yet. Call POST /api/symbols/refresh first.", statusCode: StatusCodes.Status503ServiceUnavailable, title: "Symbols not loaded");
 
     /// <summary>Downloads NSE_CM.csv and BSE_CM.csv again and replaces the stored symbols.</summary>
-    private static async Task<Results<Ok<FyersSymbolRefreshResult>, ProblemHttpResult>> RefreshAsync(FyersSymbolImporter importer, ILoggerFactory loggers, CancellationToken cancellationToken)
+    private static async Task<Results<Ok<FyersSymbolRefreshResult>, ProblemHttpResult>> RefreshAsync(FyersSymbolImporter importer, EventPublisher events, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         try
         {
-            return TypedResults.Ok(await importer.RefreshAsync(cancellationToken));
+            FyersSymbolRefreshResult result = await importer.RefreshAsync(cancellationToken);
+            await events.ChangedAsync(ServerChange.FyersSymbols);
+            return TypedResults.Ok(result);
         }
         catch (Exception ex) when (ex is HttpRequestException or FormatException
             || ex is TaskCanceledException && !cancellationToken.IsCancellationRequested)

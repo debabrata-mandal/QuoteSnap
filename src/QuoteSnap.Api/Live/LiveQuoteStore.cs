@@ -7,6 +7,8 @@ public sealed class LiveQuoteStore(TimeProvider time)
 {
     private readonly Lock _lock = new();
     private readonly Dictionary<string, LiveQuote> _quotes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, long> _versions = new(StringComparer.OrdinalIgnoreCase);
+    private long _version;
     private List<string> _symbols = [];
     private HashSet<string> _symbolSet = new(StringComparer.OrdinalIgnoreCase);
     private LiveFeedState _state = LiveFeedState.Starting;
@@ -54,7 +56,10 @@ public sealed class LiveQuoteStore(TimeProvider time)
             _symbols = [.. symbols];
             _symbolSet = new HashSet<string>(symbols, StringComparer.OrdinalIgnoreCase);
             foreach (string symbol in _quotes.Keys.Where(s => !_symbolSet.Contains(s)).ToList())
+            {
                 _quotes.Remove(symbol);
+                _versions.Remove(symbol);
+            }
         }
     }
 
@@ -70,8 +75,16 @@ public sealed class LiveQuoteStore(TimeProvider time)
                 return;
             DateTimeOffset now = time.GetUtcNow();
             _quotes[tick.Symbol] = new LiveQuote(tick.Symbol, ltp, tick.Change ?? previous?.Change, tick.ChangePercent ?? previous?.ChangePercent, now);
+            _versions[tick.Symbol] = ++_version;
             _lastTickAt = now;
         }
+    }
+
+    /// <summary>The quotes recorded since <paramref name="version"/>, largest weight first, and the version to pass next time.</summary>
+    public (IReadOnlyList<LiveQuote> Quotes, long Version) GetChangedSince(long version)
+    {
+        lock (_lock)
+            return ([.. _symbols.Where(s => _versions.GetValueOrDefault(s) > version).Select(s => _quotes[s])], _version);
     }
 
     public LiveQuoteList GetQuotes()

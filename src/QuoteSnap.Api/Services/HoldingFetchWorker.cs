@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Microsoft.Extensions.Options;
 using Polly;
 using QuoteSnap.Api.Data;
+using QuoteSnap.Api.Events;
 using QuoteSnap.Api.Holdings;
 using QuoteSnap.Api.Live;
 using QuoteSnap.Contracts;
@@ -12,7 +13,7 @@ namespace QuoteSnap.Api.Services;
 /// Runs holdings fetches one at a time: matches each listed fund to its ScanX scheme, downloads every page of its
 /// past holdings and replaces the fund's stored holdings, recording progress per fund as it goes.
 /// </summary>
-public sealed class HoldingFetchWorker(HoldingFetchQueue queue, LiveFeedSignal liveFeed, IServiceScopeFactory scopes, IOptions<HoldingsOptions> options, TimeProvider time, ILogger<HoldingFetchWorker> logger) : BackgroundService
+public sealed class HoldingFetchWorker(HoldingFetchQueue queue, LiveFeedSignal liveFeed, EventPublisher events, IServiceScopeFactory scopes, IOptions<HoldingsOptions> options, TimeProvider time, ILogger<HoldingFetchWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -60,6 +61,7 @@ public sealed class HoldingFetchWorker(HoldingFetchQueue queue, LiveFeedSignal l
             return;
         }
 
+        await events.HoldingFetchUpdatedAsync(repository, fetchId, cancellationToken);
         long start = Stopwatch.GetTimestamp();
         List<HoldingFetchFundRecord> funds = await repository.GetUnfinishedFundsAsync(fetchId, cancellationToken);
         logger.LogInformation("Holdings fetch {FetchId}: fetching holdings of {FundCount} funds from ScanX", fetchId, funds.Count);
@@ -70,6 +72,7 @@ public sealed class HoldingFetchWorker(HoldingFetchQueue queue, LiveFeedSignal l
             const string error = "Fyers symbols haven't been downloaded yet. Refresh them, then fetch again.";
             await repository.FailUnfinishedFundsAsync(fetchId, error, cancellationToken);
             await repository.CompleteAsync(fetchId, error, cancellationToken);
+            await events.HoldingFetchUpdatedAsync(repository, fetchId, cancellationToken);
             return;
         }
 
@@ -85,16 +88,17 @@ public sealed class HoldingFetchWorker(HoldingFetchQueue queue, LiveFeedSignal l
             string error = $"Couldn't load ScanX's list of schemes: {ex.Message}";
             await repository.FailUnfinishedFundsAsync(fetchId, error, cancellationToken);
             await repository.CompleteAsync(fetchId, error, cancellationToken);
+            await events.HoldingFetchUpdatedAsync(repository, fetchId, cancellationToken);
             return;
         }
 
         bool first = true;
         foreach (HoldingFetchFundRecord fund in funds)
         {
-            await repository.UpdateFundAsync(fetchId, fund.SchemeCode, HoldingFetchFundStatus.Running, null, null, null, null, cancellationToken);
+            await UpdateFundAsync(repository, fetchId, fund.SchemeCode, HoldingFetchFundStatus.Running, null, null, null, null, cancellationToken);
             if (await myFunds.FindAsync(fund.SchemeCode, cancellationToken) is not { } listed)
             {
-                await repository.UpdateFundAsync(fetchId, fund.SchemeCode, HoldingFetchFundStatus.Error, null, null, null,
+                await UpdateFundAsync(repository, fetchId, fund.SchemeCode, HoldingFetchFundStatus.Error, null, null, null,
                     "Removed from the list before its holdings were fetched.", cancellationToken);
                 continue;
             }
@@ -103,12 +107,12 @@ public sealed class HoldingFetchWorker(HoldingFetchQueue queue, LiveFeedSignal l
             {
                 logger.LogWarning("Holdings fetch {FetchId}: no ScanX scheme matches {SchemeCode} {SchemeName} ({FundHouse})",
                     fetchId, listed.SchemeCode, listed.SchemeName, listed.FundHouse);
-                await repository.UpdateFundAsync(fetchId, fund.SchemeCode, HoldingFetchFundStatus.NotFound, null, null, null,
+                await UpdateFundAsync(repository, fetchId, fund.SchemeCode, HoldingFetchFundStatus.NotFound, null, null, null,
                     $"ScanX has no scheme named like “{listed.SchemeName}”.", cancellationToken);
                 continue;
             }
 
-            await repository.UpdateFundAsync(fetchId, fund.SchemeCode, HoldingFetchFundStatus.Running, scheme.Name, null, null, null, cancellationToken);
+            await UpdateFundAsync(repository, fetchId, fund.SchemeCode, HoldingFetchFundStatus.Running, scheme.Name, null, null, null, cancellationToken);
             try
             {
                 long fundStart = Stopwatch.GetTimestamp();
@@ -118,21 +122,21 @@ public sealed class HoldingFetchWorker(HoldingFetchQueue queue, LiveFeedSignal l
                 List<FundHoldingRecord> rows = ToRecords(holdings, await symbols.GetSymbolsByIsinAsync(isins, cancellationToken));
                 if (rows.Count == 0)
                 {
-                    await repository.UpdateFundAsync(fetchId, fund.SchemeCode, HoldingFetchFundStatus.NotFound, scheme.Name, null, null,
+                    await UpdateFundAsync(repository, fetchId, fund.SchemeCode, HoldingFetchFundStatus.NotFound, scheme.Name, null, null,
                         "ScanX lists the scheme but has no holdings for it yet.", cancellationToken);
                     continue;
                 }
 
                 if (!await repository.ReplaceHoldingsAsync(fund.SchemeCode, scheme.PlanId, scheme.Name, rows, cancellationToken))
                 {
-                    await repository.UpdateFundAsync(fetchId, fund.SchemeCode, HoldingFetchFundStatus.Error, scheme.Name, null, null,
+                    await UpdateFundAsync(repository, fetchId, fund.SchemeCode, HoldingFetchFundStatus.Error, scheme.Name, null, null,
                         "Removed from the list before its holdings were saved.", cancellationToken);
                     continue;
                 }
 
                 DateOnly month = rows.Max(r => r.Month);
                 int count = rows.Count(r => r.Month == month);
-                await repository.UpdateFundAsync(fetchId, fund.SchemeCode, HoldingFetchFundStatus.Ok, scheme.Name, count, month, null, cancellationToken);
+                await UpdateFundAsync(repository, fetchId, fund.SchemeCode, HoldingFetchFundStatus.Ok, scheme.Name, count, month, null, cancellationToken);
                 logger.LogInformation(
                     "Holdings fetch {FetchId}: {SchemeCode} {SchemeName} → ScanX plan {PlanId} {ScanxScheme}: {Count} holdings in {Month:yyyy-MM}, {RowCount} rows over {MonthCount} months, in {ElapsedMs:0} ms",
                     fetchId, fund.SchemeCode, listed.SchemeName, scheme.PlanId, scheme.Name, count, month, rows.Count,
@@ -143,15 +147,23 @@ public sealed class HoldingFetchWorker(HoldingFetchQueue queue, LiveFeedSignal l
                 first = false;
                 logger.LogWarning("Holdings fetch {FetchId}: {SchemeCode} from ScanX plan {PlanId} failed. {ErrorType}: {Error}",
                     fetchId, fund.SchemeCode, scheme.PlanId, ex.GetType().Name, ex.Message);
-                await repository.UpdateFundAsync(fetchId, fund.SchemeCode, HoldingFetchFundStatus.Error, scheme.Name, null, null,
+                await UpdateFundAsync(repository, fetchId, fund.SchemeCode, HoldingFetchFundStatus.Error, scheme.Name, null, null,
                     $"Fetch failed: {ex.Message}", cancellationToken);
             }
         }
 
         HoldingFetchStatus status = await repository.CompleteAsync(fetchId, null, cancellationToken);
+
+        await events.HoldingFetchUpdatedAsync(repository, fetchId, cancellationToken);
         liveFeed.Notify();
         logger.LogInformation("Holdings fetch {FetchId} finished as {Status} in {ElapsedMs:0} ms",
             fetchId, status, Stopwatch.GetElapsedTime(start).TotalMilliseconds);
+    }
+
+    private async Task UpdateFundAsync(HoldingRepository repository, Guid fetchId, int schemeCode, HoldingFetchFundStatus status, string? scanxScheme, int? holdingCount, DateOnly? month, string? error, CancellationToken cancellationToken)
+    {
+        await repository.UpdateFundAsync(fetchId, schemeCode, status, scanxScheme, holdingCount, month, error, cancellationToken);
+        await events.HoldingFetchUpdatedAsync(repository, fetchId, cancellationToken);
     }
 
     private async Task<List<ScanxHolding>> FetchAllPagesAsync(ScanxClient scanx, ScanxScheme scheme, bool first, CancellationToken cancellationToken)
@@ -213,6 +225,7 @@ public sealed class HoldingFetchWorker(HoldingFetchQueue queue, LiveFeedSignal l
             HoldingRepository repository = scope.ServiceProvider.GetRequiredService<HoldingRepository>();
             await repository.FailUnfinishedFundsAsync(fetchId, error, cancellationToken);
             await repository.CompleteAsync(fetchId, error, cancellationToken);
+            await events.HoldingFetchUpdatedAsync(repository, fetchId, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

@@ -166,6 +166,9 @@
         <DockPanel>
           <DockPanel DockPanel.Dock="Top" Margin="20,14,14,12">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+              <Button Style="{StaticResource Button.Ghost}" Content="Original order" ui:Ui.Icon="&#xE8CB;" Margin="0,0,6,0" Height="32"
+                      ToolTip="Show the funds in the order you added them" Command="{Binding ShowOriginalOrderCommand}"
+                      Visibility="{Binding IsReordered, Converter={StaticResource BoolToVisibility}}" />
               <Button Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE72C;" Margin="0,0,6,0" ToolTip="Reload the NAVs of your funds"
                       AutomationProperties.Name="Reload NAVs" Command="{Binding RefreshMyFundsCommand}"
                       ui:Ui.IsSpinning="{Binding RefreshMyFundsCommand.IsRunning}" />
@@ -191,8 +194,11 @@
           <DockPanel DockPanel.Dock="Top" Margin="70,0,64,8" Visibility="{Binding HasFunds, Converter={StaticResource BoolToVisibility}}">
             <TextBlock DockPanel.Dock="Right" Text="EST. NAV" Style="{StaticResource Text.Label}" Width="96" TextAlignment="Right"
                        ToolTip="The latest NAV moved by the estimated change" />
-            <TextBlock DockPanel.Dock="Right" Text="EST. %" Style="{StaticResource Text.Label}" Width="72" TextAlignment="Right"
-                       ToolTip="Today's estimated change: each holding's weight times its stock's day change; cash, bonds and holdings without a price count as unchanged" />
+            <Button DockPanel.Dock="Right" Style="{StaticResource Button.Header}" Width="72" HorizontalContentAlignment="Right"
+                    Command="{Binding SortByEstimateCommand}" AutomationProperties.Name="Sort by estimated change"
+                    ToolTip="Today's estimated change: each holding's weight times its stock's day change; cash, bonds and holdings without a price count as unchanged. Click to sort: highest first, lowest first, then the original order.">
+              <TextBlock Text="{Binding EstimateHeaderText}" Style="{StaticResource Text.Label}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+            </Button>
             <TextBlock DockPanel.Dock="Right" Text="NAV" Style="{StaticResource Text.Label}" Width="96" TextAlignment="Right" />
             <TextBlock Text="FUND" Style="{StaticResource Text.Label}" />
           </DockPanel>
@@ -201,7 +207,7 @@
 
           <Grid>
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-              <ItemsControl ItemsSource="{Binding MyFunds}" ItemTemplate="{StaticResource MyFundTemplate}" Focusable="False"
+              <ItemsControl ItemsSource="{Binding MyFundsView}" ItemTemplate="{StaticResource MyFundTemplate}" Focusable="False"
                             AutomationProperties.Name="My funds" Margin="0,0,0,8" />
             </ScrollViewer>
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24,40" MaxWidth="360"
