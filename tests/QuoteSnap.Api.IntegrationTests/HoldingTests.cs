@@ -479,4 +479,35 @@ public sealed class HoldingTests
         Assert.Null(parag.ChangePercent);
         Assert.Equal(92.1m, parag.Nav);
     }
+
+    [Fact]
+    public async Task Top_holdings_average_each_stocks_weight_over_the_funds_with_holdings_and_carry_the_last_prices()
+    {
+        await using QuoteSnapApiFactory factory = await ListedAsync(true, Dsp, Motilal, Parag);
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+        Assert.Equal(0, (await client.GetTopHoldingsAsync()).FundCount);
+
+        await factory.SeedSessionAsync();
+        await FetchAsync(client);
+
+        // Parag Parikh has no holdings, so weights are averaged over DSP and Motilal; DSP's TREPS has no symbol.
+        TopHoldingList before = await client.GetTopHoldingsAsync();
+        Assert.Equal(2, before.FundCount);
+        Assert.Null(before.RequestId);
+        Assert.Equal(["NSE:HAL-EQ", "NSE:HDFCBANK-EQ", "BSE:ICICIBANK-A"], before.Holdings.Select(h => h.Symbol));
+        Assert.Equal([10m, 4.75m, 4m], before.Holdings.Select(h => h.Percent));
+        Assert.All(before.Holdings, h => Assert.Equal(1, h.FundCount));
+        Assert.All(before.Holdings, h => Assert.Null(h.Ltp));
+        Assert.Equal(["NSE:HAL-EQ"], (await client.GetTopHoldingsAsync(1)).Holdings.Select(h => h.Symbol));
+
+        QuoteRequestAccepted accepted = await client.StartHoldingQuotesAsync();
+        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(20));
+        await client.WaitForCompletionAsync(accepted.RequestId, cancellationToken: timeout.Token);
+
+        TopHoldingList after = await client.GetTopHoldingsAsync();
+        Assert.Equal(accepted.RequestId, after.RequestId);
+        Assert.NotNull(after.PricesAt);
+        Assert.All(after.Holdings, h => Assert.Equal(100.5m, h.Ltp));
+        Assert.All(after.Holdings, h => Assert.Equal(1.2594m, h.ChangePercent));
+    }
 }

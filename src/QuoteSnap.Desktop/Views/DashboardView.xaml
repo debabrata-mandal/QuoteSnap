@@ -9,14 +9,17 @@
              d:DataContext="{d:DesignInstance Type=vm:MainViewModel}">
   <UserControl.Resources>
     <Style x:Key="KpiCard" TargetType="Border" BasedOn="{StaticResource Card}">
-      <Setter Property="Margin" Value="0,0,16,0" />
-      <Setter Property="Padding" Value="20,18" />
+      <Setter Property="Margin" Value="0,0,12,0" />
+      <Setter Property="Padding" Value="16,12" />
+    </Style>
+    <Style x:Key="Text.KpiMedium" TargetType="TextBlock" BasedOn="{StaticResource Text.Kpi}">
+      <Setter Property="FontSize" Value="20" />
     </Style>
     <Style x:Key="KpiValueSkeleton" TargetType="Border" BasedOn="{StaticResource Skeleton}">
       <Setter Property="Width" Value="96" />
-      <Setter Property="Height" Value="28" />
+      <Setter Property="Height" Value="22" />
       <Setter Property="HorizontalAlignment" Value="Left" />
-      <Setter Property="Margin" Value="0,8,0,8" />
+      <Setter Property="Margin" Value="0,4,0,4" />
     </Style>
   </UserControl.Resources>
 
@@ -71,8 +74,102 @@
         </Grid>
       </Border>
 
-      <!-- KPI cards -->
-      <Grid Margin="0,0,-16,0">
+      <!-- Portfolio today -->
+      <Border Style="{StaticResource Card}" Margin="0,0,0,16" Padding="22,18"
+              Visibility="{Binding Portfolio, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
+        <Grid DataContext="{Binding Portfolio}">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="YOUR FUNDS TODAY · ESTIMATED" Style="{StaticResource Text.Label}" />
+            <TextBlock Text="{Binding ChangeText}" Style="{StaticResource Text.Kpi}" Margin="0,4,0,2" Typography.NumeralAlignment="Tabular"
+                       Foreground="{Binding ChangePercent, Converter={StaticResource SignBrush}}" />
+            <TextBlock Text="{Binding Detail}" Style="{StaticResource Text.Muted}" TextTrimming="CharacterEllipsis"
+                       ToolTip="The average of each fund's estimated NAV change, as if the same amount were invested in each fund" />
+          </StackPanel>
+          <Border Grid.Column="1" Width="240" Margin="16,0,0,0" Padding="14,12" CornerRadius="{StaticResource RadiusCard}"
+                  Background="{StaticResource FillSubtleBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" ToolTip="{Binding Best.SchemeName}">
+            <StackPanel>
+              <TextBlock Text="BEST FUND" Style="{StaticResource Text.Label}" />
+              <TextBlock Text="{Binding Best.SchemeName}" FontWeight="SemiBold" Margin="0,6,0,0" TextTrimming="CharacterEllipsis" />
+              <TextBlock Text="{Binding BestText}" FontWeight="SemiBold" FontSize="{StaticResource FontSizeSection}" Margin="0,4,0,0"
+                         Foreground="{Binding BestChange, Converter={StaticResource SignBrush}}" />
+            </StackPanel>
+          </Border>
+          <Border Grid.Column="2" Width="240" Margin="12,0,0,0" Padding="14,12" CornerRadius="{StaticResource RadiusCard}"
+                  Background="{StaticResource FillSubtleBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" ToolTip="{Binding Worst.SchemeName}">
+            <StackPanel>
+              <TextBlock Text="WORST FUND" Style="{StaticResource Text.Label}" />
+              <TextBlock Text="{Binding Worst.SchemeName}" FontWeight="SemiBold" Margin="0,6,0,0" TextTrimming="CharacterEllipsis" />
+              <TextBlock Text="{Binding WorstText}" FontWeight="SemiBold" FontSize="{StaticResource FontSizeSection}" Margin="0,4,0,0"
+                         Foreground="{Binding WorstChange, Converter={StaticResource SignBrush}}" />
+            </StackPanel>
+          </Border>
+        </Grid>
+      </Border>
+
+      <!-- Top holdings -->
+      <Border Style="{StaticResource Card}" Padding="0">
+        <StackPanel>
+          <DockPanel Margin="20,14,12,10">
+            <Button DockPanel.Dock="Right" Style="{StaticResource Button.Ghost}" Content="View holdings"
+                    Command="{Binding DataContext.GoToCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="5" />
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+              <TextBlock Text="Top holdings" Style="{StaticResource Text.Section}" />
+              <TextBlock Text="{Binding TopHoldingsCaption}" Style="{StaticResource Text.Muted}" VerticalAlignment="Center" Margin="12,0,0,0" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+          </DockPanel>
+          <ItemsControl ItemsSource="{Binding TopHoldings}" Margin="16,0,4,4" AutomationProperties.Name="Top holdings"
+                        Visibility="{Binding TopHoldings, Converter={StaticResource VisibleWhenEmpty}, ConverterParameter=invert}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <UniformGrid Columns="5" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate DataType="{x:Type vm:TopHoldingRow}">
+                <Border Margin="0,0,10,10" Padding="12,9,12,10" CornerRadius="{StaticResource RadiusCard}" BorderThickness="1"
+                        Background="{StaticResource FillSubtleBrush}" BorderBrush="{StaticResource BorderBrush}" ToolTip="{Binding Tip}">
+                  <StackPanel>
+                    <DockPanel>
+                      <Border DockPanel.Dock="Right" CornerRadius="{StaticResource RadiusPill}" Padding="6,1" Margin="6,0,0,0" VerticalAlignment="Center"
+                              Background="{Binding DayChangePercent, Converter={StaticResource SignBrush}, ConverterParameter=subtle}">
+                        <TextBlock Text="{Binding DayChangeText}" FontSize="{StaticResource FontSizeCaption}" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"
+                                   Foreground="{Binding DayChangePercent, Converter={StaticResource SignBrush}}" />
+                      </Border>
+                      <TextBlock Text="{Binding RankText}" Style="{StaticResource Text.Muted}" FontSize="{StaticResource FontSizeCaption}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                      <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                    </DockPanel>
+                    <TextBlock Text="{Binding PriceText}" FontSize="18" FontWeight="SemiBold" Margin="0,6,0,0" Typography.NumeralAlignment="Tabular" />
+                    <ProgressBar Height="3" Maximum="1" Value="{Binding BarFraction, Mode=OneWay}" Margin="0,7,0,5" Foreground="{StaticResource AccentGradientHorizontalBrush}" />
+                    <DockPanel>
+                      <TextBlock DockPanel.Dock="Right" Text="{Binding FundsText}" Style="{StaticResource Text.Muted}" FontSize="{StaticResource FontSizeCaption}"
+                                 VerticalAlignment="Bottom" ToolTip="{Binding FundsTip}" />
+                      <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding WeightText}" FontWeight="SemiBold" FontSize="{StaticResource FontSizeSmall}" Typography.NumeralAlignment="Tabular" />
+                        <TextBlock Text="weight" Style="{StaticResource Text.Muted}" FontSize="{StaticResource FontSizeCaption}" Margin="4,0,0,0" VerticalAlignment="Bottom" />
+                      </StackPanel>
+                    </DockPanel>
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <StackPanel Margin="20,26,20,34" HorizontalAlignment="Center"
+                      Visibility="{Binding TopHoldings, Converter={StaticResource VisibleWhenEmpty}}">
+            <Border Width="52" Height="52" CornerRadius="26" Background="{StaticResource FillSubtleBrush}" HorizontalAlignment="Center">
+              <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE9D2;" FontSize="20" Foreground="{StaticResource TextSubtleBrush}" />
+            </Border>
+            <TextBlock Text="{Binding TopHoldingsEmptyText}" Style="{StaticResource Text.Muted}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,12,0,0" MaxWidth="360" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+      <!-- Status -->
+      <TextBlock Text="STATUS" Style="{StaticResource Text.Label}" Margin="2,28,0,10" />
+      <Grid Margin="0,0,-12,0">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*" />
           <ColumnDefinition Width="*" />
@@ -86,9 +183,9 @@
               <ContentControl Style="{StaticResource IconBadge}" Tag="{Binding ApiLevel}" Content="&#xE774;" />
               <ui:StatusPill DockPanel.Dock="Right" Text="{Binding ApiSummary}" Tone="{Binding ApiLevel, Converter={StaticResource Tone}}" />
             </DockPanel>
-            <TextBlock Text="QUOTESNAP API" Style="{StaticResource Text.Label}" Margin="0,16,0,0" />
+            <TextBlock Text="QUOTESNAP API" Style="{StaticResource Text.Label}" Margin="0,10,0,0" />
             <Border Style="{StaticResource KpiValueSkeleton}" Visibility="{Binding LastChecked, Converter={StaticResource VisibleWhenNull}}" />
-            <TextBlock Text="{Binding ApiValue}" Style="{StaticResource Text.Kpi}" Margin="0,4,0,2"
+            <TextBlock Text="{Binding ApiValue}" Style="{StaticResource Text.KpiMedium}" Margin="0,2,0,2"
                        Visibility="{Binding LastChecked, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}" />
             <TextBlock Text="{Binding ApiDetail}" Style="{StaticResource Text.Muted}" />
           </StackPanel>
@@ -100,12 +197,12 @@
               <ContentControl Style="{StaticResource IconBadge}" Tag="{Binding FyersLevel}" Content="&#xE8D7;" />
               <ui:StatusPill DockPanel.Dock="Right" Text="{Binding FyersSummary}" Tone="{Binding FyersLevel, Converter={StaticResource Tone}}" />
             </DockPanel>
-            <TextBlock Text="FYERS LOGIN" Style="{StaticResource Text.Label}" Margin="0,16,0,0" />
+            <TextBlock Text="FYERS LOGIN" Style="{StaticResource Text.Label}" Margin="0,10,0,0" />
             <Border Style="{StaticResource KpiValueSkeleton}" Visibility="{Binding LastChecked, Converter={StaticResource VisibleWhenNull}}" />
-            <StackPanel Orientation="Horizontal" Margin="0,4,0,2"
+            <StackPanel Orientation="Horizontal" Margin="0,2,0,2"
                         Visibility="{Binding LastChecked, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
-              <TextBlock Text="{Binding FyersValue}" Style="{StaticResource Text.Kpi}" />
-              <TextBlock Text="left" Style="{StaticResource Text.Muted}" VerticalAlignment="Bottom" Margin="8,0,0,7"
+              <TextBlock Text="{Binding FyersValue}" Style="{StaticResource Text.KpiMedium}" />
+              <TextBlock Text="left" Style="{StaticResource Text.Muted}" VerticalAlignment="Bottom" Margin="6,0,0,3"
                          Visibility="{Binding HasFyersValue, Converter={StaticResource BoolToVisibility}}" />
             </StackPanel>
             <ProgressBar Height="4" Maximum="1" Value="{Binding FyersValidity, Mode=OneWay}" Margin="0,2,0,10"
@@ -121,12 +218,12 @@
               <ContentControl Style="{StaticResource IconBadge}" Tag="{Binding NavLevel}" Content="&#xE825;" />
               <ui:StatusPill DockPanel.Dock="Right" Text="{Binding NavSummary}" Tone="{Binding NavLevel, Converter={StaticResource Tone}}" />
             </DockPanel>
-            <TextBlock Text="MUTUAL FUND NAVS" Style="{StaticResource Text.Label}" Margin="0,16,0,0" />
+            <TextBlock Text="MUTUAL FUND NAVS" Style="{StaticResource Text.Label}" Margin="0,10,0,0" />
             <Border Style="{StaticResource KpiValueSkeleton}" Visibility="{Binding LastChecked, Converter={StaticResource VisibleWhenNull}}" />
-            <StackPanel Orientation="Horizontal" Margin="0,4,0,2"
+            <StackPanel Orientation="Horizontal" Margin="0,2,0,2"
                         Visibility="{Binding LastChecked, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
-              <TextBlock Text="{Binding NavValue}" Style="{StaticResource Text.Kpi}" />
-              <TextBlock Text="schemes" Style="{StaticResource Text.Muted}" VerticalAlignment="Bottom" Margin="8,0,0,7"
+              <TextBlock Text="{Binding NavValue}" Style="{StaticResource Text.KpiMedium}" />
+              <TextBlock Text="schemes" Style="{StaticResource Text.Muted}" VerticalAlignment="Bottom" Margin="6,0,0,3"
                          Visibility="{Binding HasNavValue, Converter={StaticResource BoolToVisibility}}" />
             </StackPanel>
             <TextBlock Text="{Binding NavDetail}" Style="{StaticResource Text.Muted}" />
@@ -139,115 +236,15 @@
               <ContentControl Style="{StaticResource IconBadge}" Tag="{x:Static ui:Tone.Accent}" Content="&#xE945;" />
               <ui:StatusPill DockPanel.Dock="Right" Text="{Binding RequestsSummary}" Tone="{Binding RequestsLevel, Converter={StaticResource Tone}}" />
             </DockPanel>
-            <TextBlock Text="REQUESTS TODAY" Style="{StaticResource Text.Label}" Margin="0,16,0,0" />
+            <TextBlock Text="REQUESTS TODAY" Style="{StaticResource Text.Label}" Margin="0,10,0,0" />
             <Border Style="{StaticResource KpiValueSkeleton}" Visibility="{Binding LastChecked, Converter={StaticResource VisibleWhenNull}}" />
-            <TextBlock Text="{Binding RequestsValue}" Style="{StaticResource Text.Kpi}" Margin="0,4,0,2"
+            <TextBlock Text="{Binding RequestsValue}" Style="{StaticResource Text.KpiMedium}" Margin="0,2,0,2"
                        Visibility="{Binding LastChecked, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}" />
             <TextBlock Text="{Binding RequestsDetail}" Style="{StaticResource Text.Muted}" />
           </StackPanel>
         </Border>
       </Grid>
 
-      <!-- Quick actions -->
-      <TextBlock Text="QUICK ACTIONS" Style="{StaticResource Text.Label}" Margin="2,28,0,10" />
-      <UniformGrid Columns="4" Margin="0,0,-12,0"
-                   DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}">
-        <UniformGrid.Resources>
-          <Style TargetType="Button" BasedOn="{StaticResource Button.Tile}">
-            <Setter Property="Margin" Value="0,0,12,0" />
-            <Setter Property="Command" Value="{Binding GoToCommand}" />
-          </Style>
-        </UniformGrid.Resources>
-        <Button CommandParameter="1" AutomationProperties.Name="Fetch quotes">
-          <DockPanel>
-            <TextBlock DockPanel.Dock="Right" Style="{StaticResource Text.Icon}" Text="&#xE76C;" FontSize="12" Foreground="{StaticResource TextSubtleBrush}" />
-            <ContentControl Style="{StaticResource IconBadge}" Tag="{x:Static ui:Tone.Accent}" Content="&#xE945;" />
-            <StackPanel Margin="12,0,8,0" VerticalAlignment="Center">
-              <TextBlock Text="Fetch quotes" FontWeight="SemiBold" />
-              <TextBlock Text="Paste or load symbols" Style="{StaticResource Text.Muted}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
-            </StackPanel>
-          </DockPanel>
-        </Button>
-        <Button CommandParameter="2" AutomationProperties.Name="Browse history">
-          <DockPanel>
-            <TextBlock DockPanel.Dock="Right" Style="{StaticResource Text.Icon}" Text="&#xE76C;" FontSize="12" Foreground="{StaticResource TextSubtleBrush}" />
-            <ContentControl Style="{StaticResource IconBadge}" Tag="{x:Static ui:Tone.Info}" Content="&#xE81C;" />
-            <StackPanel Margin="12,0,8,0" VerticalAlignment="Center">
-              <TextBlock Text="Browse history" FontWeight="SemiBold" />
-              <TextBlock Text="Reopen past requests" Style="{StaticResource Text.Muted}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
-            </StackPanel>
-          </DockPanel>
-        </Button>
-        <Button CommandParameter="3" AutomationProperties.Name="My funds">
-          <DockPanel>
-            <TextBlock DockPanel.Dock="Right" Style="{StaticResource Text.Icon}" Text="&#xE76C;" FontSize="12" Foreground="{StaticResource TextSubtleBrush}" />
-            <ContentControl Style="{StaticResource IconBadge}" Tag="{x:Static ui:Tone.Success}" Content="&#xE825;" />
-            <StackPanel Margin="12,0,8,0" VerticalAlignment="Center">
-              <TextBlock Text="My funds" FontWeight="SemiBold" />
-              <TextBlock Text="Latest NAVs of funds you follow" Style="{StaticResource Text.Muted}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
-            </StackPanel>
-          </DockPanel>
-        </Button>
-        <Button CommandParameter="4" AutomationProperties.Name="Connection settings">
-          <DockPanel>
-            <TextBlock DockPanel.Dock="Right" Style="{StaticResource Text.Icon}" Text="&#xE76C;" FontSize="12" Foreground="{StaticResource TextSubtleBrush}" />
-            <ContentControl Style="{StaticResource IconBadge}" Tag="{x:Static ui:Tone.Neutral}" Content="&#xE713;" />
-            <StackPanel Margin="12,0,8,0" VerticalAlignment="Center">
-              <TextBlock Text="Connection" FontWeight="SemiBold" />
-              <TextBlock Text="API address and key" Style="{StaticResource Text.Muted}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
-            </StackPanel>
-          </DockPanel>
-        </Button>
-      </UniformGrid>
-
-      <!-- Recent requests -->
-      <Border Style="{StaticResource Card}" Padding="0" Margin="0,28,0,0">
-        <StackPanel>
-          <DockPanel Margin="20,14,12,10">
-            <Button DockPanel.Dock="Right" Style="{StaticResource Button.Ghost}" Content="View all"
-                    Command="{Binding DataContext.GoToCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="2" />
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-              <TextBlock Text="Recent requests" Style="{StaticResource Text.Section}" />
-              <TextBlock Text="Click a request to open it" Style="{StaticResource Text.Muted}" VerticalAlignment="Center" Margin="12,0,0,0" />
-            </StackPanel>
-          </DockPanel>
-          <DataGrid ItemsSource="{Binding RecentRequests}" Margin="8,0,8,8" ui:Ui.BubbleMouseWheel="True" Cursor="Hand"
-                    VerticalScrollBarVisibility="Disabled" AutomationProperties.Name="Recent requests"
-                    SelectedItem="{Binding DataContext.RecentSelection, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                    Visibility="{Binding RecentRequests, Converter={StaticResource VisibleWhenEmpty}, ConverterParameter=invert}">
-            <DataGrid.Columns>
-              <DataGridTemplateColumn Header="Status" Width="190" SortMemberPath="Summary.Status">
-                <DataGridTemplateColumn.CellTemplate>
-                  <DataTemplate>
-                    <ui:StatusPill Text="{Binding StatusText}" Tone="{Binding Summary.Status, Converter={StaticResource Tone}}" />
-                  </DataTemplate>
-                </DataGridTemplateColumn.CellTemplate>
-              </DataGridTemplateColumn>
-              <DataGridTextColumn Header="Created" Binding="{Binding CreatedText}" SortMemberPath="Summary.CreatedAt" Width="200"
-                                  ElementStyle="{StaticResource Cell.Text}" />
-              <DataGridTextColumn Header="Symbols" Binding="{Binding Summary.TotalSymbols, StringFormat=N0}" Width="90"
-                                  HeaderStyle="{StaticResource Header.Right}" ElementStyle="{StaticResource Cell.Number}" />
-              <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="*" MinWidth="140" ElementStyle="{StaticResource Cell.Muted}" />
-              <DataGridTextColumn Header="Took" Binding="{Binding Duration}" Width="90"
-                                  HeaderStyle="{StaticResource Header.Right}" ElementStyle="{StaticResource Cell.NumberMuted}" />
-              <DataGridTemplateColumn Header="ID" Width="110">
-                <DataGridTemplateColumn.CellTemplate>
-                  <DataTemplate>
-                    <TextBlock Text="{Binding ShortId}" ToolTip="{Binding Id}" Style="{StaticResource Cell.MonoMuted}" />
-                  </DataTemplate>
-                </DataGridTemplateColumn.CellTemplate>
-              </DataGridTemplateColumn>
-            </DataGrid.Columns>
-          </DataGrid>
-          <StackPanel Margin="20,26,20,34" HorizontalAlignment="Center"
-                      Visibility="{Binding RecentRequests, Converter={StaticResource VisibleWhenEmpty}}">
-            <Border Width="52" Height="52" CornerRadius="26" Background="{StaticResource FillSubtleBrush}" HorizontalAlignment="Center">
-              <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE81C;" FontSize="20" Foreground="{StaticResource TextSubtleBrush}" />
-            </Border>
-            <TextBlock Text="{Binding RecentEmptyText}" Style="{StaticResource Text.Muted}" TextAlignment="Center" Margin="0,12,0,0" MaxWidth="360" />
-          </StackPanel>
-        </StackPanel>
-      </Border>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

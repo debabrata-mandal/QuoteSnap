@@ -47,12 +47,18 @@ public sealed class StatusTextConverter : IValueConverter
 /// <summary>Green for a rise, red for a fall; leaves the default colour for zero or no value.</summary>
 public sealed class SignToBrushConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => value switch
+    /// <param name="parameter">"subtle" for the tinted background brushes, with a neutral fill for no change.</param>
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        decimal d when d > 0 => Application.Current.TryFindResource("SuccessBrush") ?? DependencyProperty.UnsetValue,
-        decimal d when d < 0 => Application.Current.TryFindResource("DangerBrush") ?? DependencyProperty.UnsetValue,
-        _ => DependencyProperty.UnsetValue,
-    };
+        string suffix = parameter is "subtle" ? "SubtleBrush" : "Brush";
+        string? key = value switch
+        {
+            decimal d when d > 0 => "Success" + suffix,
+            decimal d when d < 0 => "Danger" + suffix,
+            _ => parameter is "subtle" ? "FillBrush" : null,
+        };
+        return key is null ? DependencyProperty.UnsetValue : Application.Current.TryFindResource(key) ?? DependencyProperty.UnsetValue;
+    }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
         throw new NotSupportedException();

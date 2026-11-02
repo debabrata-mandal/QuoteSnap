@@ -24,7 +24,22 @@ public static class HoldingEndpoints
         RouteGroupBuilder quotes = app.MapGroup("/api/holdings/quotes").RequireApiKey().WithTags("Holdings");
         quotes.MapPost("/", StartQuotesAsync);
         quotes.MapGet("/latest", GetLatestQuotesAsync);
+
+        app.MapGet("/api/holdings/top", GetTopAsync).RequireApiKey().WithTags("Holdings");
         return app;
+    }
+
+    private const int DefaultTopLimit = 10;
+    private const int MaxTopLimit = 100;
+
+    /// <summary>The stocks the listed funds hold most, by weight averaged over the funds, with the last live prices.</summary>
+    /// <param name="limit">At most 100; 10 by default.</param>
+    private static async Task<Ok<TopHoldingList>> GetTopAsync(int? limit, HoldingRepository holdings, QuoteRequestRepository requests, CancellationToken cancellationToken)
+    {
+        Dictionary<int, List<FundHoldingRecord>> portfolios = await holdings.GetLatestHoldingsAsync(cancellationToken);
+        QuoteRequest? prices = await requests.GetLatestFinishedForHoldingsAsync(cancellationToken);
+        IReadOnlyList<TopHolding> top = TopHoldings.Rank(portfolios, prices?.Results, Math.Clamp(limit ?? DefaultTopLimit, 1, MaxTopLimit));
+        return TypedResults.Ok(new TopHoldingList(portfolios.Count, prices?.Id, prices?.CompletedAt, top));
     }
 
     /// <summary>

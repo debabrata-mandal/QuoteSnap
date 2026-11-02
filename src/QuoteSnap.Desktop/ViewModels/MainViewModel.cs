@@ -57,33 +57,10 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     public partial int SelectedTabIndex { get; set; }
 
-    /// <summary>The row clicked in the dashboard's recent requests; opens it on History and then clears, so the same row can be clicked again.</summary>
-    [ObservableProperty]
-    public partial RequestRow? RecentSelection { get; set; }
-
-    partial void OnRecentSelectionChanged(RequestRow? value)
-    {
-        if (value is null)
-            return;
-
-        _ = OpenRequestAsync(value);
-        System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvoke(() => RecentSelection = null);
-    }
-
     public void Start() => Dashboard.Start();
 
     [RelayCommand]
     private void GoTo(string tab) => SelectedTabIndex = int.Parse(tab, System.Globalization.CultureInfo.InvariantCulture);
-
-    [RelayCommand]
-    private async Task OpenRequestAsync(RequestRow? row)
-    {
-        if (row is null)
-            return;
-
-        SelectedTabIndex = HistoryTab;
-        await History.ShowAsync(row.Id);
-    }
 
     partial void OnSelectedTabIndexChanged(int value)
     {

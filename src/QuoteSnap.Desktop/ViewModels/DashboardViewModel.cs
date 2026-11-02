@@ -12,7 +12,7 @@ namespace QuoteSnap.Desktop.ViewModels;
 
 public sealed partial class DashboardViewModel : ObservableObject
 {
-    private const int RecentCount = 8;
+    private const int TopCount = 10;
     private const int TodayPageSize = 50;
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan LoginExpiryWarning = TimeSpan.FromDays(2);
@@ -96,10 +96,18 @@ public sealed partial class DashboardViewModel : ObservableObject
     public partial string? RequestsDetail { get; set; }
 
     [ObservableProperty]
-    public partial IReadOnlyList<RequestRow> RecentRequests { get; set; } = [];
+    public partial IReadOnlyList<TopHoldingRow> TopHoldings { get; set; } = [];
+
+    /// <summary>Today's estimated move of all listed funds together; null without live prices.</summary>
+    [ObservableProperty]
+    public partial PortfolioMove? Portfolio { get; set; }
 
     [ObservableProperty]
-    public partial string RecentEmptyText { get; set; } = "Loading…";
+    public partial string TopHoldingsEmptyText { get; set; } = "Loading…";
+
+    /// <summary>"Average weight across 5 funds · prices from 10:42"; null until loaded.</summary>
+    [ObservableProperty]
+    public partial string? TopHoldingsCaption { get; set; }
 
     [ObservableProperty]
     public partial StatusLevel AlertLevel { get; set; }
@@ -176,7 +184,27 @@ public sealed partial class DashboardViewModel : ObservableObject
         {
             RequestsLevel = StatusLevel.Warning;
             RequestsSummary = "Unavailable";
-            RecentEmptyText = ErrorText.Describe(ex, baseAddress);
+            RequestsDetail = ErrorText.Describe(ex, baseAddress);
+        }
+
+        try
+        {
+            ShowTopHoldings(await client.GetTopHoldingsAsync(TopCount));
+        }
+        catch (Exception ex)
+        {
+            TopHoldings = [];
+            TopHoldingsCaption = null;
+            TopHoldingsEmptyText = ErrorText.Describe(ex, baseAddress);
+        }
+
+        try
+        {
+            Portfolio = PortfolioMove.From(await client.GetNavEstimatesAsync());
+        }
+        catch (Exception)
+        {
+            Portfolio = null;
         }
 
         LastChecked = DateTimeOffset.Now;
@@ -196,8 +224,10 @@ public sealed partial class DashboardViewModel : ObservableObject
         FyersValue = NavValue = RequestsValue = Display.Missing;
         FyersDetail = NavDetail = RequestsDetail = "Shown once the API responds.";
         FyersValidity = 0;
-        RecentRequests = [];
-        RecentEmptyText = "Recent requests appear here once the API responds.";
+        TopHoldings = [];
+        Portfolio = null;
+        TopHoldingsCaption = null;
+        TopHoldingsEmptyText = "Top holdings appear here once the API responds.";
 
         AlertLevel = StatusLevel.Bad;
         AlertOffersSettings = true;
@@ -280,11 +310,19 @@ public sealed partial class DashboardViewModel : ObservableObject
         NavDetail = $"Loaded {Display.WhenInSentence(loadedAt)} · NAV date {Display.Date(nav.LatestNavDate)}";
     }
 
+    private void ShowTopHoldings(TopHoldingList list)
+    {
+        decimal largest = list.Holdings.Count > 0 ? list.Holdings.Max(h => h.Percent) : 0;
+        TopHoldings = [.. list.Holdings.Select((h, i) => new TopHoldingRow(i + 1, h, largest, list.FundCount))];
+        TopHoldingsCaption = TopHoldingsText(list);
+        TopHoldingsEmptyText = list.FundCount == 0 ? "No holdings yet. Add funds on the Mutual funds page and fetch their ScanX holdings on the Holdings page." : "None of your funds' holdings are listed stocks.";
+    }
+
+    /// <summary>"Average weight across 3 funds · prices from today 10:42", or a hint to get live prices.</summary>
+    public static string? TopHoldingsText(TopHoldingList list) => list.FundCount == 0 ? null : $"Average weight across {Display.Count(list.FundCount, "fund")} · " + (list.PricesAt is { } at ? $"prices from {Display.WhenInSentence(at)}" : "get live prices on the Holdings page");
+
     private void ShowRequests(QuoteRequestPage page)
     {
-        RecentRequests = [.. page.Items.Take(RecentCount).Select(s => new RequestRow(s))];
-        RecentEmptyText = "No quote requests yet. Fetch quotes to see them here.";
-
         List<QuoteRequestSummary> today = [.. page.Items.Where(s => s.CreatedAt.ToLocalTime().Date == DateTime.Today)];
         bool more = page.NextBefore is not null && today.Count == page.Items.Count;
         int running = today.Count(s => !s.Status.IsTerminal());

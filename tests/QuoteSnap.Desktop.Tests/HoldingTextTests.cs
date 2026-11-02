@@ -193,6 +193,49 @@ public sealed class HoldingTextTests
         Assert.Equal(("", ""), (unlisted.LtpText, unlisted.DayChangeText));
     }
 
+    [Fact]
+    public void Top_holding_rows_show_the_averaged_weight_how_many_funds_hold_it_and_its_price()
+    {
+        using CultureScope _ = new("en-IN");
+        TopHolding hal = new("NSE:HAL-EQ", "Hindustan Aeronautics Ltd.", "Aerospace & Defense", 12.5m, 3, 4321.5m, -0.82m);
+        TopHolding bel = new("NSE:BEL-EQ", "Bharat Electronics Ltd.", null, 2.5m, 1, null, null);
+
+        TopHoldingRow first = new(1, hal, 12.5m, 5);
+        TopHoldingRow second = new(2, bel, 12.5m, 5);
+
+        Assert.Equal(("12.50%", "3 of 5 funds"), (first.WeightText, first.FundsText));
+        Assert.Equal("Hindustan Aeronautics Ltd. · NSE:HAL-EQ · Aerospace & Defense", first.Tip);
+        Assert.Equal(("₹4,321.50", "▼ 0.82%", 1d), (first.PriceText, first.DayChangeText, first.BarFraction));
+        Assert.Equal(("—", "—", 0.2), (second.PriceText, second.DayChangeText, second.BarFraction));
+        Assert.Equal("▲ 1.76%", new TopHoldingRow(3, bel with { ChangePercent = 1.76m }, 12.5m, 5).DayChangeText);
+        Assert.Equal("Held by 1 fund; the weight is averaged over all 5 funds with holdings", second.FundsTip);
+    }
+
+    [Fact]
+    public void The_portfolio_move_averages_the_funds_with_an_estimate()
+    {
+        using CultureScope _ = new("en-IN");
+        NavEstimate up = new(1, "Defence Fund", 20m, null, null, 1.2m, 20.24m, 90m, 9, 10);
+        NavEstimate down = new(2, "Bank Fund", 50m, null, null, -0.5m, 49.75m, 80m, 8, 10);
+        NavEstimate none = new(3, "Global Fund", 10m, null, null, null, null, 0m, 0, 0);
+
+        PortfolioMove move = PortfolioMove.From(new NavEstimateList(Guid.NewGuid(), null, [up, down, none]))!;
+
+        Assert.Equal(0.35m, move.ChangePercent);
+        Assert.Equal(("▲ 0.35%", "Average of 2 of 3 funds"), (move.ChangeText, move.Detail));
+        Assert.Equal(("Defence Fund", "▲ 1.20%"), (move.Best.SchemeName, move.BestText));
+        Assert.Equal(("Bank Fund", "▼ 0.50%"), (move.Worst.SchemeName, move.WorstText));
+        Assert.Null(PortfolioMove.From(new NavEstimateList(null, null, [none])));
+    }
+
+    [Fact]
+    public void The_top_holdings_caption_names_the_fund_count_and_when_prices_are_from()
+    {
+        Assert.Null(DashboardViewModel.TopHoldingsText(new TopHoldingList(0, null, null, [])));
+        Assert.Equal("Average weight across 2 funds · get live prices on the Holdings page", DashboardViewModel.TopHoldingsText(new TopHoldingList(2, null, null, [])));
+        Assert.StartsWith("Average weight across 1 fund · prices from ", DashboardViewModel.TopHoldingsText(new TopHoldingList(1, Guid.NewGuid(), Created, [])));
+    }
+
     private static QuoteResultDto Quote(string symbol, QuoteResultStatus status, decimal? ltp, decimal? changePercent) =>
         new(symbol, status, ltp, null, changePercent, null, null, null, null, null, null, status == QuoteResultStatus.Ok ? Created : null, null);
 

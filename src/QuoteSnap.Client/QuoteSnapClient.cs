@@ -184,6 +184,14 @@ public sealed class QuoteSnapClient
         }
     }
 
+    /// <summary>The stocks the listed funds hold most, by weight averaged over the funds, with the last live prices.</summary>
+    /// <param name="limit">How many stocks, 1 to 100.</param>
+    public async Task<TopHoldingList> GetTopHoldingsAsync(int limit = 10, CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, $"api/holdings/top?limit={limit}", null, admin: false, cancellationToken);
+        return await ReadAsync<TopHoldingList>(response, cancellationToken);
+    }
+
     /// <summary>Polls a holdings fetch until it finishes, reporting each snapshot of its progress.</summary>
     public async Task<HoldingFetch> WaitForHoldingFetchAsync(Guid fetchId, IProgress<HoldingFetch>? progress = null, CancellationToken cancellationToken = default)
     {
