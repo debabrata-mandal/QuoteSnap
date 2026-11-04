@@ -65,7 +65,7 @@
                      Visibility="Collapsed" />
           <Button x:Name="RemoveButton" Grid.Column="5" Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE711;" Margin="8,0,0,0" Opacity="0"
                   ToolTip="Remove from my funds" AutomationProperties.Name="Remove from my funds"
-                  Command="{Binding DataContext.RemoveCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
+                  Command="{Binding DataContext.AskRemoveCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
         </Grid>
       </Border>
       <DataTemplate.Triggers>
@@ -197,6 +197,21 @@
           <Border DockPanel.Dock="Top" Style="{StaticResource Banner}" Tag="{x:Static vm:StatusLevel.Warning}" Margin="20,0,20,12"
                   Visibility="{Binding MyFundsError, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
             <TextBlock Text="{Binding MyFundsError}" Style="{StaticResource Text.Body}" FontSize="{StaticResource FontSizeSmall}" />
+          </Border>
+
+          <!-- Removing asks first: the service also deletes the fund's stored holdings. -->
+          <Border DockPanel.Dock="Top" Style="{StaticResource Banner}" Tag="{x:Static vm:StatusLevel.Bad}" Padding="14,12" Margin="20,0,20,12"
+                  Visibility="{Binding IsConfirmingRemove, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel>
+              <TextBlock Text="{Binding RemoveQuestion}" FontWeight="SemiBold" Foreground="{StaticResource DangerBrush}" Margin="0,0,0,2" TextWrapping="Wrap" />
+              <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,0,12"
+                         Text="It leaves your list and its stored holdings are deleted, so it drops out of today's estimates and holdings. You can add it back by searching, then fetch its holdings again." />
+              <StackPanel Orientation="Horizontal">
+                <Button Style="{StaticResource Button.Danger}" ui:Ui.Icon="&#xE74D;" Content="Remove" Command="{Binding RemoveCommand}"
+                        ui:Ui.IsSpinning="{Binding RemoveCommand.IsRunning}" AutomationProperties.Name="Confirm remove fund" />
+                <Button Style="{StaticResource Button.Ghost}" Content="Keep it" Margin="8,0,0,0" Command="{Binding KeepFundCommand}" />
+              </StackPanel>
+            </StackPanel>
           </Border>
 
           <DockPanel DockPanel.Dock="Top" Margin="70,0,64,8" Visibility="{Binding HasFunds, Converter={StaticResource BoolToVisibility}}">

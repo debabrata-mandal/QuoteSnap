@@ -206,11 +206,32 @@ public sealed partial class NavViewModel : ObservableObject
         }
     }
 
+    /// <summary>The fund whose remove button was pressed, waiting for the user to confirm; null when nothing is being removed.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsConfirmingRemove), nameof(RemoveQuestion))]
+    public partial FundRow? PendingRemoval { get; private set; }
+
+    public bool IsConfirmingRemove => PendingRemoval is not null;
+
+    public string RemoveQuestion => PendingRemoval is { } row ? $"Remove {row.Name}?" : "";
+
     [RelayCommand]
-    private async Task RemoveAsync(FundRow? row)
+    private void AskRemove(FundRow? row) => PendingRemoval = row;
+
+    [RelayCommand]
+    private void KeepFund() => PendingRemoval = null;
+
+    [RelayCommand]
+    private async Task RemoveAsync()
     {
-        if (row is null || MyFunds.FirstOrDefault(f => f.SchemeCode == row.SchemeCode) is not { } existing)
+        if (PendingRemoval is not { } row)
             return;
+
+        if (MyFunds.FirstOrDefault(f => f.SchemeCode == row.SchemeCode) is not { } existing)
+        {
+            PendingRemoval = null;
+            return;
+        }
 
         try
         {
@@ -222,6 +243,10 @@ public sealed partial class NavViewModel : ObservableObject
         catch (Exception ex)
         {
             Report(StatusLevel.Bad, $"Couldn't remove {row.Name}. {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}");
+        }
+        finally
+        {
+            PendingRemoval = null;
         }
     }
 

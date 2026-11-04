@@ -100,6 +100,9 @@ public static partial class FundText
     /// <summary>"1,161.81" or "402.6856": at least 2 decimals, up to the 4 AMFI publishes.</summary>
     public static string Nav(decimal nav) => nav.ToString("#,##0.00##", CultureInfo.CurrentCulture);
 
+    /// <summary>"1,102.5250": an estimate always shows 4 decimals, so a live tick changes digits in place rather than the text's length.</summary>
+    public static string EstimatedNav(decimal nav) => nav.ToString("#,##0.0000", CultureInfo.CurrentCulture);
+
     /// <summary>
     /// How an estimate was made: "From 22 of 24 holdings (94.10% of assets) in the Sep 2026 portfolio · on the NAV of
     /// 31 Oct 2026 · prices today, 11:20:05", or why there isn't one.

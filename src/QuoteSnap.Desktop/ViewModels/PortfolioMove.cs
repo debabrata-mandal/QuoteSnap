@@ -40,7 +40,7 @@ public sealed record PortfolioMove(decimal ChangePercent, int EstimatedFunds, in
 
     public string WorstNavText => Rupees(Worst.EstimatedNav);
 
-    private static string Rupees(decimal? nav) => nav is { } value ? "₹" + FundText.Nav(value) : Display.Missing;
+    private static string Rupees(decimal? nav) => nav is { } value ? "₹" + FundText.EstimatedNav(value) : Display.Missing;
 
     private static string Arrowed(decimal percent) => percent switch
     {

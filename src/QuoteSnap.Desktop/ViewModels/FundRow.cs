@@ -63,7 +63,7 @@ public sealed partial class FundRow : ObservableObject
 
     public bool HasEstimatedNav => Estimate?.EstimatedNav is not null;
 
-    public string EstimatedNavText => Estimate?.EstimatedNav is { } nav ? FundText.Nav(nav) : Display.Missing;
+    public string EstimatedNavText => Estimate?.EstimatedNav is { } nav ? FundText.EstimatedNav(nav) : Display.Missing;
 
     public void ShowEstimate(NavEstimate? estimate, DateTimeOffset? pricesAt)
     {

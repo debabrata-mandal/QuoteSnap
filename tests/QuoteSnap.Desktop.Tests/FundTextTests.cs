@@ -78,6 +78,17 @@ public sealed class FundTextTests
         Assert.Equal(expected, FundText.Nav(decimal.Parse(nav, System.Globalization.CultureInfo.InvariantCulture)));
     }
 
+    [Theory]
+    [InlineData("1102.525", "1,102.5250")]
+    [InlineData("318.03", "318.0300")]
+    [InlineData("14.50614", "14.5061")]
+    public void Estimated_navs_always_show_four_decimals(string nav, string expected)
+    {
+        using CultureScope _ = new("en-IN");
+
+        Assert.Equal(expected, FundText.EstimatedNav(decimal.Parse(nav, System.Globalization.CultureInfo.InvariantCulture)));
+    }
+
     private static NavEstimate Estimate(DateOnly? month = null, decimal? change = 0.2204m) =>
         new(1, "Defence Fund", 14.285m, new DateOnly(2026, 10, 29), month, change, change is null ? null : 14.3165m, 17.5m, 2, 3);
 
