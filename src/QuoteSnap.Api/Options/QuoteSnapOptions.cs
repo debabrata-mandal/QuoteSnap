@@ -11,7 +11,7 @@ public sealed class QuoteSnapOptions
     public string DataDirectory { get; set; } = "local-data";
 
     [Range(1, 3650)]
-    public int RetentionDays { get; set; } = 30;
+    public int RetentionDays { get; set; } = 3;
 
     public string? DataProtectionCertificatePath { get; set; }
 

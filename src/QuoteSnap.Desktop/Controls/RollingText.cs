@@ -76,6 +76,14 @@ public sealed class RollingText : ContentControl
             return;
 
         string? previous = _shown;
+        // A row dropped from the screen (a sorted list rebuilds its rows on every refresh) must not claim the new text as seen, or its replacement wouldn't roll.
+        if (_shown is not null && PresentationSource.FromVisual(this) is null)
+        {
+            Show(text);
+            _shown = text;
+            return;
+        }
+
         if (Key is { } key)
         {
             previous = LastTexts.GetValueOrDefault(key);
@@ -86,6 +94,19 @@ public sealed class RollingText : ContentControl
         {
             if (_shown != text)
                 Show(text);
+        }
+        else if (PresentationSource.FromVisual(this) is null)
+        {
+            // Not on screen yet (a rebuilt row): its font isn't inherited yet, so roll once loaded, when the digit height is known.
+            Show(previous);
+            RoutedEventHandler? rollWhenLoaded = null;
+            rollWhenLoaded = (_, _) =>
+            {
+                Loaded -= rollWhenLoaded;
+                if (_shown == text)
+                    Roll(previous, text);
+            };
+            Loaded += rollWhenLoaded;
         }
         else
         {

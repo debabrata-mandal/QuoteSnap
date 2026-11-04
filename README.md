@@ -146,7 +146,7 @@ Invoke-RestMethod "http://127.0.0.1:8080$($r.statusUrl)" -Headers $h
 | `GET /health` | Liveness check, no key needed |
 | `GET /openapi/v1.json` | OpenAPI description |
 
-Symbols use the Fyers format `EXCHANGE:SYMBOL-SERIES`, for example `NSE:SBIN-EQ`, `BSE:SENSEX-INDEX` or `NSE:NIFTY50-INDEX`. Results come back in the order you sent them. Requests are kept for 30 days (`QuoteSnap__RetentionDays`).
+Symbols use the Fyers format `EXCHANGE:SYMBOL-SERIES`, for example `NSE:SBIN-EQ`, `BSE:SENSEX-INDEX` or `NSE:NIFTY50-INDEX`. Results come back in the order you sent them. Requests and their results are kept for 3 days (`QuoteSnap__RetentionDays`); a cleanup runs at startup and then hourly.
 
 From .NET, use `QuoteSnap.Client`:
 
