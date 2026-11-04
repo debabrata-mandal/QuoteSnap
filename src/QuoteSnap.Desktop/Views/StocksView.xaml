@@ -29,9 +29,10 @@
           </StackPanel>
           <TextBlock Grid.Column="2" Text="{Binding FundsText}" Style="{StaticResource Text.Muted}" HorizontalAlignment="Right" VerticalAlignment="Center"
                      Typography.NumeralAlignment="Tabular" ToolTip="{Binding FundsTip}" />
-          <TextBlock Grid.Column="3" Text="{Binding PriceText}" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" />
-          <TextBlock Grid.Column="4" Text="{Binding DayChangeText}" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular"
-                     Foreground="{Binding DayChangePercent, Converter={StaticResource SignBrush}}" />
+          <ui:RollingText Grid.Column="3" Text="{Binding PriceText}" Key="{Binding Symbol, StringFormat=stocks:{0}:price}" FontWeight="SemiBold" HorizontalAlignment="Right"
+                          VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" />
+          <ui:RollingText Grid.Column="4" Text="{Binding DayChangeText}" Key="{Binding Symbol, StringFormat=stocks:{0}:day}" FontWeight="SemiBold" HorizontalAlignment="Right"
+                          VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" Foreground="{Binding DayChangePercent, Converter={StaticResource SignBrush}}" />
         </Grid>
       </Border>
       <DataTemplate.Triggers>

@@ -79,46 +79,61 @@
               Visibility="{Binding Portfolio, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
         <Grid DataContext="{Binding Portfolio}">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" MinWidth="240" />
+            <ColumnDefinition Width="*" MinWidth="220" MaxWidth="380" />
+            <ColumnDefinition Width="*" MinWidth="220" MaxWidth="380" />
           </Grid.ColumnDefinitions>
-          <StackPanel VerticalAlignment="Center">
+          <StackPanel VerticalAlignment="Center" Margin="0,0,8,0">
             <TextBlock Text="YOUR FUNDS TODAY · ESTIMATED" Style="{StaticResource Text.Label}" />
-            <TextBlock Text="{Binding ChangeText}" Style="{StaticResource Text.Kpi}" Margin="0,4,0,2" Typography.NumeralAlignment="Tabular"
-                       Foreground="{Binding ChangePercent, Converter={StaticResource SignBrush}}" />
+            <ui:RollingText Text="{Binding ChangeText}" Key="dashboard:portfolio" Margin="0,4,0,2" HorizontalAlignment="Left" FontFamily="{StaticResource DisplayFont}"
+                            FontSize="{StaticResource FontSizeKpi}" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"
+                            Foreground="{Binding ChangePercent, Converter={StaticResource SignBrush}}" />
             <TextBlock Text="{Binding Detail}" Style="{StaticResource Text.Muted}" TextTrimming="CharacterEllipsis"
                        ToolTip="The average of each fund's estimated NAV change, as if the same amount were invested in each fund" />
           </StackPanel>
-          <Border Grid.Column="1" Width="240" Margin="16,0,0,0" Padding="14,12" CornerRadius="{StaticResource RadiusCard}"
+          <Border Grid.Column="1" Margin="16,0,0,0" CornerRadius="{StaticResource RadiusCard}" ClipToBounds="True"
                   Background="{StaticResource FillSubtleBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" ToolTip="{Binding Best.SchemeName}">
-            <StackPanel>
+            <DockPanel>
+            <Border DockPanel.Dock="Left" Width="3" Margin="0,10" CornerRadius="0,2,2,0" Background="{Binding BestChange, Converter={StaticResource SignBrush}}" />
+            <StackPanel Margin="13,12,14,12">
               <DockPanel>
                 <Border DockPanel.Dock="Right" CornerRadius="{StaticResource RadiusPill}" Padding="7,1" VerticalAlignment="Center"
                         Background="{Binding BestChange, Converter={StaticResource SignBrush}, ConverterParameter=subtle}">
-                  <TextBlock Text="{Binding BestText}" FontSize="{StaticResource FontSizeSmall}" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"
-                             Foreground="{Binding BestChange, Converter={StaticResource SignBrush}}" />
+                  <ui:RollingText Text="{Binding BestText}" Key="dashboard:best" FontSize="{StaticResource FontSizeSmall}" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"
+                                  Foreground="{Binding BestChange, Converter={StaticResource SignBrush}}" />
                 </Border>
                 <TextBlock Text="BEST FUND" Style="{StaticResource Text.Label}" VerticalAlignment="Center" />
               </DockPanel>
-              <TextBlock Text="{Binding Best.SchemeName}" FontWeight="SemiBold" Margin="0,7,0,0" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
-                         LineHeight="17" LineStackingStrategy="BlockLineHeight" Height="34" />
+              <TextBlock Text="{Binding Best.SchemeName}" FontWeight="SemiBold" Margin="0,7,0,0" TextTrimming="CharacterEllipsis" />
+              <StackPanel Orientation="Horizontal" Margin="0,3,0,0" ToolTip="Today's estimated NAV">
+                <TextBlock Text="Est. NAV " Style="{StaticResource Text.Muted}" />
+                <ui:RollingText Text="{Binding BestNavText}" Key="dashboard:best:nav" FontSize="{StaticResource FontSizeSmall}" Typography.NumeralAlignment="Tabular"
+                                Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+              </StackPanel>
             </StackPanel>
+            </DockPanel>
           </Border>
-          <Border Grid.Column="2" Width="240" Margin="12,0,0,0" Padding="14,12" CornerRadius="{StaticResource RadiusCard}"
+          <Border Grid.Column="2" Margin="12,0,0,0" CornerRadius="{StaticResource RadiusCard}" ClipToBounds="True"
                   Background="{StaticResource FillSubtleBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" ToolTip="{Binding Worst.SchemeName}">
-            <StackPanel>
+            <DockPanel>
+            <Border DockPanel.Dock="Left" Width="3" Margin="0,10" CornerRadius="0,2,2,0" Background="{Binding WorstChange, Converter={StaticResource SignBrush}}" />
+            <StackPanel Margin="13,12,14,12">
               <DockPanel>
                 <Border DockPanel.Dock="Right" CornerRadius="{StaticResource RadiusPill}" Padding="7,1" VerticalAlignment="Center"
                         Background="{Binding WorstChange, Converter={StaticResource SignBrush}, ConverterParameter=subtle}">
-                  <TextBlock Text="{Binding WorstText}" FontSize="{StaticResource FontSizeSmall}" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"
-                             Foreground="{Binding WorstChange, Converter={StaticResource SignBrush}}" />
+                  <ui:RollingText Text="{Binding WorstText}" Key="dashboard:worst" FontSize="{StaticResource FontSizeSmall}" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"
+                                  Foreground="{Binding WorstChange, Converter={StaticResource SignBrush}}" />
                 </Border>
                 <TextBlock Text="WORST FUND" Style="{StaticResource Text.Label}" VerticalAlignment="Center" />
               </DockPanel>
-              <TextBlock Text="{Binding Worst.SchemeName}" FontWeight="SemiBold" Margin="0,7,0,0" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
-                         LineHeight="17" LineStackingStrategy="BlockLineHeight" Height="34" />
+              <TextBlock Text="{Binding Worst.SchemeName}" FontWeight="SemiBold" Margin="0,7,0,0" TextTrimming="CharacterEllipsis" />
+              <StackPanel Orientation="Horizontal" Margin="0,3,0,0" ToolTip="Today's estimated NAV">
+                <TextBlock Text="Est. NAV " Style="{StaticResource Text.Muted}" />
+                <ui:RollingText Text="{Binding WorstNavText}" Key="dashboard:worst:nav" FontSize="{StaticResource FontSizeSmall}" Typography.NumeralAlignment="Tabular"
+                                Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+              </StackPanel>
             </StackPanel>
+            </DockPanel>
           </Border>
         </Grid>
       </Border>
@@ -133,7 +148,23 @@
                     Command="{Binding DataContext.GoToCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="7" />
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
               <TextBlock Text="Top holdings" Style="{StaticResource Text.Section}" />
-              <TextBlock Text="{Binding TopHoldingsCaption}" Style="{StaticResource Text.Muted}" VerticalAlignment="Center" Margin="12,0,0,0" TextTrimming="CharacterEllipsis" />
+              <StackPanel Orientation="Horizontal" Margin="16,0,0,0" VerticalAlignment="Center" DataContext="{Binding Breadth}" ToolTip="{Binding Tooltip}"
+                          Visibility="{Binding Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
+                <Border Width="1" Height="16" Margin="0,0,16,0" VerticalAlignment="Center" Background="{StaticResource BorderBrush}" />
+                <TextBlock Text="Advances" Style="{StaticResource Text.Muted}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                <ui:RollingText Text="{Binding AdvancesText}" Key="dashboard:advances" VerticalAlignment="Center" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular" Foreground="{StaticResource SuccessBrush}" />
+                <Grid Width="110" Height="4" Margin="10,0,10,0" VerticalAlignment="Center">
+                  <Border CornerRadius="2" Background="{StaticResource DangerBrush}" />
+                  <Border CornerRadius="2" Background="{StaticResource SuccessBrush}" RenderTransformOrigin="0,0.5">
+                    <Border.RenderTransform>
+                      <ScaleTransform ScaleX="{Binding AdvanceShare}" />
+                    </Border.RenderTransform>
+                  </Border>
+                </Grid>
+                <ui:RollingText Text="{Binding DeclinesText}" Key="dashboard:declines" VerticalAlignment="Center" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular" Foreground="{StaticResource DangerBrush}" />
+                <TextBlock Text="Declines" Style="{StaticResource Text.Muted}" Margin="6,0,0,0" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Detail, StringFormat=· {0}}" Style="{StaticResource Text.Muted}" Margin="10,0,0,0" VerticalAlignment="Center" />
+              </StackPanel>
             </StackPanel>
           </DockPanel>
           <ItemsControl ItemsSource="{Binding TopHoldings}" Margin="16,0,4,4" AutomationProperties.Name="Top holdings"
@@ -152,10 +183,11 @@
                     <DockPanel Margin="0,6,0,0">
                       <Border DockPanel.Dock="Right" CornerRadius="{StaticResource RadiusPill}" Padding="6,1" Margin="6,0,0,0" VerticalAlignment="Center"
                               Background="{Binding DayChangePercent, Converter={StaticResource SignBrush}, ConverterParameter=subtle}">
-                        <TextBlock Text="{Binding DayChangeText}" FontSize="{StaticResource FontSizeCaption}" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"
-                                   Foreground="{Binding DayChangePercent, Converter={StaticResource SignBrush}}" />
+                        <ui:RollingText Text="{Binding DayChangeText}" Key="{Binding Symbol, StringFormat=dashboard:{0}:day}" FontSize="{StaticResource FontSizeCaption}" FontWeight="SemiBold"
+                                        Typography.NumeralAlignment="Tabular" Foreground="{Binding DayChangePercent, Converter={StaticResource SignBrush}}" />
                       </Border>
-                      <TextBlock Text="{Binding PriceText}" FontSize="18" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular" TextTrimming="CharacterEllipsis" />
+                      <ui:RollingText Text="{Binding PriceText}" Key="{Binding Symbol, StringFormat=dashboard:{0}:price}" FontSize="18" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"
+                                      HorizontalAlignment="Left" />
                     </DockPanel>
                     <ProgressBar Height="3" Maximum="1" Value="{Binding BarFraction, Mode=OneWay}" Margin="0,7,0,5" Foreground="{StaticResource AccentGradientHorizontalBrush}" />
                     <DockPanel>

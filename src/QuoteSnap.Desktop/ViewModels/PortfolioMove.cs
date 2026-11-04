@@ -35,6 +35,13 @@ public sealed record PortfolioMove(decimal ChangePercent, int EstimatedFunds, in
 
     public decimal WorstChange => Worst.ChangePercent!.Value;
 
+    /// <summary>"₹1,099.24" or "—".</summary>
+    public string BestNavText => Rupees(Best.EstimatedNav);
+
+    public string WorstNavText => Rupees(Worst.EstimatedNav);
+
+    private static string Rupees(decimal? nav) => nav is { } value ? "₹" + FundText.Nav(value) : Display.Missing;
+
     private static string Arrowed(decimal percent) => percent switch
     {
         > 0 => $"▲ {percent.ToString("N2", CultureInfo.CurrentCulture)}%",

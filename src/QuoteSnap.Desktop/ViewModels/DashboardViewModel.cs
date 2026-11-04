@@ -22,6 +22,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private HubConnectionState _hubState;
     private LiveFeedStatus? _liveStatus;
     private TopHoldingList? _top;
+    private Dictionary<string, decimal?> _dayChanges = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Reads everything once, then follows the pushes from the API's event hub; there is no polling.</summary>
     public DashboardViewModel(QuoteSnapConnection connection)
@@ -122,12 +123,13 @@ public sealed partial class DashboardViewModel : ObservableObject
     [ObservableProperty]
     public partial PortfolioMove? Portfolio { get; set; }
 
+    /// <summary>Today's advances and declines among every stock the funds hold; follows the live ticks.</summary>
+    [ObservableProperty]
+    public partial MarketBreadth? Breadth { get; set; }
+
     [ObservableProperty]
     public partial string TopHoldingsEmptyText { get; set; } = "Loading…";
 
-    /// <summary>"Average weight across 5 funds · prices from 10:42"; null until loaded.</summary>
-    [ObservableProperty]
-    public partial string? TopHoldingsCaption { get; set; }
 
     [ObservableProperty]
     public partial StatusLevel AlertLevel { get; set; }
@@ -199,14 +201,22 @@ public sealed partial class DashboardViewModel : ObservableObject
             ShowLiveFeed(status with { State = batch.State, LastTickAt = batch.LastTickAt });
 
         Dictionary<string, LiveQuote> quotes = batch.Quotes.ToDictionary(q => q.Symbol, StringComparer.OrdinalIgnoreCase);
+        bool moved = false;
+        foreach (LiveQuote quote in quotes.Values)
+        {
+            if (quote.ChangePercent is not null && _dayChanges.TryGetValue(quote.Symbol, out decimal? change) && change != quote.ChangePercent)
+            {
+                _dayChanges[quote.Symbol] = quote.ChangePercent;
+                moved = true;
+            }
+        }
+        if (moved)
+            Breadth = MarketBreadth.From(_dayChanges.Values);
+
         if (_top is null || !TopHoldings.Any(r => quotes.ContainsKey(r.Symbol)))
             return;
 
         TopHoldings = [.. TopHoldings.Select(r => quotes.TryGetValue(r.Symbol, out LiveQuote? q) ? r.WithPrice(q) : r)];
-        DateTimeOffset latest = quotes.Values.Max(q => q.UpdatedAt);
-        if (_top.PricesAt is null || latest > _top.PricesAt)
-            _top = _top with { PricesAt = latest };
-        TopHoldingsCaption = TopHoldingsText(_top);
         LastChecked = DateTimeOffset.Now;
     }
 
@@ -268,13 +278,17 @@ public sealed partial class DashboardViewModel : ObservableObject
 
         try
         {
-            ShowTopHoldings(await client.GetTopHoldingsAsync(TopCount));
+            TopHoldingList all = await client.GetTopHoldingsAsync(null);
+            ShowTopHoldings(all with { Holdings = [.. all.Holdings.Take(TopCount)] });
+            _dayChanges = all.Holdings.ToDictionary(h => h.Symbol, h => h.ChangePercent, StringComparer.OrdinalIgnoreCase);
+            Breadth = MarketBreadth.From(_dayChanges.Values);
         }
         catch (Exception ex)
         {
             _top = null;
+            _dayChanges.Clear();
+            Breadth = null;
             TopHoldings = [];
-            TopHoldingsCaption = null;
             TopHoldingsEmptyText = ErrorText.Describe(ex, baseAddress);
         }
 
@@ -310,7 +324,8 @@ public sealed partial class DashboardViewModel : ObservableObject
         LiveFeed = LiveFeedTile.Unknown("Unknown", "Shown once the API responds.");
         TopHoldings = [];
         Portfolio = null;
-        TopHoldingsCaption = null;
+        _dayChanges.Clear();
+        Breadth = null;
         TopHoldingsEmptyText = "Top holdings appear here once the API responds.";
 
         AlertLevel = StatusLevel.Bad;
@@ -399,7 +414,6 @@ public sealed partial class DashboardViewModel : ObservableObject
         _top = list;
         decimal largest = list.Holdings.Count > 0 ? list.Holdings.Max(h => h.Percent) : 0;
         TopHoldings = [.. list.Holdings.Select((h, i) => new TopHoldingRow(i + 1, h, largest, list.FundCount))];
-        TopHoldingsCaption = TopHoldingsText(list);
         TopHoldingsEmptyText = list.FundCount == 0 ? "No holdings yet. Add funds on the Mutual funds page and fetch their ScanX holdings on the Holdings page." : "None of your funds' holdings are listed stocks.";
     }
 

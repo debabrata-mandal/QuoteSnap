@@ -294,15 +294,17 @@
                 <DataGridTemplateColumn Header="LTP" Width="96" SortMemberPath="Ltp" HeaderStyle="{StaticResource Header.Right}">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type vm:HoldingRow}">
-                      <TextBlock Text="{Binding LtpText}" Style="{StaticResource Cell.Number}" FontWeight="SemiBold" ToolTip="{Binding QuoteTip}" />
+                      <ui:RollingText Text="{Binding LtpText}" Key="{Binding Symbol, StringFormat=holdings:{0}:ltp, TargetNullValue=holdings:none}" FontWeight="SemiBold"
+                                      HorizontalAlignment="Right" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" ToolTip="{Binding QuoteTip}" />
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
                 <DataGridTemplateColumn Header="Day %" Width="84" SortMemberPath="DayChangePercent" HeaderStyle="{StaticResource Header.Right}">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type vm:HoldingRow}">
-                      <TextBlock Text="{Binding DayChangeText}" Style="{StaticResource Cell.Number}" FontWeight="Medium" ToolTip="{Binding QuoteTip}"
-                                 Foreground="{Binding DayChangePercent, Converter={StaticResource SignBrush}}" />
+                      <ui:RollingText Text="{Binding DayChangeText}" Key="{Binding Symbol, StringFormat=holdings:{0}:day, TargetNullValue=holdings:none}" FontWeight="Medium"
+                                      HorizontalAlignment="Right" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" ToolTip="{Binding QuoteTip}"
+                                      Foreground="{Binding DayChangePercent, Converter={StaticResource SignBrush}}" />
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>

@@ -52,13 +52,14 @@
           </StackPanel>
           <TextBlock x:Name="MissingText" Grid.Column="2" Text="Not in AMFI file" Style="{StaticResource Text.Muted}" Foreground="{StaticResource WarningBrush}"
                      VerticalAlignment="Center" Visibility="Collapsed" />
-          <TextBlock Grid.Column="3" Text="{Binding EstimateChangeText}" HorizontalAlignment="Right" VerticalAlignment="Center"
-                     FontSize="{StaticResource FontSizeSection}" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"
-                     Foreground="{Binding EstimateChangePercent, Converter={StaticResource SignBrush}}" ToolTip="{Binding EstimateTip}" />
-          <TextBlock x:Name="EstimatedNav" Grid.Column="4" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="{StaticResource FontSizeSection}"
-                     FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" Typography.NumeralAlignment="Tabular" ToolTip="{Binding EstimateTip}">
-            <Run Text="₹" Foreground="{StaticResource TextMutedBrush}" FontWeight="Normal" /><Run Text="{Binding EstimatedNavText, Mode=OneWay}" />
-          </TextBlock>
+          <ui:RollingText Grid.Column="3" Text="{Binding EstimateChangeText}" Key="{Binding SchemeCode, StringFormat=funds:{0}:change}" HorizontalAlignment="Right"
+                          VerticalAlignment="Center" FontSize="{StaticResource FontSizeSection}" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"
+                          Foreground="{Binding EstimateChangePercent, Converter={StaticResource SignBrush}}" ToolTip="{Binding EstimateTip}" />
+          <StackPanel x:Name="EstimatedNav" Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTip="{Binding EstimateTip}"
+                      TextElement.FontSize="{StaticResource FontSizeSection}" TextElement.FontWeight="SemiBold" Typography.NumeralAlignment="Tabular">
+            <TextBlock Text="₹" Foreground="{StaticResource TextMutedBrush}" FontWeight="Normal" />
+            <ui:RollingText Text="{Binding EstimatedNavText}" Key="{Binding SchemeCode, StringFormat=funds:{0}:nav}" Foreground="{StaticResource TextBrush}" />
+          </StackPanel>
           <TextBlock x:Name="NoEstimatedNav" Grid.Column="4" Text="{Binding EstimatedNavText}" HorizontalAlignment="Right" VerticalAlignment="Center"
                      FontSize="{StaticResource FontSizeSection}" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" ToolTip="{Binding EstimateTip}"
                      Visibility="Collapsed" />

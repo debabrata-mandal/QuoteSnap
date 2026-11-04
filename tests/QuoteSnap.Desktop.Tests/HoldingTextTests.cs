@@ -254,6 +254,18 @@ public sealed class HoldingTextTests
         LiveFeedTile off = LiveFeedTile.From(new LiveFeedStatus(LiveFeedState.Disabled, [], 0, null, null, null, null));
         Assert.Equal((StatusLevel.Unknown, "Off", Display.Missing, false), (off.Level, off.Summary, off.Value, off.HasValue));
     }
+    [Fact]
+    public void MarketBreadthCountsUpDownAndFlatStocksAndSkipsUnpriced()
+    {
+        MarketBreadth breadth = MarketBreadth.From([1.2m, -0.5m, 0m, null, 3m])!;
+        Assert.Equal((2, 1, 1), (breadth.Advances, breadth.Declines, breadth.Unchanged));
+        Assert.Equal("▲ 2", breadth.AdvancesText);
+        Assert.Equal("▼ 1", breadth.DeclinesText);
+        Assert.Equal(2d / 3, breadth.AdvanceShare);
+        Assert.Equal("1 unchanged", breadth.Detail);
+        Assert.Null(MarketBreadth.From([null]));
+    }
+
 
     private static QuoteResultDto Quote(string symbol, QuoteResultStatus status, decimal? ltp, decimal? changePercent) =>
         new(symbol, status, ltp, null, changePercent, null, null, null, null, null, null, status == QuoteResultStatus.Ok ? Created : null, null);
