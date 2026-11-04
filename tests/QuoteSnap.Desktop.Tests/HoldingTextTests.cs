@@ -251,9 +251,30 @@ public sealed class HoldingTextTests
         Assert.Equal((StatusLevel.Bad, "Error", "Could not re-connect"), (error.Level, error.Summary, error.Detail));
         Assert.StartsWith("Last error ", error.Tip);
 
+        LiveFeedTile withIndices = LiveFeedTile.From(new LiveFeedStatus(LiveFeedState.Connected, ["NSE:HAL-EQ", "NSE:BEL-EQ", "NSE:NIFTY50-INDEX", "BSE:SENSEX-INDEX"], 4, Created, null, null, null));
+        Assert.Equal(("4", "2 stocks and 2 indices of Fyers' 100-symbol limit"), (withIndices.Value, withIndices.Tip));
+
         LiveFeedTile off = LiveFeedTile.From(new LiveFeedStatus(LiveFeedState.Disabled, [], 0, null, null, null, null));
         Assert.Equal((StatusLevel.Unknown, "Off", Display.Missing, false), (off.Level, off.Summary, off.Value, off.HasValue));
     }
+    [Fact]
+    public void Market_index_tiles_show_the_value_and_the_change_in_points_and_percent()
+    {
+        Dictionary<string, LiveQuote> quotes = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["NSE:NIFTY50-INDEX"] = new LiveQuote("NSE:NIFTY50-INDEX", 25600.35m, 102.5m, 0.4021m, Created),
+            ["BSE:SENSEX-INDEX"] = new LiveQuote("BSE:SENSEX-INDEX", 83459.15m, -61.2m, -0.0733m, Created),
+            ["NSE:INDIAVIX-INDEX"] = new LiveQuote("NSE:INDIAVIX-INDEX", 12.34m, 0.56m, 4.7542m, Created),
+        };
+        IReadOnlyList<MarketIndexTile> tiles = MarketIndexTile.From(quotes);
+        Assert.Equal(["NIFTY 50", "SENSEX", "NIFTY BANK", "NIFTY MIDCAP 100", "INDIA VIX"], tiles.Select(t => t.Name));
+        Assert.Equal(("25,600.35", "▲ 0.40%", "+102.50"), (tiles[0].ValueText, tiles[0].PercentText, tiles[0].PointsText));
+        Assert.Equal(("▼ 0.07%", "-61.20"), (tiles[1].PercentText, tiles[1].PointsText));
+        Assert.Equal((Display.Missing, Display.Missing), (tiles[2].ValueText, tiles[2].PercentText));
+        Assert.Equal((0.4021m, -0.0733m), (tiles[0].Tone, tiles[1].Tone));
+        Assert.Equal(("▲ 4.75%", -4.7542m), (tiles[4].PercentText, tiles[4].Tone));
+    }
+
     [Fact]
     public void MarketBreadthCountsUpDownAndFlatStocksAndSkipsUnpriced()
     {

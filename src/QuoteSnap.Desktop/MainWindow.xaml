@@ -127,7 +127,7 @@
 
     <!-- Pages -->
     <Grid Grid.Column="1" Grid.Row="1">
-      <views:DashboardView DataContext="{Binding}" Style="{StaticResource Page}"
+      <views:DashboardView x:Name="DashboardPage" DataContext="{Binding}" Style="{StaticResource Page}"
                            Visibility="{Binding SelectedTabIndex, Converter={StaticResource EqualsToVisibility}, ConverterParameter=0}" />
       <views:NewRequestView DataContext="{Binding NewRequest}" Style="{StaticResource Page}"
                             Visibility="{Binding DataContext.SelectedTabIndex, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource EqualsToVisibility}, ConverterParameter=1}" />

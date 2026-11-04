@@ -15,6 +15,13 @@ public sealed class LiveQuotesTests
     }
 
     [Fact]
+    public void A_lite_mode_index_update_is_read_as_a_tick()
+    {
+        LiveTick? tick = FyersLiveFeedConnection.ParseTick(JObject.Parse("""{"data":{"ltp":25600.35,"ch":102.5,"chp":0.40211,"type":"if","symbol":"NSE:NIFTY50-INDEX"}}"""));
+        Assert.Equal(new LiveTick("NSE:NIFTY50-INDEX", 25600.35m, 102.5m, 0.4021m), tick);
+    }
+
+    [Fact]
     public void Missing_values_are_null_and_updates_without_a_symbol_are_skipped()
     {
         Assert.Equal(new LiveTick("NSE:SBIN-EQ", 812m, null, null), FyersLiveFeedConnection.ParseTick(JObject.Parse("""{"data":{"ltp":812,"symbol":"NSE:SBIN-EQ"}}""")));

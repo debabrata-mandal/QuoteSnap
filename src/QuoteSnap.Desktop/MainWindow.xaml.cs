@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
 using QuoteSnap.Desktop.Controls;
@@ -8,10 +9,57 @@ namespace QuoteSnap.Desktop;
 
 public partial class MainWindow : Window
 {
+    /// <summary>Until the user moves, resizes or maximizes the window, it grows to fit the dashboard.</summary>
+    private bool _fitDashboard = true;
+
+    /// <summary>Set while the window sizes itself, to tell its own changes from the user's (including snapping with the keyboard).</summary>
+    private bool _fitting;
+
     public MainWindow()
     {
         InitializeComponent();
         StateChanged += (_, _) => OnWindowStateChanged();
+        Loaded += (_, _) => FitToMonitor(Height);
+        SizeChanged += (_, _) => StopFittingUnlessOwnChange();
+        LocationChanged += (_, _) => StopFittingUnlessOwnChange();
+        DashboardPage.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(OnDashboardScrollChanged));
+    }
+
+    /// <summary>Grows the window as the dashboard's cards arrive, so it shows them all without scrolling where the monitor is tall enough.</summary>
+    private void OnDashboardScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        if (_fitDashboard && WindowState == WindowState.Normal && e.OriginalSource == DashboardPage.Content && e.ExtentHeight > e.ViewportHeight)
+            FitToMonitor(Height + Math.Ceiling(e.ExtentHeight - e.ViewportHeight));
+    }
+
+    /// <summary>Sets the height, capped with the width to the work area of the window's monitor, and centres the window on it.</summary>
+    private void FitToMonitor(double height)
+    {
+        if (PresentationSource.FromVisual(this) is not HwndSource source)
+            return;
+
+        (int left, int top, int right, int bottom) = WindowEffects.MonitorWorkArea(source.Handle);
+        Matrix toDips = source.CompositionTarget.TransformFromDevice;
+        Point topLeft = toDips.Transform(new Point(left, top));
+        Point bottomRight = toDips.Transform(new Point(right, bottom));
+        _fitting = true;
+        try
+        {
+            Width = Math.Min(Width, bottomRight.X - topLeft.X);
+            Height = Math.Min(height, bottomRight.Y - topLeft.Y);
+            Left = topLeft.X + (bottomRight.X - topLeft.X - Width) / 2;
+            Top = topLeft.Y + (bottomRight.Y - topLeft.Y - Height) / 2;
+        }
+        finally
+        {
+            _fitting = false;
+        }
+    }
+
+    private void StopFittingUnlessOwnChange()
+    {
+        if (IsLoaded && !_fitting)
+            _fitDashboard = false;
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -32,6 +80,7 @@ public partial class MainWindow : Window
 
     private void OnWindowStateChanged()
     {
+        _fitDashboard = false;
         // A maximized WindowChrome window extends past the screen by the resize border.
         Thickness border = SystemParameters.WindowResizeBorderThickness;
         Root.Margin = WindowState == WindowState.Maximized
@@ -55,6 +104,9 @@ public partial class MainWindow : Window
                     return WindowEffects.HTMAXBUTTON;
                 }
 
+                break;
+            case WindowEffects.WM_ENTERSIZEMOVE:
+                _fitDashboard = false;
                 break;
             case WindowEffects.WM_NCMOUSELEAVE:
                 Ui.SetIsHot(MaximizeButton, false);

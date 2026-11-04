@@ -594,7 +594,7 @@
       <Setter.Value>
         <ControlTemplate TargetType="ScrollBar">
           <Grid Background="Transparent">
-            <Track x:Name="PART_Track" IsDirectionReversed="True" Width="4" HorizontalAlignment="Center">
+            <Track x:Name="PART_Track" IsDirectionReversed="True" Width="4" HorizontalAlignment="Center" Margin="0,4">
               <Track.DecreaseRepeatButton>
                 <RepeatButton Style="{StaticResource ScrollPage}" Command="ScrollBar.PageUpCommand" />
               </Track.DecreaseRepeatButton>
@@ -623,7 +623,7 @@
           <Setter.Value>
             <ControlTemplate TargetType="ScrollBar">
               <Grid Background="Transparent">
-                <Track x:Name="PART_Track" IsDirectionReversed="False" Height="4" VerticalAlignment="Center">
+                <Track x:Name="PART_Track" IsDirectionReversed="False" Height="4" VerticalAlignment="Center" Margin="4,0">
                   <Track.DecreaseRepeatButton>
                     <RepeatButton Style="{StaticResource ScrollPage}" Command="ScrollBar.PageLeftCommand" />
                   </Track.DecreaseRepeatButton>
@@ -646,6 +646,7 @@
       </Trigger>
     </Style.Triggers>
   </Style>
+  <!-- Like Windows 11, the scroll bars stay hidden until the mouse is over the scroll viewer, and fade out shortly after it leaves. -->
   <Style TargetType="ScrollViewer">
     <Setter Property="Template">
       <Setter.Value>
@@ -661,15 +662,35 @@
             </Grid.RowDefinitions>
             <ScrollContentPresenter x:Name="PART_ScrollContentPresenter" Margin="{TemplateBinding Padding}"
                                     CanContentScroll="{TemplateBinding CanContentScroll}" CanHorizontallyScroll="False" CanVerticallyScroll="False" />
-            <ScrollBar x:Name="PART_VerticalScrollBar" Grid.Column="1" Orientation="Vertical" AutomationProperties.AutomationId="VerticalScrollBar"
+            <ScrollBar x:Name="PART_VerticalScrollBar" Grid.Column="1" Orientation="Vertical" Opacity="0" AutomationProperties.AutomationId="VerticalScrollBar"
                        Maximum="{TemplateBinding ScrollableHeight}" ViewportSize="{TemplateBinding ViewportHeight}"
                        Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
                        Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" />
-            <ScrollBar x:Name="PART_HorizontalScrollBar" Grid.Row="1" Orientation="Horizontal" AutomationProperties.AutomationId="HorizontalScrollBar"
+            <ScrollBar x:Name="PART_HorizontalScrollBar" Grid.Row="1" Orientation="Horizontal" Opacity="0" AutomationProperties.AutomationId="HorizontalScrollBar"
                        Maximum="{TemplateBinding ScrollableWidth}" ViewportSize="{TemplateBinding ViewportWidth}"
                        Value="{Binding HorizontalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
                        Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" />
           </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="PART_VerticalScrollBar" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.15" />
+                    <DoubleAnimation Storyboard.TargetName="PART_HorizontalScrollBar" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.15" />
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="PART_VerticalScrollBar" Storyboard.TargetProperty="Opacity" To="0" BeginTime="0:0:0.8" Duration="0:0:0.3" />
+                    <DoubleAnimation Storyboard.TargetName="PART_HorizontalScrollBar" Storyboard.TargetProperty="Opacity" To="0" BeginTime="0:0:0.8" Duration="0:0:0.3" />
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+            </Trigger>
+          </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
     </Setter>
@@ -1116,15 +1137,35 @@
                     </Grid.RowDefinitions>
                     <DataGridColumnHeadersPresenter x:Name="PART_ColumnHeadersPresenter" Grid.ColumnSpan="2" />
                     <ScrollContentPresenter x:Name="PART_ScrollContentPresenter" Grid.Row="1" CanContentScroll="{TemplateBinding CanContentScroll}" />
-                    <ScrollBar x:Name="PART_VerticalScrollBar" Grid.Row="1" Grid.Column="1" Orientation="Vertical"
+                    <ScrollBar x:Name="PART_VerticalScrollBar" Grid.Row="1" Grid.Column="1" Orientation="Vertical" Opacity="0"
                                Maximum="{TemplateBinding ScrollableHeight}" ViewportSize="{TemplateBinding ViewportHeight}"
                                Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
                                Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" />
-                    <ScrollBar x:Name="PART_HorizontalScrollBar" Grid.Row="2" Orientation="Horizontal"
+                    <ScrollBar x:Name="PART_HorizontalScrollBar" Grid.Row="2" Orientation="Horizontal" Opacity="0"
                                Maximum="{TemplateBinding ScrollableWidth}" ViewportSize="{TemplateBinding ViewportWidth}"
                                Value="{Binding HorizontalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
                                Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" />
                   </Grid>
+                  <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                      <Trigger.EnterActions>
+                        <BeginStoryboard>
+                          <Storyboard>
+                            <DoubleAnimation Storyboard.TargetName="PART_VerticalScrollBar" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.15" />
+                            <DoubleAnimation Storyboard.TargetName="PART_HorizontalScrollBar" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.15" />
+                          </Storyboard>
+                        </BeginStoryboard>
+                      </Trigger.EnterActions>
+                      <Trigger.ExitActions>
+                        <BeginStoryboard>
+                          <Storyboard>
+                            <DoubleAnimation Storyboard.TargetName="PART_VerticalScrollBar" Storyboard.TargetProperty="Opacity" To="0" BeginTime="0:0:0.8" Duration="0:0:0.3" />
+                            <DoubleAnimation Storyboard.TargetName="PART_HorizontalScrollBar" Storyboard.TargetProperty="Opacity" To="0" BeginTime="0:0:0.8" Duration="0:0:0.3" />
+                          </Storyboard>
+                        </BeginStoryboard>
+                      </Trigger.ExitActions>
+                    </Trigger>
+                  </ControlTemplate.Triggers>
                 </ControlTemplate>
               </ScrollViewer.Template>
               <ItemsPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />

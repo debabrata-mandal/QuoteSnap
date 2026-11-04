@@ -3,7 +3,7 @@ using QuoteSnap.Desktop.Text;
 
 namespace QuoteSnap.Desktop.ViewModels;
 
-/// <summary>The dashboard's live feed tile: the streaming state and how many stocks are hooked.</summary>
+/// <summary>The dashboard's live feed tile: the streaming state and how many stocks and indices are hooked.</summary>
 public sealed record LiveFeedTile(StatusLevel Level, string Summary, string Value, string Detail, string? Tip, double CapFraction)
 {
     /// <summary>Fyers' Data Socket limit per user, across all its connections.</summary>
@@ -21,6 +21,8 @@ public sealed record LiveFeedTile(StatusLevel Level, string Summary, string Valu
         string ticks = status.LastTickAt is { } at ? $"last tick {Display.WhenInSentence(at)}" : "waiting for ticks";
         string? tip = status.LastError is { } error ? $"Last error {Display.WhenInSentence(status.LastErrorAt)}: {error}" : null;
         double cap = Math.Clamp(count / (double)SymbolCap, 0, 1);
+        int indices = status.Symbols.Count(MarketIndex.IsIndex);
+        string hooked = indices > 0 ? $"{Display.Count(count - indices, "stock")} and {Display.Count(indices, "index", "indices")}" : Display.Count(count, "stock");
         (StatusLevel level, string summary, string detail) = status.State switch
         {
             LiveFeedState.Connected => (StatusLevel.Good, "Live", priced + ticks),
@@ -32,6 +34,6 @@ public sealed record LiveFeedTile(StatusLevel Level, string Summary, string Valu
             LiveFeedState.Disabled => (StatusLevel.Unknown, "Off", "Turned off in the API settings"),
             _ => (StatusLevel.Unknown, "Starting", "Waiting for the feed to start"),
         };
-        return new LiveFeedTile(level, summary, value, detail, tip ?? $"{Display.Count(count, "stock")} of Fyers' {SymbolCap}-symbol limit", cap);
+        return new LiveFeedTile(level, summary, value, detail, tip ?? $"{hooked} of Fyers' {SymbolCap}-symbol limit", cap);
     }
 }

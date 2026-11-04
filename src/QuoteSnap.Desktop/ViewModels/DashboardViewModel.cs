@@ -12,6 +12,9 @@ namespace QuoteSnap.Desktop.ViewModels;
 public sealed partial class DashboardViewModel : ObservableObject
 {
     private const int TopCount = 10;
+
+    /// <summary>How many tiles the market strip has, for the dividers between them.</summary>
+    public static int IndexCount => MarketIndex.All.Count;
     private const int TodayPageSize = 50;
     private static readonly TimeSpan LoginExpiryWarning = TimeSpan.FromDays(2);
     private static readonly TimeSpan LoginLifetime = TimeSpan.FromDays(15);
@@ -23,6 +26,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private LiveFeedStatus? _liveStatus;
     private TopHoldingList? _top;
     private Dictionary<string, decimal?> _dayChanges = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, LiveQuote> _indexQuotes = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Reads everything once, then follows the pushes from the API's event hub; there is no polling.</summary>
     public DashboardViewModel(QuoteSnapConnection connection)
@@ -123,6 +127,14 @@ public sealed partial class DashboardViewModel : ObservableObject
     [ObservableProperty]
     public partial PortfolioMove? Portfolio { get; set; }
 
+    /// <summary>Nifty 50, Sensex and Nifty Bank from the live feed.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasIndices))]
+    public partial IReadOnlyList<MarketIndexTile> Indices { get; set; } = [];
+
+    /// <summary>Whether any index has had a tick; the strip is hidden until then.</summary>
+    public bool HasIndices => Indices.Any(i => i.Quote is not null);
+
     /// <summary>Today's advances and declines among every stock the funds hold; follows the live ticks.</summary>
     [ObservableProperty]
     public partial MarketBreadth? Breadth { get; set; }
@@ -201,6 +213,7 @@ public sealed partial class DashboardViewModel : ObservableObject
             ShowLiveFeed(status with { State = batch.State, LastTickAt = batch.LastTickAt });
 
         Dictionary<string, LiveQuote> quotes = batch.Quotes.ToDictionary(q => q.Symbol, StringComparer.OrdinalIgnoreCase);
+        ShowIndices(batch.Quotes);
         bool moved = false;
         foreach (LiveQuote quote in quotes.Values)
         {
@@ -218,6 +231,18 @@ public sealed partial class DashboardViewModel : ObservableObject
 
         TopHoldings = [.. TopHoldings.Select(r => quotes.TryGetValue(r.Symbol, out LiveQuote? q) ? r.WithPrice(q) : r)];
         LastChecked = DateTimeOffset.Now;
+    }
+
+    private void ShowIndices(IEnumerable<LiveQuote> quotes)
+    {
+        bool changed = false;
+        foreach (LiveQuote quote in quotes.Where(q => MarketIndex.IsIndex(q.Symbol)))
+        {
+            _indexQuotes[quote.Symbol] = quote;
+            changed = true;
+        }
+        if (changed || Indices.Count == 0)
+            Indices = MarketIndexTile.From(_indexQuotes);
     }
 
     [RelayCommand]
@@ -278,6 +303,15 @@ public sealed partial class DashboardViewModel : ObservableObject
 
         try
         {
+            ShowIndices((await client.GetLiveQuotesAsync()).Quotes);
+        }
+        catch (Exception)
+        {
+            // The strip keeps its last ticks; the live feed tile shows what went wrong.
+        }
+
+        try
+        {
             TopHoldingList all = await client.GetTopHoldingsAsync(null);
             ShowTopHoldings(all with { Holdings = [.. all.Holdings.Take(TopCount)] });
             _dayChanges = all.Holdings.ToDictionary(h => h.Symbol, h => h.ChangePercent, StringComparer.OrdinalIgnoreCase);
@@ -324,6 +358,8 @@ public sealed partial class DashboardViewModel : ObservableObject
         LiveFeed = LiveFeedTile.Unknown("Unknown", "Shown once the API responds.");
         TopHoldings = [];
         Portfolio = null;
+        _indexQuotes.Clear();
+        Indices = [];
         _dayChanges.Clear();
         Breadth = null;
         TopHoldingsEmptyText = "Top holdings appear here once the API responds.";

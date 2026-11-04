@@ -24,7 +24,7 @@ public sealed class FyersLiveFeedConnectionFactory : ILiveFeedConnectionFactory
 }
 
 /// <summary>
-/// A Fyers Data Socket in lite mode, which streams only LTP and the day's change. The SDK reconnects by itself and
+/// A Fyers Data Socket in lite mode, which streams only LTP and the day's change of stocks and indices. The SDK reconnects by itself and
 /// subscribes again to everything it was streaming; it reports giving up as an error.
 /// </summary>
 public sealed class FyersLiveFeedConnection : ILiveFeedConnection, FyersSocketDelegate
@@ -79,8 +79,11 @@ public sealed class FyersLiveFeedConnection : ILiveFeedConnection, FyersSocketDe
 
     void FyersSocketDelegate.OnClose(string status) => _listener.OnClosed(status);
 
+    /// <summary>An index update, shaped like a scrip update with "type":"if".</summary>
     void FyersSocketDelegate.OnIndex(JObject index)
     {
+        if (ParseTick(index) is { } tick)
+            _listener.OnTick(tick);
     }
 
     void FyersSocketDelegate.OnDepth(JObject depths)

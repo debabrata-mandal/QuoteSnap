@@ -74,6 +74,48 @@
         </Grid>
       </Border>
 
+      <!-- Market indices -->
+      <Border Style="{StaticResource Card}" Margin="0,0,0,16" Padding="0,12"
+              Visibility="{Binding HasIndices, Converter={StaticResource BoolToVisibility}}">
+        <ItemsControl ItemsSource="{Binding Indices}" AlternationCount="{x:Static vm:DashboardViewModel.IndexCount}" Focusable="False">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Rows="1" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,0,0,0" Padding="20,2" ToolTip="{Binding Tip}">
+                <Border.Style>
+                  <Style TargetType="Border">
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding (ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType=ContentPresenter}}" Value="0">
+                        <Setter Property="BorderThickness" Value="0" />
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </Border.Style>
+                <StackPanel>
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Label}" VerticalAlignment="Center" />
+                    <ui:RollingText Text="{Binding PercentText}" Key="{Binding Index.Symbol, StringFormat=dashboard:index:{0}:percent}" VerticalAlignment="Center" Margin="8,0,0,0"
+                                    FontSize="{StaticResource FontSizeSmall}" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"
+                                    Foreground="{Binding Tone, Converter={StaticResource SignBrush}}" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                    <ui:RollingText Text="{Binding ValueText}" Key="{Binding Index.Symbol, StringFormat=dashboard:index:{0}:value}" VerticalAlignment="Bottom"
+                                    FontSize="16" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular" Foreground="{StaticResource TextBrush}" />
+                    <ui:RollingText Text="{Binding PointsText}" Key="{Binding Index.Symbol, StringFormat=dashboard:index:{0}:points}" VerticalAlignment="Bottom" Margin="8,0,0,2"
+                                    FontSize="{StaticResource FontSizeSmall}" Typography.NumeralAlignment="Tabular"
+                                    Foreground="{Binding Tone, Converter={StaticResource SignBrush}}" />
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Border>
+
       <!-- Portfolio today -->
       <Border Style="{StaticResource Card}" Margin="0,0,0,16" Padding="22,18"
               Visibility="{Binding Portfolio, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
@@ -269,7 +311,7 @@
             <StackPanel Orientation="Horizontal" Margin="0,2,0,2"
                         Visibility="{Binding DataContext.LastChecked, RelativeSource={RelativeSource AncestorType=Grid}, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
               <TextBlock Text="{Binding Value}" Style="{StaticResource Text.KpiMedium}" />
-              <TextBlock Text="stocks hooked" Style="{StaticResource Text.Muted}" VerticalAlignment="Bottom" Margin="6,0,0,3"
+              <TextBlock Text="symbols hooked" Style="{StaticResource Text.Muted}" VerticalAlignment="Bottom" Margin="6,0,0,3"
                          Visibility="{Binding HasValue, Converter={StaticResource BoolToVisibility}}" />
             </StackPanel>
             <ProgressBar Height="4" Maximum="1" Value="{Binding CapFraction, Mode=OneWay}" Margin="0,2,0,10"

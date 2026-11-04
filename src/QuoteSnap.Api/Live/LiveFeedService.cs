@@ -7,7 +7,8 @@ using QuoteSnap.Contracts;
 namespace QuoteSnap.Api.Live;
 
 /// <summary>
-/// Streams LTP and the day's change of the listed funds' top holdings, ranked as on the dashboard, over one Fyers
+/// Streams LTP and the day's change of the listed funds' top holdings, ranked as on the dashboard, and of the
+/// <see cref="MarketIndex.All">market indices</see> over one Fyers
 /// Data Socket. Ranks again when <see cref="LiveFeedSignal"/> fires and changes only the symbols
 /// that moved in or out; opens a new socket when the access token changes or the SDK gives up reconnecting.
 /// </summary>
@@ -122,7 +123,8 @@ public sealed class LiveFeedService(LiveQuoteStore store, LiveFeedSignal signal,
     {
         await using AsyncServiceScope scope = scopes.CreateAsyncScope();
         Dictionary<int, List<FundHoldingRecord>> portfolios = await scope.ServiceProvider.GetRequiredService<HoldingRepository>().GetLatestHoldingsAsync(cancellationToken);
-        return [.. TopHoldings.Rank(portfolios, null, count).Select(h => h.Symbol)];
+        List<string> holdings = [.. TopHoldings.Rank(portfolios, null, count).Select(h => h.Symbol)];
+        return holdings.Count == 0 ? holdings : [.. holdings, .. MarketIndex.All.Select(i => i.Symbol)];
     }
 
     private async Task<Feed?> ConnectAsync(AccessTokenLease lease, CancellationToken cancellationToken)

@@ -523,30 +523,31 @@ public sealed class HoldingTests
         await WaitForAsync(async () => (await client.GetLiveFeedStatusAsync()).State == LiveFeedState.NoHoldings);
 
         await FetchAsync(client);
-        await WaitForAsync(async () => (await client.GetLiveFeedStatusAsync()).Symbols.Count == 3);
+        await WaitForAsync(async () => (await client.GetLiveFeedStatusAsync()).Symbols.Count == 8);
         LiveFeedStatus status = await client.GetLiveFeedStatusAsync();
         Assert.Equal(LiveFeedState.Connected, status.State);
-        Assert.Equal(["NSE:HAL-EQ", "NSE:HDFCBANK-EQ", "BSE:ICICIBANK-A"], status.Symbols);
+        Assert.Equal(["NSE:HAL-EQ", "NSE:HDFCBANK-EQ", "BSE:ICICIBANK-A", "NSE:NIFTY50-INDEX", "BSE:SENSEX-INDEX", "NSE:NIFTYBANK-INDEX", "NSE:NIFTYMIDCAP100-INDEX", "NSE:INDIAVIX-INDEX"], status.Symbols);
         Assert.NotNull(status.ConnectedAt);
-        Assert.Equal(["+NSE:HAL-EQ,NSE:HDFCBANK-EQ,BSE:ICICIBANK-A"], factory.LiveFeed.Calls);
+        Assert.Equal(["+NSE:HAL-EQ,NSE:HDFCBANK-EQ,BSE:ICICIBANK-A,NSE:NIFTY50-INDEX,BSE:SENSEX-INDEX,NSE:NIFTYBANK-INDEX,NSE:NIFTYMIDCAP100-INDEX,NSE:INDIAVIX-INDEX"], factory.LiveFeed.Calls);
 
         // A later tick keeps the values the earlier one sent and this one left out; unstreamed symbols are ignored.
         factory.LiveFeed.Tick("NSE:HDFCBANK-EQ", 1650.25m, 12.5m, 0.7631m);
         factory.LiveFeed.Tick("NSE:HDFCBANK-EQ", 1651m, null, null);
         factory.LiveFeed.Tick("NSE:HAL-EQ", 4500.5m, -20m, -0.4425m);
         factory.LiveFeed.Tick("NSE:SBIN-EQ", 800m, 1m, 0.125m);
+        factory.LiveFeed.Tick("NSE:NIFTY50-INDEX", 25600.35m, 102.5m, 0.4021m);
         LiveQuoteList quotes = await client.GetLiveQuotesAsync();
         Assert.Equal(LiveFeedState.Connected, quotes.State);
         Assert.NotNull(quotes.LastTickAt);
-        Assert.Equal(["NSE:HAL-EQ", "NSE:HDFCBANK-EQ"], quotes.Quotes.Select(q => q.Symbol));
+        Assert.Equal(["NSE:HAL-EQ", "NSE:HDFCBANK-EQ", "NSE:NIFTY50-INDEX"], quotes.Quotes.Select(q => q.Symbol));
         Assert.Equal((1651m, 12.5m, 0.7631m), (quotes.Quotes[1].Ltp, quotes.Quotes[1].Change, quotes.Quotes[1].ChangePercent));
-        Assert.Equal(2, (await client.GetLiveFeedStatusAsync()).QuoteCount);
+        Assert.Equal(3, (await client.GetLiveFeedStatusAsync()).QuoteCount);
 
-        // Only Motilal holds HAL, so removing it unsubscribes HAL and drops its quote, on the same socket.
+        // Only Motilal holds HAL, so removing it unsubscribes HAL and drops its quote, on the same socket; the indices stay.
         await client.RemoveMyFundAsync(Motilal);
-        await WaitForAsync(async () => (await client.GetLiveFeedStatusAsync()).Symbols.Count == 2);
-        Assert.Equal(["+NSE:HAL-EQ,NSE:HDFCBANK-EQ,BSE:ICICIBANK-A", "-NSE:HAL-EQ"], factory.LiveFeed.Calls);
-        Assert.Equal(["NSE:HDFCBANK-EQ"], (await client.GetLiveQuotesAsync()).Quotes.Select(q => q.Symbol));
+        await WaitForAsync(async () => (await client.GetLiveFeedStatusAsync()).Symbols.Count == 7);
+        Assert.Equal(["+NSE:HAL-EQ,NSE:HDFCBANK-EQ,BSE:ICICIBANK-A,NSE:NIFTY50-INDEX,BSE:SENSEX-INDEX,NSE:NIFTYBANK-INDEX,NSE:NIFTYMIDCAP100-INDEX,NSE:INDIAVIX-INDEX", "-NSE:HAL-EQ"], factory.LiveFeed.Calls);
+        Assert.Equal(["NSE:HDFCBANK-EQ", "NSE:NIFTY50-INDEX"], (await client.GetLiveQuotesAsync()).Quotes.Select(q => q.Symbol));
         Assert.Equal(1, factory.LiveFeed.Connections);
     }
 
@@ -577,7 +578,7 @@ public sealed class HoldingTests
         Assert.Contains(fetches, f => f.Status == HoldingFetchStatus.Running && f.FinishedFunds == 1);
 
         await factory.SeedSessionAsync();
-        await EventHubTests.WaitForAsync(() => statuses.Any(s => s.State == LiveFeedState.Connected && s.Symbols.Count == 3), timeout.Token);
+        await EventHubTests.WaitForAsync(() => statuses.Any(s => s.State == LiveFeedState.Connected && s.Symbols.Count == 8), timeout.Token);
 
         factory.LiveFeed.Tick("NSE:HDFCBANK-EQ", 1650.25m, 12.5m, 0.7631m);
         await EventHubTests.WaitForAsync(() => quotes.Any(q => q.Quotes.Any(x => x.Symbol == "NSE:HDFCBANK-EQ")), timeout.Token);
