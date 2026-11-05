@@ -206,6 +206,63 @@ public sealed partial class NavViewModel : ObservableObject
         }
     }
 
+    /// <summary>The fund whose units are being edited; null when none is.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEditingUnits), nameof(UnitsQuestion))]
+    public partial FundRow? UnitsFund { get; private set; }
+
+    public bool IsEditingUnits => UnitsFund is not null;
+
+    public string UnitsQuestion => UnitsFund is { } row ? $"Units of {row.Name} you hold" : "";
+
+    /// <summary>What the user typed, e.g. "1,234.567"; empty clears the units.</summary>
+    [ObservableProperty]
+    public partial string UnitsInput { get; set; } = "";
+
+    [ObservableProperty]
+    public partial string? UnitsError { get; private set; }
+
+    [RelayCommand]
+    private void EditUnits(FundRow? row)
+    {
+        UnitsFund = row;
+        UnitsInput = row?.Units is { } units ? units.ToString("0.####", CultureInfo.CurrentCulture) : "";
+        UnitsError = null;
+    }
+
+    [RelayCommand]
+    private void CancelUnits() => UnitsFund = null;
+
+    [RelayCommand]
+    private async Task SaveUnitsAsync()
+    {
+        if (UnitsFund is not { } row)
+            return;
+
+        decimal? units = null;
+        if (!string.IsNullOrWhiteSpace(UnitsInput))
+        {
+            if (!decimal.TryParse(UnitsInput.Trim(), NumberStyles.Number, CultureInfo.CurrentCulture, out decimal parsed) || parsed <= 0 || decimal.Round(parsed, 4) != parsed)
+            {
+                UnitsError = "Enter a number greater than 0 with at most 4 decimals, or leave it empty to clear.";
+                return;
+            }
+
+            units = parsed;
+        }
+
+        try
+        {
+            MyFund saved = await _connection.Client.SetMyFundUnitsAsync(row.SchemeCode, units);
+            row.Units = saved.Units;
+            UnitsFund = null;
+        }
+        catch (Exception ex)
+        {
+            UnitsError = $"Couldn't save the units. {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}";
+        }
+    }
+
     /// <summary>The fund whose remove button was pressed, waiting for the user to confirm; null when nothing is being removed.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsConfirmingRemove), nameof(RemoveQuestion))]

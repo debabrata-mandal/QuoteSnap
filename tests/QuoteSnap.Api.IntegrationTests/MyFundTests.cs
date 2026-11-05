@@ -64,6 +64,30 @@ public sealed class MyFundTests
         Assert.Equal([152712, 152045], (await client.GetMyFundsAsync()).Funds.Select(f => f.SchemeCode));
     }
 
+    [Fact]
+    public async Task Units_held_are_saved_listed_and_cleared()
+    {
+        await using QuoteSnapApiFactory factory = new() { NavFile = File };
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+        await client.RefreshNavsAsync();
+        await client.AddMyFundAsync(152712);
+
+        Assert.Null((await client.GetMyFundsAsync()).Funds[0].Units);
+        Assert.Equal(1234.5678m, (await client.SetMyFundUnitsAsync(152712, 1234.5678m)).Units);
+        Assert.Equal(1234.5678m, (await client.GetMyFundsAsync()).Funds[0].Units);
+        Assert.Equal(1234.5678m, (await client.GetNavEstimatesAsync()).Funds[0].Units);
+
+        QuoteSnapApiException invalid = await Assert.ThrowsAsync<QuoteSnapApiException>(() => client.SetMyFundUnitsAsync(152712, 0m));
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        QuoteSnapApiException tooPrecise = await Assert.ThrowsAsync<QuoteSnapApiException>(() => client.SetMyFundUnitsAsync(152712, 1.23456m));
+        Assert.Equal(HttpStatusCode.BadRequest, tooPrecise.StatusCode);
+        QuoteSnapApiException missing = await Assert.ThrowsAsync<QuoteSnapApiException>(() => client.SetMyFundUnitsAsync(152045, 10m));
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+
+        Assert.Null((await client.SetMyFundUnitsAsync(152712, null)).Units);
+        Assert.Null((await client.GetMyFundsAsync()).Funds[0].Units);
+    }
+
     [Theory]
     [InlineData(new[] { 152045 })]
     [InlineData(new[] { 152045, 152045 })]

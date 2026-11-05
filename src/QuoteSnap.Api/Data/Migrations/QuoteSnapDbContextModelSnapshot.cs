@@ -252,6 +252,10 @@ namespace QuoteSnap.Api.Data.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<decimal?>("Units")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
                     b.HasKey("SchemeCode");
 
                     b.ToTable("MyFunds", (string)null);

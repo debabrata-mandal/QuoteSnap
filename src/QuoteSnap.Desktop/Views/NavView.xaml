@@ -40,7 +40,9 @@
             <TextBlock Text="{Binding Name}" FontSize="{StaticResource FontSizeSection}" FontWeight="Medium" Foreground="{DynamicResource TextBrush}"
                        TextWrapping="Wrap" TextTrimming="CharacterEllipsis" LineStackingStrategy="BlockLineHeight" LineHeight="19" MaxHeight="38"
                        ToolTip="{Binding Name}" />
-            <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Text.Muted}" Margin="0,3,0,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+            <TextBlock Style="{StaticResource Text.Muted}" Margin="0,3,0,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis">
+              <Run Text="{Binding Subtitle, Mode=OneWay}" /><Run Text="{Binding UnitsText, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
+            </TextBlock>
           </StackPanel>
           <StackPanel x:Name="NavBlock" Grid.Column="2" VerticalAlignment="Center">
             <TextBlock HorizontalAlignment="Right" FontSize="{StaticResource FontSizeSection}" FontWeight="SemiBold"
@@ -63,19 +65,31 @@
           <TextBlock x:Name="NoEstimatedNav" Grid.Column="4" Text="{Binding EstimatedNavText}" HorizontalAlignment="Right" VerticalAlignment="Center"
                      FontSize="{StaticResource FontSizeSection}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" ToolTip="{Binding EstimateTip}"
                      Visibility="Collapsed" />
-          <Button x:Name="RemoveButton" Grid.Column="5" Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE711;" Margin="8,0,0,0" Opacity="0"
-                  ToolTip="Remove from my funds" AutomationProperties.Name="Remove from my funds"
-                  Command="{Binding DataContext.AskRemoveCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
+          <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center">
+            <Button x:Name="UnitsButton" Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE70F;" Margin="8,0,0,0" Opacity="0"
+                    ToolTip="{Binding UnitsTip}" AutomationProperties.Name="Units held"
+                    Command="{Binding DataContext.EditUnitsCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
+            <Button x:Name="RemoveButton" Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE711;" Margin="4,0,0,0" Opacity="0"
+                    ToolTip="Remove from my funds" AutomationProperties.Name="Remove from my funds"
+                    Command="{Binding DataContext.AskRemoveCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
+          </StackPanel>
         </Grid>
       </Border>
       <DataTemplate.Triggers>
         <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
           <Setter TargetName="Row" Property="Background" Value="{DynamicResource HoverBrush}" />
           <Setter TargetName="RemoveButton" Property="Opacity" Value="1" />
+          <Setter TargetName="UnitsButton" Property="Opacity" Value="1" />
         </Trigger>
         <Trigger SourceName="Row" Property="IsKeyboardFocusWithin" Value="True">
           <Setter TargetName="RemoveButton" Property="Opacity" Value="1" />
+          <Setter TargetName="UnitsButton" Property="Opacity" Value="1" />
         </Trigger>
+        <!-- Without units the button stays in sight, in the warning colour, as a prompt. -->
+        <DataTrigger Binding="{Binding HasUnits}" Value="False">
+          <Setter TargetName="UnitsButton" Property="Opacity" Value="1" />
+          <Setter TargetName="UnitsButton" Property="Foreground" Value="{DynamicResource WarningBrush}" />
+        </DataTrigger>
         <DataTrigger Binding="{Binding HasEstimatedNav}" Value="False">
           <Setter TargetName="EstimatedNav" Property="Visibility" Value="Collapsed" />
           <Setter TargetName="NoEstimatedNav" Property="Visibility" Value="Visible" />
@@ -199,6 +213,29 @@
             <TextBlock Text="{Binding MyFundsError}" Style="{StaticResource Text.Body}" FontSize="{StaticResource FontSizeSmall}" />
           </Border>
 
+          <!-- Units held weight the funds by value in the dashboard's overall move. -->
+          <Border DockPanel.Dock="Top" Style="{StaticResource Banner}" Tag="{x:Static vm:StatusLevel.Busy}" Padding="14,12" Margin="20,0,20,12"
+                  Visibility="{Binding IsEditingUnits, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel>
+              <TextBlock Text="{Binding UnitsQuestion}" FontWeight="SemiBold" Margin="0,0,0,2" TextWrapping="Wrap" />
+              <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,0,10" TextWrapping="Wrap"
+                         Text="Once every fund has units, the dashboard weights today's move by what each fund is worth to you. Leave it empty to clear." />
+              <StackPanel Orientation="Horizontal">
+                <TextBox Text="{Binding UnitsInput, UpdateSourceTrigger=PropertyChanged}" Width="160" VerticalContentAlignment="Center" AutomationProperties.Name="Units">
+                  <TextBox.InputBindings>
+                    <KeyBinding Key="Enter" Command="{Binding SaveUnitsCommand}" />
+                    <KeyBinding Key="Escape" Command="{Binding CancelUnitsCommand}" />
+                  </TextBox.InputBindings>
+                </TextBox>
+                <Button Style="{StaticResource Button.Primary}" ui:Ui.Icon="&#xE74E;" Content="Save" Margin="8,0,0,0" Command="{Binding SaveUnitsCommand}"
+                        ui:Ui.IsSpinning="{Binding SaveUnitsCommand.IsRunning}" AutomationProperties.Name="Save units" />
+                <Button Style="{StaticResource Button.Ghost}" Content="Cancel" Margin="8,0,0,0" Command="{Binding CancelUnitsCommand}" />
+              </StackPanel>
+              <TextBlock Text="{Binding UnitsError}" Foreground="{DynamicResource DangerBrush}" Margin="0,8,0,0" TextWrapping="Wrap"
+                         Visibility="{Binding UnitsError, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}" />
+            </StackPanel>
+          </Border>
+
           <!-- Removing asks first: the service also deletes the fund's stored holdings. -->
           <Border DockPanel.Dock="Top" Style="{StaticResource Banner}" Tag="{x:Static vm:StatusLevel.Bad}" Padding="14,12" Margin="20,0,20,12"
                   Visibility="{Binding IsConfirmingRemove, Converter={StaticResource BoolToVisibility}}">
@@ -214,7 +251,7 @@
             </StackPanel>
           </Border>
 
-          <DockPanel DockPanel.Dock="Top" Margin="70,0,64,8" Visibility="{Binding HasFunds, Converter={StaticResource BoolToVisibility}}">
+          <DockPanel DockPanel.Dock="Top" Margin="70,0,100,8" Visibility="{Binding HasFunds, Converter={StaticResource BoolToVisibility}}">
             <TextBlock DockPanel.Dock="Right" Text="EST. NAV" Style="{StaticResource Text.Label}" Width="96" TextAlignment="Right"
                        ToolTip="The latest NAV moved by the estimated change" />
             <Button DockPanel.Dock="Right" Style="{StaticResource Button.Header}" Width="72" HorizontalContentAlignment="Right"

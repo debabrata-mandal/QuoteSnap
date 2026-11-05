@@ -48,6 +48,17 @@ public sealed class MyFundRepository(QuoteSnapDbContext db)
         return true;
     }
 
+    /// <returns>The updated fund; null when it isn't on the list.</returns>
+    public async Task<MyFundRecord?> SetUnitsAsync(int schemeCode, decimal? units, CancellationToken cancellationToken)
+    {
+        if (await db.MyFunds.SingleOrDefaultAsync(f => f.SchemeCode == schemeCode, cancellationToken) is not { } fund)
+            return null;
+
+        fund.Units = units;
+        await db.SaveChangesAsync(cancellationToken);
+        return fund;
+    }
+
     /// <returns>False when the fund wasn't on the list.</returns>
     public async Task<bool> RemoveAsync(int schemeCode, CancellationToken cancellationToken) =>
         await db.MyFunds.Where(f => f.SchemeCode == schemeCode).ExecuteDeleteAsync(cancellationToken) > 0;

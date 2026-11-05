@@ -93,6 +93,7 @@ public sealed class QuoteSnapDbContext(DbContextOptions<QuoteSnapDbContext> opti
             entity.Property(f => f.Option).HasMaxLength(200);
             entity.Property(f => f.Category).HasMaxLength(300);
             entity.Property(f => f.ScanxScheme).HasMaxLength(300);
+            entity.Property(f => f.Units).HasPrecision(18, 4);
             entity.HasMany(f => f.Holdings)
                 .WithOne()
                 .HasForeignKey(h => h.SchemeCode)

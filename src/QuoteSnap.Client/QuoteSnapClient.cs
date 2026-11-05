@@ -92,6 +92,14 @@ public sealed class QuoteSnapClient
         return await ReadAsync<MyFund>(response, cancellationToken);
     }
 
+    /// <summary>Sets how many units of a listed fund the user holds; null clears them.</summary>
+    public async Task<MyFund> SetMyFundUnitsAsync(int schemeCode, decimal? units, CancellationToken cancellationToken = default)
+    {
+        JsonContent body = JsonContent.Create(new SetFundUnits(units), options: Json);
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Put, $"api/my-funds/{schemeCode}/units", body, admin: false, cancellationToken);
+        return await ReadAsync<MyFund>(response, cancellationToken);
+    }
+
     /// <summary>Removes a scheme from the user's list; removing one that isn't there also succeeds.</summary>
     public async Task RemoveMyFundAsync(int schemeCode, CancellationToken cancellationToken = default)
     {

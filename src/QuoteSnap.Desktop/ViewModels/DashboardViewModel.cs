@@ -146,6 +146,41 @@ public sealed partial class DashboardViewModel : ObservableObject
     [ObservableProperty]
     public partial PortfolioMove? Portfolio { get; set; }
 
+    /// <summary>Whether today's gain or loss in rupees is showing; it's hidden unless the user asks to see it.</summary>
+    [ObservableProperty]
+    public partial bool IsAmountShown { get; private set; }
+
+    private CancellationTokenSource? _amountTimer;
+
+    /// <summary>Shows the rupee amount for 5 seconds; pressed again while showing, hides it.</summary>
+    [RelayCommand]
+    private void ShowAmount()
+    {
+        _amountTimer?.Cancel();
+        _amountTimer = null;
+        if (IsAmountShown)
+        {
+            IsAmountShown = false;
+            return;
+        }
+
+        IsAmountShown = true;
+        _amountTimer = new CancellationTokenSource();
+        _ = HideAmountAsync(_amountTimer.Token);
+    }
+
+    private async Task HideAmountAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+            IsAmountShown = false;
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
     /// <summary>Nifty 50, Sensex and Nifty Bank from the live feed.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasIndices))]

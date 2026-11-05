@@ -21,6 +21,9 @@ public sealed class MyFundRecord
     /// <summary>Where the fund sits in the user's list, from 0; new funds go last.</summary>
     public int Position { get; set; }
 
+    /// <summary>How many units the user holds; null until entered. Weights the funds by value in the overall move.</summary>
+    public decimal? Units { get; set; }
+
     /// <summary>The ScanX scheme the holdings were last fetched from; null until the first fetch finds one.</summary>
     public int? ScanxPlanId { get; set; }
 

@@ -1,3 +1,4 @@
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using QuoteSnap.Contracts;
 using QuoteSnap.Desktop.Text;
@@ -45,6 +46,18 @@ public sealed partial class FundRow : ObservableObject
     [ObservableProperty]
     public partial bool IsAdded { get; set; }
 
+    /// <summary>How many units the user holds; null until entered.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasUnits), nameof(UnitsTip), nameof(UnitsText))]
+    public partial decimal? Units { get; set; }
+
+    public bool HasUnits => Units is not null;
+
+    /// <summary>" · 1,234.567 units", or empty without units.</summary>
+    public string UnitsText => Units is { } units ? $" · {units.ToString("#,##0.####", CultureInfo.CurrentCulture)} units" : "";
+
+    public string UnitsTip => Units is null ? "Enter the units you hold, so the dashboard weights your funds by value" : "Change the units you hold";
+
     /// <summary>True while the user drags the row to a new place in the list.</summary>
     [ObservableProperty]
     public partial bool IsDragging { get; set; }
@@ -78,7 +91,12 @@ public sealed partial class FundRow : ObservableObject
         new(nav.SchemeCode, nav.SchemeName, nav.FundHouse, nav.Option, nav.Category, nav, isAdded);
 
     /// <param name="navsLoaded">Whether the service has NAVs at all; without them a missing NAV says nothing about the scheme.</param>
-    public static FundRow FromMyFund(MyFund fund, bool navsLoaded) => fund.Latest is { } nav
-        ? FromNav(nav, isAdded: true)
-        : new(fund.SchemeCode, fund.SchemeName, fund.FundHouse, fund.Option, fund.Category, null, isAdded: true) { IsMissing = navsLoaded };
+    public static FundRow FromMyFund(MyFund fund, bool navsLoaded)
+    {
+        FundRow row = fund.Latest is { } nav
+            ? FromNav(nav, isAdded: true)
+            : new(fund.SchemeCode, fund.SchemeName, fund.FundHouse, fund.Option, fund.Category, null, isAdded: true) { IsMissing = navsLoaded };
+        row.Units = fund.Units;
+        return row;
+    }
 }

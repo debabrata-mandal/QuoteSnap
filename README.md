@@ -128,6 +128,7 @@ Invoke-RestMethod "http://127.0.0.1:8080$($r.statusUrl)" -Headers $h
 | `GET /api/my-funds/estimates` | Today's estimated NAV move for each listed fund, from its holdings' weights and the last holdings live prices |
 | `PUT /api/my-funds/{schemeCode}` | Add a Direct Plan scheme to your list (`201`, or `200` if it's already there) |
 | `DELETE /api/my-funds/{schemeCode}` | Remove a scheme from your list (`204`, also when it wasn't there) |
+| `PUT /api/my-funds/{schemeCode}/units` | Set the units you hold: `{ "units": 1234.567 }`, or `null` to clear (`200`; `400` unless above 0 with at most 4 decimals; `404` if the fund isn't listed) |
 | `PUT /api/my-funds/order` | Rearrange your list: `{ "schemeCodes": [...] }` naming every listed fund once (`204`; `409` if it doesn't match the list). New funds go last |
 | `POST /api/holdings/fetches` | Start fetching the holdings of every listed fund (`202`; `200` with the running fetch if one is already going) |
 | `GET /api/holdings/fetches/{id}` | A fetch's status and per-fund progress; `GET /api/holdings/fetches/latest` for the most recent one |
@@ -240,6 +241,7 @@ Invoke-RestMethod "http://127.0.0.1:8080/api/my-funds/152712/holdings?month=2026
 - Lines without a live price (TREPS, repo, net payables, cash, debt, unlisted shares or failed quotes) count as unchanged at their weight. `pricedPercent` and `pricedHoldings` show how much of the fund the estimate covers.
 - Estimated NAV = latest AMFI NAV × (1 + change % / 100). The NAV is usually the previous trading day's, so the estimate is today's move on top of it; `navDate` and `pricesAt` say what it's based on.
 - Nothing is stored. `changePercent` and `estimatedNav` are null for funds without holdings or before any live prices have been fetched. It's an estimate: the portfolio is a month old and fund expenses and intraday trades aren't known.
+- Each fund also has the `units` you hold (null until entered with `PUT /api/my-funds/{schemeCode}/units`). Once every listed fund has units, the desktop dashboard weights the overall move by each fund's value (units × latest NAV) and can show today's estimated gain or loss in rupees, hidden until you press the eye icon, then shown for 5 seconds. Until then it's the plain average of the funds' estimated changes.
 
 ### Top holdings
 

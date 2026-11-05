@@ -229,6 +229,23 @@ public sealed class HoldingTextTests
     }
 
     [Fact]
+    public void With_units_for_every_fund_the_portfolio_move_is_weighted_by_value()
+    {
+        using CultureScope _ = new("en-IN");
+        NavEstimate up = new(1, "Defence Fund", 20m, null, null, 1.2m, 20.24m, 90m, 9, 10, Units: 100m);
+        NavEstimate down = new(2, "Bank Fund", 50m, null, null, -0.5m, 49.75m, 80m, 8, 10, Units: 10m);
+        NavEstimate none = new(3, "Global Fund", 10m, null, null, null, null, 0m, 0, 0, Units: 5m);
+
+        PortfolioMove move = PortfolioMove.From(new NavEstimateList(Guid.NewGuid(), null, [up, down, none]))!;
+
+        Assert.Equal((0.86m, 2500m, 21.5m), (move.ChangePercent, move.Value, move.Gain));
+        Assert.Equal(("▲ 0.86%", "Weighted by value of 2 of 3 funds", "▲ ₹22 on ₹2,500"), (move.ChangeText, move.Detail, move.AmountText));
+
+        PortfolioMove partly = PortfolioMove.From(new NavEstimateList(Guid.NewGuid(), null, [up, down, none with { Units = null }]))!;
+        Assert.Equal((0.35m, false, ""), (partly.ChangePercent, partly.IsWeighted, partly.AmountText));
+    }
+
+    [Fact]
     public void The_top_holdings_caption_names_the_fund_count_and_when_prices_are_from()
     {
         Assert.Null(DashboardViewModel.TopHoldingsText(new TopHoldingList(0, null, null, [])));

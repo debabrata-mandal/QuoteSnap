@@ -4,7 +4,12 @@ namespace QuoteSnap.Contracts;
 /// <param name="SchemeName">As AMFI named it when the fund was added; <see cref="Latest"/> has the current name.</param>
 /// <param name="Latest">The latest NAV; null when NAVs aren't loaded or AMFI's file no longer has the scheme.</param>
 /// <param name="Holdings">The stored holdings; null until they've been fetched.</param>
-public sealed record MyFund(int SchemeCode, string SchemeName, string? FundHouse, string? Option, string? Category, DateTimeOffset AddedAt, FundNav? Latest, HoldingsSummary? Holdings = null);
+/// <param name="Units">How many units the user holds; null until entered.</param>
+public sealed record MyFund(int SchemeCode, string SchemeName, string? FundHouse, string? Option, string? Category, DateTimeOffset AddedAt, FundNav? Latest, HoldingsSummary? Holdings = null, decimal? Units = null);
+
+/// <summary>How many units of a fund the user holds.</summary>
+/// <param name="Units">Greater than 0, or null to clear.</param>
+public sealed record SetFundUnits(decimal? Units);
 
 /// <param name="Funds">In the user's order: the order they were added in until rearranged with PUT /api/my-funds/order.</param>
 /// <param name="LoadedAt">When the AMFI file was last downloaded; null until the first refresh.</param>
@@ -30,4 +35,5 @@ public sealed record NavEstimateList(Guid? RequestId, DateTimeOffset? PricesAt, 
 /// <param name="EstimatedNav"><paramref name="Nav"/> moved by <paramref name="ChangePercent"/>.</param>
 /// <param name="PricedPercent">The share of the fund's assets, in percent, whose holdings had a price.</param>
 /// <param name="PricedHoldings">Holdings that had a price, out of <paramref name="TotalHoldings"/>.</param>
-public sealed record NavEstimate(int SchemeCode, string SchemeName, decimal? Nav, DateOnly? NavDate, DateOnly? HoldingsMonth, decimal? ChangePercent, decimal? EstimatedNav, decimal PricedPercent, int PricedHoldings, int TotalHoldings);
+/// <param name="Units">How many units the user holds; null until entered.</param>
+public sealed record NavEstimate(int SchemeCode, string SchemeName, decimal? Nav, DateOnly? NavDate, DateOnly? HoldingsMonth, decimal? ChangePercent, decimal? EstimatedNav, decimal PricedPercent, int PricedHoldings, int TotalHoldings, decimal? Units = null);

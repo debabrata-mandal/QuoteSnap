@@ -24,7 +24,7 @@
   </UserControl.Resources>
 
   <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-    <StackPanel Margin="{StaticResource PageMargin}" DataContext="{Binding Dashboard}">
+    <StackPanel x:Name="DashboardPanel" Margin="{StaticResource PageMargin}" DataContext="{Binding Dashboard}">
 
       <!-- Header -->
       <Grid Margin="0,0,0,22">
@@ -130,8 +130,18 @@
             <ui:RollingText Text="{Binding ChangeText}" Key="dashboard:portfolio" Margin="0,4,0,2" HorizontalAlignment="Left" FontFamily="{StaticResource DisplayFont}"
                             FontSize="{StaticResource FontSizeKpi}" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"
                             Foreground="{Binding ChangePercent, Converter={StaticResource SignBrush}}" />
-            <TextBlock Text="{Binding Detail}" Style="{StaticResource Text.Muted}" TextTrimming="CharacterEllipsis"
-                       ToolTip="The average of each fund's estimated NAV change, as if the same amount were invested in each fund" />
+            <TextBlock Text="{Binding Detail}" Style="{StaticResource Text.Muted}" TextTrimming="CharacterEllipsis" ToolTip="{Binding DetailTip}" />
+            <!-- Today's gain or loss in rupees: hidden until the eye is pressed, then shown for 5 seconds. -->
+            <StackPanel Orientation="Horizontal" Margin="0,6,0,0" Visibility="{Binding IsWeighted, Converter={StaticResource BoolToVisibility}}">
+              <TextBlock Text="₹ ••••••" Style="{StaticResource Text.Muted}" VerticalAlignment="Center" AutomationProperties.Name="Amount hidden"
+                         Visibility="{Binding DataContext.IsAmountShown, ElementName=DashboardPanel, Converter={StaticResource InverseBoolToVisibility}}" />
+              <TextBlock Text="{Binding AmountText}" FontWeight="SemiBold" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular"
+                         Foreground="{Binding Gain, Converter={StaticResource SignBrush}}" ToolTip="Today's estimated gain or loss on the value of your units at the latest NAV"
+                         Visibility="{Binding DataContext.IsAmountShown, ElementName=DashboardPanel, Converter={StaticResource BoolToVisibility}}" />
+              <Button Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE890;" Margin="6,0,0,0" VerticalAlignment="Center"
+                      ToolTip="Show today's gain or loss in rupees for 5 seconds" AutomationProperties.Name="Show amount"
+                      Command="{Binding DataContext.ShowAmountCommand, ElementName=DashboardPanel}" />
+            </StackPanel>
           </StackPanel>
           <Border Grid.Column="1" Margin="16,0,0,0" CornerRadius="{StaticResource RadiusCard}" ClipToBounds="True"
                   Background="{DynamicResource FillSubtleBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" ToolTip="{Binding Best.SchemeName}">

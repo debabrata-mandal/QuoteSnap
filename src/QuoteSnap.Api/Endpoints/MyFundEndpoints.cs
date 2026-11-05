@@ -18,6 +18,7 @@ public static class MyFundEndpoints
         group.MapGet("/estimates", GetEstimatesAsync);
         group.MapPut("/order", ReorderAsync);
         group.MapPut("/{schemeCode:int}", AddAsync);
+        group.MapPut("/{schemeCode:int}/units", SetUnitsAsync);
         group.MapDelete("/{schemeCode:int}", RemoveAsync);
         return app;
     }
@@ -78,6 +79,20 @@ public static class MyFundEndpoints
         return TypedResults.Created($"/api/my-funds/{fund.SchemeCode}", dto);
     }
 
+    /// <summary>Sets how many units of a listed fund the user holds, so the overall move can weight the funds by value.</summary>
+    private static async Task<Results<Ok<MyFund>, ProblemHttpResult>> SetUnitsAsync(int schemeCode, SetFundUnits body, MyFundRepository funds, NavRepository navs, EventPublisher events, ILoggerFactory loggers, CancellationToken cancellationToken)
+    {
+        if (body.Units is { } units && (units <= 0 || units >= 100_000_000_000_000m || decimal.Round(units, 4) != units))
+            return TypedResults.Problem("Units must be greater than 0 with at most 4 decimals, or null to clear them.", statusCode: StatusCodes.Status400BadRequest, title: "Invalid units");
+        if (await funds.SetUnitsAsync(schemeCode, body.Units, cancellationToken) is not { } fund)
+            return TypedResults.Problem($"Scheme {schemeCode} isn't on your list.", statusCode: StatusCodes.Status404NotFound, title: "Fund not found");
+
+        loggers.CreateLogger(typeof(MyFundEndpoints)).LogInformation("Set the units of {SchemeCode} {SchemeName}", fund.SchemeCode, fund.SchemeName);
+        await events.ChangedAsync(ServerChange.MyFunds);
+        MutualFundNav? nav = (await navs.FindBySchemeCodesAsync([schemeCode], cancellationToken)).SingleOrDefault();
+        return TypedResults.Ok(ToDto(fund, nav));
+    }
+
     /// <summary>Removes a fund from the list. Removing one that isn't on it also succeeds.</summary>
     private static async Task<NoContent> RemoveAsync(int schemeCode,     MyFundRepository funds, LiveFeedSignal liveFeed, EventPublisher events, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
@@ -103,5 +118,5 @@ public static class MyFundEndpoints
     }
 
     private static MyFund ToDto(MyFundRecord f, MutualFundNav? latest, HoldingsSummary? holdings = null) =>
-        new(f.SchemeCode, f.SchemeName, f.FundHouse, f.Option, f.Category, f.AddedAt, latest is null ? null : NavEndpoints.ToDto(latest), holdings);
+        new(f.SchemeCode, f.SchemeName, f.FundHouse, f.Option, f.Category, f.AddedAt, latest is null ? null : NavEndpoints.ToDto(latest), holdings, f.Units);
 }

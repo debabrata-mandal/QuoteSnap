@@ -34,6 +34,6 @@ public sealed record EstimateBasis(List<MyFundRecord> Funds, Dictionary<int, Mut
         return new NavEstimateList(Request?.Id, Prices.LatestAt(Request, prices), estimates);
 
         static NavEstimate Estimate(MyFundRecord fund, MutualFundNav? nav, List<FundHoldingRecord> holdings, Dictionary<string, decimal> dayChanges) =>
-            NavEstimator.Estimate(fund.SchemeCode, nav?.SchemeName ?? fund.SchemeName, nav, holdings, dayChanges);
+            NavEstimator.Estimate(fund.SchemeCode, nav?.SchemeName ?? fund.SchemeName, nav, holdings, dayChanges) with { Units = fund.Units };
     }
 }
