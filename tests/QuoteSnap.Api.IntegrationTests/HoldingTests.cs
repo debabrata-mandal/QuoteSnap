@@ -388,6 +388,54 @@ public sealed class HoldingTests
     }
 
     [Fact]
+    public async Task Excluded_symbols_are_left_out_of_live_prices()
+    {
+        await using QuoteSnapApiFactory factory = await ListedAsync(true, Dsp, Motilal);
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+        await factory.SeedSessionAsync();
+        factory.ScanxHoldings[MotilalPlan] =
+        [
+            Page(1, $"""
+                "Equity":[{Row("HAL", "Hindustan Aeronautics", "INE066F01020", "20.0|19.0", "500.0|480.0", "Aerospace")},{Row("HDFCBANK", "HDFC Bank", "INE040A01034", "1.0|0.0", "10.0|0.0", "Banks")}]
+                """),
+        ];
+        await FetchAsync(client);
+
+        ExcludedSymbolList excluded = await client.SetExcludedSymbolsAsync(["nse:hal-eq", "NSE:NOTHELD-EQ"]);
+        Assert.Equal(["NSE:HAL-EQ", "NSE:NOTHELD-EQ"], excluded.Symbols);
+        Assert.NotNull(excluded.ExcludedAt);
+        Assert.Equal(excluded.Symbols, (await client.GetExcludedSymbolsAsync()).Symbols);
+
+        QuoteRequestAccepted accepted = await client.StartHoldingQuotesAsync();
+        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(20));
+        QuoteRequestDetails finished = await client.WaitForCompletionAsync(accepted.RequestId, cancellationToken: timeout.Token);
+
+        Assert.Equal(["BSE:ICICIBANK-A", "NSE:HDFCBANK-EQ"], finished.Results.Select(r => r.Symbol));
+        Assert.Equal(QuoteRequestStatus.Completed, finished.Status);
+
+        ExcludedSymbolList cleared = await client.SetExcludedSymbolsAsync([]);
+        Assert.Empty(cleared.Symbols);
+        Assert.Null(cleared.ExcludedAt);
+    }
+
+    [Fact]
+    public async Task Excluded_symbols_give_their_live_feed_places_to_the_next_holdings_by_weight()
+    {
+        await using QuoteSnapApiFactory factory = await ListedAsync(new QuoteSnapApiFactory(liveFeed: true) { LiveSymbolCount = 2 }, Dsp, Motilal);
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+        await factory.SeedSessionAsync();
+        await FetchAsync(client);
+        await WaitForAsync(async () => (await client.GetLiveFeedStatusAsync()).Symbols.Count == 7);
+        Assert.Equal(["NSE:HAL-EQ", "NSE:HDFCBANK-EQ"], (await client.GetLiveFeedStatusAsync()).Symbols.Take(2));
+
+        await client.SetExcludedSymbolsAsync(["NSE:HAL-EQ"]);
+        await WaitForAsync(() => Task.FromResult(factory.LiveFeed.Calls.Count == 3));
+
+        Assert.Equal(["NSE:HDFCBANK-EQ", "BSE:ICICIBANK-A"], (await client.GetLiveFeedStatusAsync()).Symbols.Take(2));
+        Assert.Equal(["-NSE:HAL-EQ", "+BSE:ICICIBANK-A"], factory.LiveFeed.Calls.Skip(1));
+    }
+
+    [Fact]
     public async Task Requesting_live_prices_while_a_request_is_queued_returns_that_request()
     {
         await using QuoteSnapApiFactory factory = await ListedAsync(true, Dsp);

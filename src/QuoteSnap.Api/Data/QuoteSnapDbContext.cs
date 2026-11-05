@@ -24,6 +24,8 @@ public sealed class QuoteSnapDbContext(DbContextOptions<QuoteSnapDbContext> opti
 
     public DbSet<FyersSymbol> FyersSymbols => Set<FyersSymbol>();
 
+    public DbSet<ExcludedSymbolRecord> ExcludedSymbols => Set<ExcludedSymbolRecord>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         configurationBuilder.Properties<QuoteRequestStatus>().HaveConversion<string>().HaveMaxLength(32);
@@ -142,6 +144,13 @@ public sealed class QuoteSnapDbContext(DbContextOptions<QuoteSnapDbContext> opti
             entity.Property(s => s.Isin).HasMaxLength(12);
             entity.Property(s => s.Symbol).HasMaxLength(100);
             entity.Property(s => s.Name).HasMaxLength(300);
+        });
+
+        modelBuilder.Entity<ExcludedSymbolRecord>(entity =>
+        {
+            entity.ToTable("ExcludedSymbols");
+            entity.HasKey(s => s.Symbol);
+            entity.Property(s => s.Symbol).HasMaxLength(100);
         });
     }
 }

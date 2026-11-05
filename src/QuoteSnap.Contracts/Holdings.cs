@@ -65,6 +65,14 @@ public sealed record FundHolding(string Name, string? Symbol, string? Isin, stri
 /// <param name="Holdings">Largest weight first.</param>
 public sealed record TopHoldingList(int FundCount, Guid? RequestId, DateTimeOffset? PricesAt, IReadOnlyList<TopHolding> Holdings);
 
+/// <summary>The holdings symbols left out of live prices today: they aren't fetched or streamed, so the next holdings by weight are streamed instead.</summary>
+/// <param name="Day">The server's local date they're excluded on; tomorrow they're back.</param>
+/// <param name="ExcludedAt">When a symbol was last added; null when none is excluded.</param>
+public sealed record ExcludedSymbolList(DateOnly Day, DateTimeOffset? ExcludedAt, IReadOnlyList<string> Symbols);
+
+/// <summary>The body of PUT /api/holdings/exclusions: today's whole list of excluded symbols.</summary>
+public sealed record SetExcludedSymbols(IReadOnlyList<string> Symbols);
+
 /// <param name="Percent">The stock's weight averaged over every fund with holdings, counting funds that don't hold it as 0%.</param>
 /// <param name="FundCount">How many of the funds hold it.</param>
 /// <param name="ChangePercent">The day's change in percent from the last live prices; null when it has no price.</param>

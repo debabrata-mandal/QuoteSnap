@@ -28,8 +28,37 @@ public static class HoldingEndpoints
         quotes.MapGet("/latest", GetLatestQuotesAsync);
 
         app.MapGet("/api/holdings/top", GetTopAsync).RequireApiKey().WithTags("Holdings");
+
+        RouteGroupBuilder exclusions = app.MapGroup("/api/holdings/exclusions").RequireApiKey().WithTags("Holdings");
+        exclusions.MapGet("/", GetExclusionsAsync);
+        exclusions.MapPut("/", SetExclusionsAsync);
         return app;
     }
+
+    /// <summary>The holdings symbols left out of live prices today.</summary>
+    private static async Task<Ok<ExcludedSymbolList>> GetExclusionsAsync(SymbolExclusionRepository exclusions, CancellationToken cancellationToken) =>
+        TypedResults.Ok(ToDto(exclusions.Today, await exclusions.GetTodayAsync(cancellationToken)));
+
+    /// <summary>
+    /// Replaces today's excluded symbols. They aren't fetched for the holdings or streamed until tomorrow, and the live
+    /// feed ranks again so the next holdings by weight take their places.
+    /// </summary>
+    private static async Task<Results<Ok<ExcludedSymbolList>, ProblemHttpResult>> SetExclusionsAsync(SetExcludedSymbols body, SymbolExclusionRepository exclusions, LiveFeedSignal liveFeed, ILoggerFactory loggers, CancellationToken cancellationToken)
+    {
+        if (body.Symbols is null || body.Symbols.Any(s => string.IsNullOrWhiteSpace(s) || s.Trim().Length > 100))
+            return TypedResults.Problem("Symbols must be a list of non-empty Fyers symbols of at most 100 characters.", statusCode: StatusCodes.Status400BadRequest, title: "Invalid symbols");
+
+        if (await exclusions.SetTodayAsync(body.Symbols, cancellationToken))
+        {
+            liveFeed.Notify();
+            loggers.CreateLogger(typeof(HoldingEndpoints)).LogInformation("Excluded {Count} symbol(s) for today: {Symbols}", body.Symbols.Count, string.Join(", ", body.Symbols));
+        }
+
+        return TypedResults.Ok(ToDto(exclusions.Today, await exclusions.GetTodayAsync(cancellationToken)));
+    }
+
+    private static ExcludedSymbolList ToDto(DateOnly day, List<ExcludedSymbolRecord> rows) =>
+        new(day, rows.Count == 0 ? null : rows.Max(r => r.ExcludedAt), [.. rows.Select(r => r.Symbol)]);
 
     private const int DefaultTopLimit = 10;
     private const int MaxTopLimit = 100;
@@ -48,10 +77,10 @@ public static class HoldingEndpoints
     }
 
     /// <summary>
-    /// Submits one quote request for the distinct stock symbols in the latest month of every listed fund. While such
-    /// a request is queued or running, starting another returns that one instead.
+    /// Submits one quote request for the distinct stock symbols in the latest month of every listed fund, except those
+    /// excluded for today. While such a request is queued or running, starting another returns that one instead.
     /// </summary>
-    private static async Task<Results<Accepted<QuoteRequestAccepted>, Ok<QuoteRequestAccepted>, ProblemHttpResult>> StartQuotesAsync(HoldingRepository holdings, QuoteRequestRepository requests, QuoteRequestQueue queue, SessionService session, EventPublisher events, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken)
+    private static async Task<Results<Accepted<QuoteRequestAccepted>, Ok<QuoteRequestAccepted>, ProblemHttpResult>> StartQuotesAsync(HoldingRepository holdings, SymbolExclusionRepository exclusions, QuoteRequestRepository requests, QuoteRequestQueue queue, SessionService session, EventPublisher events, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         if (await requests.GetLatestForHoldingsAsync(includeResults: false, cancellationToken) is { } latest
             && !latest.Status.IsTerminal())
@@ -65,6 +94,11 @@ public static class HoldingEndpoints
         {
             return TypedResults.Problem("No listed fund has stock holdings with a Fyers symbol. Fetch holdings with POST /api/holdings/fetches first.", statusCode: StatusCodes.Status400BadRequest, title: "No holdings symbols");
         }
+
+        HashSet<string> excluded = await exclusions.GetTodaySymbolsAsync(cancellationToken);
+        symbols.RemoveAll(excluded.Contains);
+        if (symbols.Count == 0)
+            return TypedResults.Problem("Every holdings symbol is excluded for today, so there is nothing to fetch. Include some again with PUT /api/holdings/exclusions.", statusCode: StatusCodes.Status400BadRequest, title: "All symbols excluded");
 
         Results<Accepted<QuoteRequestAccepted>, ProblemHttpResult> submitted = await QuoteRequestEndpoints.SubmitAsync(symbols, forHoldings: true, requests, queue, session, events, time, loggers, cancellationToken);
         return submitted.Result switch

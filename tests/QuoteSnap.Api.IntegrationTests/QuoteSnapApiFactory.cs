@@ -54,6 +54,9 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
     /// <summary>Runs the live feed around the clock against <see cref="LiveFeed"/>; off by default.</summary>
     public bool LiveFeedEnabled { get; }
 
+    /// <summary>How many top holdings the live feed streams; the production default when null.</summary>
+    public int? LiveSymbolCount { get; init; }
+
     public FakeLiveFeed LiveFeed => (FakeLiveFeed)Services.GetRequiredService<ILiveFeedConnectionFactory>();
 
     public FakeQuoteProvider QuoteProvider => (FakeQuoteProvider)Services.GetRequiredService<IQuoteProvider>();
@@ -127,6 +130,8 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Holdings:DelayBetweenRequestsMs", "0");
         builder.UseSetting("LiveQuotes:Enabled", LiveFeedEnabled.ToString());
         builder.UseSetting("LiveQuotes:CheckIntervalSeconds", "1");
+        if (LiveSymbolCount is { } count)
+            builder.UseSetting("LiveQuotes:SymbolCount", count.ToString(CultureInfo.InvariantCulture));
 
         builder.ConfigureTestServices(services =>
         {

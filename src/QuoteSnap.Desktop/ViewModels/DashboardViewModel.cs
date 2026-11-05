@@ -20,6 +20,8 @@ public sealed partial class DashboardViewModel : ObservableObject
     private static readonly TimeSpan LoginLifetime = TimeSpan.FromDays(15);
 
     private readonly QuoteSnapConnection _connection;
+    private readonly SymbolExclusions _exclusions;
+    private QuoteRequestPage? _requests;
     private bool _online;
     private bool _refreshAgain;
     private HubConnectionState _hubState;
@@ -29,9 +31,15 @@ public sealed partial class DashboardViewModel : ObservableObject
     private readonly Dictionary<string, LiveQuote> _indexQuotes = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Reads everything once, then follows the pushes from the API's event hub; there is no polling.</summary>
-    public DashboardViewModel(QuoteSnapConnection connection)
+    public DashboardViewModel(QuoteSnapConnection connection, SymbolExclusions exclusions)
     {
         _connection = connection;
+        _exclusions = exclusions;
+        _exclusions.Changed += (_, _) =>
+        {
+            if (_requests is { } page)
+                ShowRequests(page);
+        };
         _hubState = connection.HubState;
         connection.Changed += async (_, _) =>
         {
@@ -116,6 +124,17 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string? RequestsDetail { get; set; }
+
+    /// <summary>The newest of today's requests that failed or has symbols that failed, which "See errors" opens.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasProblemRequest))]
+    [NotifyCanExecuteChangedFor(nameof(ShowProblemsCommand))]
+    public partial QuoteRequestSummary? ProblemRequest { get; set; }
+
+    public bool HasProblemRequest => ProblemRequest is not null;
+
+    /// <summary>Raised by "See errors", to open the request on the History page.</summary>
+    public event EventHandler<QuoteRequestSummary>? ProblemsRequested;
 
     [ObservableProperty]
     public partial LiveFeedTile LiveFeed { get; set; } = LiveFeedTile.Unknown("Checking", "Shown once the API responds.");
@@ -283,6 +302,7 @@ public sealed partial class DashboardViewModel : ObservableObject
 
         try
         {
+            await _exclusions.RefreshAsync();
             ShowRequests(await client.ListAsync(limit: TodayPageSize));
         }
         catch (Exception ex)
@@ -290,6 +310,7 @@ public sealed partial class DashboardViewModel : ObservableObject
             RequestsLevel = StatusLevel.Warning;
             RequestsSummary = "Unavailable";
             RequestsDetail = ErrorText.Describe(ex, baseAddress);
+            ProblemRequest = null;
         }
 
         try
@@ -354,6 +375,7 @@ public sealed partial class DashboardViewModel : ObservableObject
         FyersSummary = NavSummary = RequestsSummary = "Unknown";
         FyersValue = NavValue = RequestsValue = Display.Missing;
         FyersDetail = NavDetail = RequestsDetail = "Shown once the API responds.";
+        ProblemRequest = null;
         FyersValidity = 0;
         LiveFeed = LiveFeedTile.Unknown("Unknown", "Shown once the API responds.");
         TopHoldings = [];
@@ -458,11 +480,14 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     private void ShowRequests(QuoteRequestPage page)
     {
+        _requests = page;
         List<QuoteRequestSummary> today = [.. page.Items.Where(s => s.CreatedAt.ToLocalTime().Date == DateTime.Today)];
         bool more = page.NextBefore is not null && today.Count == page.Items.Count;
         int running = today.Count(s => !s.Status.IsTerminal());
         int failed = today.Count(s => s.Status == QuoteRequestStatus.Failed);
-        int withErrors = today.Count(s => s.Status == QuoteRequestStatus.CompletedWithErrors);
+        // Excluding the failed symbols deals with the errors of the requests made before then.
+        DateTimeOffset dealtWith = _exclusions.ExcludedAt ?? DateTimeOffset.MinValue;
+        List<QuoteRequestSummary> withErrors = [.. today.Where(s => s.Status == QuoteRequestStatus.CompletedWithErrors && s.CreatedAt > dealtWith)];
         int symbols = today.Sum(s => s.TotalSymbols);
         int ok = today.Sum(s => s.SucceededCount);
 
@@ -470,11 +495,20 @@ public sealed partial class DashboardViewModel : ObservableObject
         (RequestsLevel, RequestsSummary) =
             running > 0 ? (StatusLevel.Busy, $"{running} running")
             : failed > 0 ? (StatusLevel.Bad, $"{failed} failed")
-            : withErrors > 0 ? (StatusLevel.Warning, $"{withErrors} with errors")
+            : withErrors.Count > 0 ? (StatusLevel.Warning, $"{withErrors.Count} with errors")
             : today.Count > 0 ? (StatusLevel.Good, "All OK")
             : (StatusLevel.Unknown, "None yet");
         RequestsDetail = today.Count == 0
             ? "Nothing fetched today"
-            : $"{ok:N0} of {Display.Count(symbols, "symbol")} fetched OK";
+            : $"{ok:N0} of {Display.Count(symbols, "symbol")} fetched OK" + (_exclusions.Today.Count > 0 ? $" · {_exclusions.Today.Count} excluded" : "");
+        ProblemRequest = today.FirstOrDefault(s => s.Status == QuoteRequestStatus.Failed || withErrors.Contains(s));
+    }
+
+    /// <summary>Opens the newest of today's requests with errors on the History page.</summary>
+    [RelayCommand(CanExecute = nameof(HasProblemRequest))]
+    private void ShowProblems()
+    {
+        if (ProblemRequest is { } request)
+            ProblemsRequested?.Invoke(this, request);
     }
 }

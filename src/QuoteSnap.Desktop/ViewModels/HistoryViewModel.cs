@@ -13,14 +13,24 @@ public sealed partial class HistoryViewModel : ObservableObject
     private const int PageSize = 50;
 
     private readonly QuoteSnapConnection _connection;
+    private readonly SymbolExclusions _exclusions;
     private readonly List<RequestRow> _items = [];
     private int _detailsVersion;
     private Guid? _pendingSelection;
 
-    public HistoryViewModel(QuoteSnapConnection connection, FileDialogs dialogs)
+    public HistoryViewModel(QuoteSnapConnection connection, FileDialogs dialogs, SymbolExclusions exclusions)
     {
         _connection = connection;
-        Results = new ResultSetViewModel(dialogs, "This request has no quotes.");
+        _exclusions = exclusions;
+        _exclusions.Changed += (_, _) => OnExclusionsChanged();
+        Results = new ResultSetViewModel(dialogs, "This request has no quotes.") { ProblemsFirst = true };
+        Results.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(ResultSetViewModel.Results))
+                return;
+            IsConfirmingExclude = false;
+            OnExclusionsChanged();
+        };
     }
 
     public ResultSetViewModel Results { get; }
@@ -63,12 +73,82 @@ public sealed partial class HistoryViewModel : ObservableObject
 
     partial void OnStatusFilterChanged(string value) => ApplyFilter();
 
-    /// <summary>Selects the request once the list is loaded, e.g. when it's opened from the dashboard.</summary>
-    public async Task ShowAsync(Guid requestId)
+    /// <summary>Selects the request once the list is loaded, e.g. when it's opened from the dashboard; a filter, if given, is applied first.</summary>
+    public async Task ShowAsync(Guid requestId, string? filter = null)
     {
         _pendingSelection = requestId;
+        if (filter is not null)
+            StatusFilter = filter;
         if (!RefreshCommand.IsRunning)
             await RefreshCommand.ExecuteAsync(null);
+    }
+
+    /// <summary>The selected request's symbols that Fyers answered with an error or rejected; waiting ones aren't counted.</summary>
+    public IReadOnlyList<string> FailedSymbols => [.. Results.Results.Where(r => r.Status is QuoteResultStatus.Error or QuoteResultStatus.Invalid).Select(r => r.Symbol).Distinct(StringComparer.OrdinalIgnoreCase)];
+
+    /// <summary>The failed symbols that aren't excluded for today yet.</summary>
+    public IReadOnlyList<string> ExcludableSymbols => [.. FailedSymbols.Where(s => !_exclusions.Contains(s))];
+
+    public bool CanExclude => ExcludableSymbols.Count > 0 && !IsConfirmingExclude;
+
+    /// <summary>Every failed symbol is already excluded for today, so the "Include again" note shows instead.</summary>
+    public bool AllFailedExcluded => FailedSymbols.Count > 0 && ExcludableSymbols.Count == 0;
+
+    public string ExcludeText => $"Exclude {Display.Count(ExcludableSymbols.Count, "failed symbol")} for today";
+
+    public string ExcludedText => $"{Display.Count(FailedSymbols.Count, "failed symbol")} excluded from holdings prices today";
+
+    public string ConfirmExcludeText => $"Leave {string.Join(", ", ExcludableSymbols)} out of holdings live prices until tomorrow?";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanExclude))]
+    [NotifyCanExecuteChangedFor(nameof(AskExcludeCommand))]
+    public partial bool IsConfirmingExclude { get; set; }
+
+    /// <summary>Asks first; nothing is excluded until the user confirms.</summary>
+    [RelayCommand(CanExecute = nameof(CanExclude))]
+    private void AskExclude() => IsConfirmingExclude = true;
+
+    [RelayCommand]
+    private async Task ConfirmExcludeAsync()
+    {
+        try
+        {
+            await _exclusions.ExcludeAsync(ExcludableSymbols);
+            IsConfirmingExclude = false;
+        }
+        catch (Exception ex)
+        {
+            Message = "Couldn't exclude the symbols. " + ErrorText.Describe(ex, _connection.Settings.BaseAddress);
+        }
+    }
+
+    [RelayCommand]
+    private void CancelExclude() => IsConfirmingExclude = false;
+
+    [RelayCommand]
+    private async Task IncludeAgainAsync()
+    {
+        try
+        {
+            await _exclusions.IncludeAsync(FailedSymbols);
+        }
+        catch (Exception ex)
+        {
+            Message = "Couldn't include the symbols again. " + ErrorText.Describe(ex, _connection.Settings.BaseAddress);
+        }
+    }
+
+    private void OnExclusionsChanged()
+    {
+        OnPropertyChanged(nameof(FailedSymbols));
+        OnPropertyChanged(nameof(ExcludableSymbols));
+        OnPropertyChanged(nameof(CanExclude));
+        OnPropertyChanged(nameof(AllFailedExcluded));
+        OnPropertyChanged(nameof(ExcludeText));
+        OnPropertyChanged(nameof(ExcludedText));
+        OnPropertyChanged(nameof(ConfirmExcludeText));
+        AskExcludeCommand.NotifyCanExecuteChanged();
     }
 
     public async Task RefreshIfIdleAsync()
@@ -82,6 +162,7 @@ public sealed partial class HistoryViewModel : ObservableObject
     {
         try
         {
+            await _exclusions.RefreshAsync();
             QuoteRequestPage page = await _connection.Client.ListAsync(PageSize);
             _items.Clear();
             Append(page);

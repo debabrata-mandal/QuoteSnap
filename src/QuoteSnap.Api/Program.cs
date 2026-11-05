@@ -69,6 +69,7 @@ builder.Services.AddScoped<NavRepository>();
 builder.Services.AddScoped<MyFundRepository>();
 builder.Services.AddScoped<HoldingRepository>();
 builder.Services.AddScoped<FyersSymbolRepository>();
+builder.Services.AddScoped<SymbolExclusionRepository>();
 builder.Services.AddSingleton<FundSearchCache>();
 
 IDataProtectionBuilder dataProtection = builder.Services.AddDataProtection().SetApplicationName("QuoteSnap");

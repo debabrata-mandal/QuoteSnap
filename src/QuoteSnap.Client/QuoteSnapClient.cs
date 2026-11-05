@@ -169,13 +169,27 @@ public sealed class QuoteSnapClient
     }
 
     /// <summary>
-    /// Requests quotes for the distinct stock symbols in every listed fund's latest holdings. Returns the running
-    /// request instead when one is already queued or running. Wait for it with <see cref="WaitForCompletionAsync"/>.
+    /// Requests quotes for the distinct stock symbols in every listed fund's latest holdings, except those excluded for
+    /// today. Returns the running request instead when one is already queued or running. Wait for it with <see cref="WaitForCompletionAsync"/>.
     /// </summary>
     public async Task<QuoteRequestAccepted> StartHoldingQuotesAsync(CancellationToken cancellationToken = default)
     {
         using HttpResponseMessage response = await SendAsync(HttpMethod.Post, "api/holdings/quotes", null, admin: false, cancellationToken);
         return await ReadAsync<QuoteRequestAccepted>(response, cancellationToken);
+    }
+
+    /// <summary>The holdings symbols left out of live prices today.</summary>
+    public async Task<ExcludedSymbolList> GetExcludedSymbolsAsync(CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "api/holdings/exclusions", null, admin: false, cancellationToken);
+        return await ReadAsync<ExcludedSymbolList>(response, cancellationToken);
+    }
+
+    /// <summary>Replaces today's excluded symbols; the live feed streams the next holdings by weight in their places.</summary>
+    public async Task<ExcludedSymbolList> SetExcludedSymbolsAsync(IEnumerable<string> symbols, CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Put, "api/holdings/exclusions", JsonContent.Create(new SetExcludedSymbols([.. symbols]), options: Json), admin: false, cancellationToken);
+        return await ReadAsync<ExcludedSymbolList>(response, cancellationToken);
     }
 
     /// <summary>The most recent quote request for the holdings, with results; null when none has been made.</summary>

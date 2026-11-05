@@ -350,6 +350,9 @@
             <TextBlock Text="{Binding RequestsValue}" Style="{StaticResource Text.KpiMedium}" Margin="0,2,0,2"
                        Visibility="{Binding LastChecked, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}" />
             <TextBlock Text="{Binding RequestsDetail}" Style="{StaticResource Text.Muted}" />
+            <Button Style="{StaticResource Button.Ghost}" ui:Ui.Icon="&#xE7BA;" Content="See errors" HorizontalAlignment="Left" Margin="-10,4,0,0" Height="28"
+                    Command="{Binding ShowProblemsCommand}" ToolTip="Open the request on the History page to see which symbols failed and, if you choose, exclude them for today"
+                    Visibility="{Binding HasProblemRequest, Converter={StaticResource BoolToVisibility}}" />
           </StackPanel>
         </Border>
       </Grid>

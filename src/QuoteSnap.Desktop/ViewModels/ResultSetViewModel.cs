@@ -27,6 +27,9 @@ public sealed partial class ResultSetViewModel(FileDialogs dialogs, string empty
     /// <summary>When the request was created; used in the export file name.</summary>
     public DateTimeOffset? CreatedAt { get; set; }
 
+    /// <summary>Lists the quotes that weren't fetched before the rest, so they're the first thing you see.</summary>
+    public bool ProblemsFirst { get; init; }
+
     public int Total => Results.Count;
 
     public int Ok => Results.Count(r => r.Status == QuoteResultStatus.Ok);
@@ -60,9 +63,10 @@ public sealed partial class ResultSetViewModel(FileDialogs dialogs, string empty
     private void Refilter()
     {
         string term = SearchText.Trim();
+        IEnumerable<QuoteResultDto> ordered = ProblemsFirst ? Results.OrderBy(r => r.Status == QuoteResultStatus.Ok) : Results;
         Visible = term.Length == 0
-            ? Results
-            : [.. Results.Where(r => r.Symbol.Contains(term, StringComparison.OrdinalIgnoreCase)
+            ? [.. ordered]
+            : [.. ordered.Where(r => r.Symbol.Contains(term, StringComparison.OrdinalIgnoreCase)
                 || (r.Error?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
                 || StatusText.Of(r.Status).Contains(term, StringComparison.OrdinalIgnoreCase))];
         OnPropertyChanged(nameof(EmptyText));

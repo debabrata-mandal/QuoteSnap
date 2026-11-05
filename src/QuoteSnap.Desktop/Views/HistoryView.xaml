@@ -140,9 +140,12 @@
                   <Setter Property="Padding" Value="10,4" />
                 </Style>
               </StackPanel.Resources>
+              <Button Style="{StaticResource Button.Secondary}" ui:Ui.Icon="&#xE8D8;" Content="{Binding ExcludeText}" Height="28" Margin="0,0,4,0"
+                      Command="{Binding AskExcludeCommand}" ToolTip="Stop fetching and streaming the failed symbols until tomorrow; you're asked to confirm first"
+                      Visibility="{Binding CanExclude, Converter={StaticResource BoolToVisibility}}" />
               <Border>
                 <TextBlock Typography.NumeralAlignment="Tabular">
-                  <Run Text="TOTAL " Foreground="{DynamicResource TextMutedBrush}" FontSize="{StaticResource FontSizeCaption}" FontWeight="SemiBold" />
+                  <Run Text="TOTAL "  Foreground="{DynamicResource TextMutedBrush}" FontSize="{StaticResource FontSizeCaption}" FontWeight="SemiBold" />
                   <Run Text="{Binding Results.Total, Mode=OneWay, StringFormat=N0}" FontWeight="SemiBold" />
                 </TextBlock>
               </Border>
@@ -165,19 +168,42 @@
                 </TextBlock>
               </Border>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <DockPanel VerticalAlignment="Center" Margin="0,0,12,0">
               <ui:StatusPill Style="{StaticResource StatusPill.Large}" Text="{Binding SelectedDetails.Status, Converter={StaticResource StatusText}}"
                              Tone="{Binding SelectedDetails.Status, Converter={StaticResource Tone}}" />
               <TextBlock Text="{Binding SelectedDetails.RequestId}" Style="{StaticResource Text.Mono}" VerticalAlignment="Center" Margin="14,0,0,0" />
               <Button Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE8C8;" Width="28" Height="28" Margin="4,0,0,0" ToolTip="Copy request ID"
                       AutomationProperties.Name="Copy request ID" Command="{Binding CopyRequestIdCommand}" />
-              <TextBlock Text="{Binding SelectedSummary}" Style="{StaticResource Text.Muted}" VerticalAlignment="Center" Margin="10,0,0,0" TextWrapping="NoWrap" />
-            </StackPanel>
+              <TextBlock Text="{Binding SelectedSummary}" ToolTip="{Binding SelectedSummary}" Style="{StaticResource Text.Muted}" VerticalAlignment="Center" Margin="10,0,0,0"
+                         TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+            </DockPanel>
           </DockPanel>
         </Border>
         <Border DockPanel.Dock="Top" Style="{StaticResource Banner}" Tag="{x:Static vm:StatusLevel.Bad}" Margin="0,0,0,12"
                 Visibility="{Binding SelectedDetails.Error, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
           <TextBlock Text="{Binding SelectedDetails.Error}" Style="{StaticResource Text.Body}" />
+        </Border>
+        <!-- Excluding asks first: nothing is left out until the user confirms. -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource Banner}" Tag="{x:Static vm:StatusLevel.Warning}" Padding="14,12" Margin="0,0,0,12"
+                Visibility="{Binding IsConfirmingExclude, Converter={StaticResource BoolToVisibility}}">
+          <StackPanel>
+            <TextBlock Text="{Binding ConfirmExcludeText}" FontWeight="SemiBold" Margin="0,0,0,2" TextWrapping="Wrap" />
+            <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,0,12" TextWrapping="Wrap"
+                       Text="They stay in your funds' holdings but aren't fetched or streamed today, so the next stocks by weight take their places in the live feed. They come back automatically tomorrow." />
+            <StackPanel Orientation="Horizontal">
+              <Button Style="{StaticResource Button.Primary}" ui:Ui.Icon="&#xE8D8;" Content="Exclude for today" Command="{Binding ConfirmExcludeCommand}"
+                      ui:Ui.IsSpinning="{Binding ConfirmExcludeCommand.IsRunning}" AutomationProperties.Name="Confirm exclude for today" />
+              <Button Style="{StaticResource Button.Ghost}" Content="Cancel" Margin="8,0,0,0" Command="{Binding CancelExcludeCommand}" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+        <Border DockPanel.Dock="Top" Style="{StaticResource Banner}" Tag="{x:Static vm:StatusLevel.Good}" Padding="14,8" Margin="0,0,0,12"
+                Visibility="{Binding AllFailedExcluded, Converter={StaticResource BoolToVisibility}}">
+          <DockPanel>
+            <Button DockPanel.Dock="Right" Style="{StaticResource Button.Ghost}" Content="Include again" Height="28" Command="{Binding IncludeAgainCommand}"
+                    ToolTip="Fetch and stream these symbols again from now on" />
+            <TextBlock Text="{Binding ExcludedText}" Style="{StaticResource Text.Body}" VerticalAlignment="Center" />
+          </DockPanel>
         </Border>
         <views:QuoteResultsPanel DataContext="{Binding Results}" />
       </DockPanel>

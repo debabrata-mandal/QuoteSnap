@@ -52,7 +52,7 @@ public sealed class FyersQuoteProvider(HttpClient http, IOptions<FyersOptions> o
 
         decimal? ltp = FyersJson.GetDecimal(values, "lp");
         if (ltp is null)
-            return ProviderQuote.Failure(symbol, "Fyers returned no last traded price.");
+            return ProviderQuote.Failure(symbol, "Fyers returned no last traded price; the stock may be suspended or not traded yet. Check the symbol, or exclude it for today.");
 
         return new ProviderQuote(symbol)
         {

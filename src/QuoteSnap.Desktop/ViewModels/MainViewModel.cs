@@ -22,16 +22,23 @@ public sealed partial class MainViewModel : ObservableObject
     {
         _connection = connection;
         FileDialogs dialogs = new();
-        Dashboard = new DashboardViewModel(connection);
+        SymbolExclusions exclusions = new(connection);
+        Dashboard = new DashboardViewModel(connection, exclusions);
         NewRequest = new NewRequestViewModel(connection, dialogs);
-        History = new HistoryViewModel(connection, dialogs);
+        History = new HistoryViewModel(connection, dialogs, exclusions);
         Nav = new NavViewModel(connection, dialogs);
-        Holdings = new HoldingsViewModel(connection, dialogs);
+        Holdings = new HoldingsViewModel(connection, dialogs, exclusions);
         Stocks = new StocksViewModel(connection);
         Settings = new SettingsViewModel(store, connection, loaded);
         FyersLogin = new FyersLoginViewModel(connection, store);
 
         Holdings.AddFundsRequested += (_, _) => SelectedTabIndex = NavTab;
+        Dashboard.ProblemsRequested += async (_, request) =>
+        {
+            Task showing = History.ShowAsync(request.RequestId, request.Status.ToString());
+            SelectedTabIndex = HistoryTab;
+            await showing;
+        };
         FyersLogin.SettingsRequested += (_, _) => SelectedTabIndex = SettingsTab;
         FyersLogin.SessionChanged += async (_, _) => await Dashboard.RefreshIfIdleAsync();
 

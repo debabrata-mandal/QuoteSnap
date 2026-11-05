@@ -22,6 +22,23 @@ namespace QuoteSnap.Api.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("QuoteSnap.Api.Data.ExcludedSymbolRecord", b =>
+                {
+                    b.Property<string>("Symbol")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset>("ExcludedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Symbol");
+
+                    b.ToTable("ExcludedSymbols", (string)null);
+                });
+
             modelBuilder.Entity("QuoteSnap.Api.Data.FundHoldingRecord", b =>
                 {
                     b.Property<long>("Id")

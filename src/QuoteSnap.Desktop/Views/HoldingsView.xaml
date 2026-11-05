@@ -137,6 +137,12 @@
           </DockPanel>
           <TextBlock Text="{Binding PricesDetail}" Style="{StaticResource Text.Muted}" Margin="0,3,0,0" TextTrimming="CharacterEllipsis"
                      ToolTip="{Binding PricesDetail}" />
+          <DockPanel Margin="0,6,0,0" Visibility="{Binding HasExcluded, Converter={StaticResource BoolToVisibility}}">
+            <Button DockPanel.Dock="Right" Style="{StaticResource Button.Ghost}" Content="Include again" Height="26" Margin="8,0,0,0"
+                    Command="{Binding IncludeExcludedCommand}" ToolTip="Fetch and stream these symbols again from now on" />
+            <TextBlock Text="{Binding ExcludedText}" ToolTip="{Binding ExcludedText}" Style="{StaticResource Text.Muted}" Foreground="{DynamicResource WarningBrush}"
+                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+          </DockPanel>
           <ProgressBar Value="{Binding PricesPercent, Mode=OneWay}" Maximum="100" Margin="0,10,0,0" AutomationProperties.Name="Live prices progress"
                        Visibility="{Binding IsGettingPrices, Converter={StaticResource BoolToVisibility}}" />
         </StackPanel>

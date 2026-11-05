@@ -15,6 +15,7 @@ public sealed partial class HoldingsViewModel : ObservableObject
 {
     private readonly QuoteSnapConnection _connection;
     private readonly FileDialogs _dialogs;
+    private readonly SymbolExclusions _exclusions;
     private IReadOnlyList<HoldingRow> _allHoldings = [];
     private Dictionary<string, QuoteResultDto> _quotes = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, LiveQuote> _live = new(StringComparer.OrdinalIgnoreCase);
@@ -24,10 +25,16 @@ public sealed partial class HoldingsViewModel : ObservableObject
     private bool _activated;
     private bool _showingLoadWarning;
 
-    public HoldingsViewModel(QuoteSnapConnection connection, FileDialogs dialogs)
+    public HoldingsViewModel(QuoteSnapConnection connection, FileDialogs dialogs, SymbolExclusions exclusions)
     {
         _connection = connection;
         _dialogs = dialogs;
+        _exclusions = exclusions;
+        _exclusions.Changed += (_, _) =>
+        {
+            OnPropertyChanged(nameof(ExcludedText));
+            OnPropertyChanged(nameof(HasExcluded));
+        };
         Funds.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(HasFunds));
@@ -157,7 +164,26 @@ public sealed partial class HoldingsViewModel : ObservableObject
     public async Task ActivateAsync()
     {
         _activated = true;
-        await RefreshAsync();
+        await Task.WhenAll(RefreshAsync(), _exclusions.RefreshAsync());
+    }
+
+    public bool HasExcluded => _exclusions.Today.Count > 0;
+
+    /// <summary>"Excluded today: NSE:DIACABS-BE, NSE:OMNI-EQ. They aren't fetched or streamed; …".</summary>
+    public string ExcludedText => $"Excluded today: {string.Join(", ", _exclusions.Today)}. They aren't fetched or streamed; the next stocks by weight take their places.";
+
+    /// <summary>Fetches and streams today's excluded symbols again.</summary>
+    [RelayCommand]
+    private async Task IncludeExcludedAsync()
+    {
+        try
+        {
+            await _exclusions.IncludeAsync(_exclusions.Today);
+        }
+        catch (Exception ex)
+        {
+            PricesDetail = "Couldn't include the symbols again. " + ErrorText.Describe(ex, _connection.Settings.BaseAddress);
+        }
     }
 
     partial void OnFilterTextChanged(string value) => ApplyFilter();

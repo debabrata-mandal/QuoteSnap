@@ -23,6 +23,7 @@ public sealed class LiveFeedService(LiveQuoteStore store, LiveFeedSignal signal,
     private Feed? _feed;
     private List<string>? _wanted;
     private bool _rerank = true;
+    private DateOnly _rankedDay;
     private DateTimeOffset _retryAt;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -86,7 +87,8 @@ public sealed class LiveFeedService(LiveQuoteStore store, LiveFeedSignal signal,
             return;
         }
 
-        if (_rerank || _wanted is null)
+        // Yesterday's exclusions lapse at midnight.
+        if (_rerank || _wanted is null || DateOnly.FromDateTime(time.GetLocalNow().DateTime) != _rankedDay)
         {
             _wanted = await RankAsync(settings.SymbolCount, cancellationToken);
             _rerank = false;
@@ -123,7 +125,11 @@ public sealed class LiveFeedService(LiveQuoteStore store, LiveFeedSignal signal,
     {
         await using AsyncServiceScope scope = scopes.CreateAsyncScope();
         Dictionary<int, List<FundHoldingRecord>> portfolios = await scope.ServiceProvider.GetRequiredService<HoldingRepository>().GetLatestHoldingsAsync(cancellationToken);
-        List<string> holdings = [.. TopHoldings.Rank(portfolios, null, count).Select(h => h.Symbol)];
+        SymbolExclusionRepository exclusions = scope.ServiceProvider.GetRequiredService<SymbolExclusionRepository>();
+        _rankedDay = exclusions.Today;
+        HashSet<string> excluded = await exclusions.GetTodaySymbolsAsync(cancellationToken);
+        // Excluded symbols give up their places to the next holdings by weight.
+        List<string> holdings = [.. TopHoldings.Rank(portfolios, null, int.MaxValue).Select(h => h.Symbol).Where(s => !excluded.Contains(s)).Take(count)];
         return holdings.Count == 0 ? holdings : [.. holdings, .. MarketIndex.All.Select(i => i.Symbol)];
     }
 

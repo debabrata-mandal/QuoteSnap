@@ -59,4 +59,28 @@ public sealed class ResultSetViewModelTests
         Assert.Empty(results.Visible);
         Assert.Equal("No quotes match “zzz”.", results.EmptyText);
     }
+
+    [Fact]
+    public void Problems_first_lists_unfetched_quotes_before_the_rest_in_their_order()
+    {
+        ResultSetViewModel results = new(new FileDialogs(), "empty") { ProblemsFirst = true };
+
+        results.Results =
+        [
+            Result("NSE:SBIN-EQ", QuoteResultStatus.Ok),
+            Result("NSE:BAD-EQ", QuoteResultStatus.Error, "No data"),
+            Result("NSE:TCS-EQ", QuoteResultStatus.Ok),
+            Result("FOO", QuoteResultStatus.Invalid),
+        ];
+
+        Assert.Equal(["NSE:BAD-EQ", "FOO", "NSE:SBIN-EQ", "NSE:TCS-EQ"], results.Visible.Select(r => r.Symbol));
+    }
+
+    [Fact]
+    public void Without_problems_first_quotes_keep_their_order()
+    {
+        ResultSetViewModel results = new(new FileDialogs(), "empty") { Results = [Result("NSE:SBIN-EQ", QuoteResultStatus.Ok), Result("NSE:BAD-EQ", QuoteResultStatus.Error)] };
+
+        Assert.Equal(["NSE:SBIN-EQ", "NSE:BAD-EQ"], results.Visible.Select(r => r.Symbol));
+    }
 }
