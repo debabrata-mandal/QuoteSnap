@@ -125,11 +125,12 @@ public sealed class LiveFeedService(LiveQuoteStore store, LiveFeedSignal signal,
     {
         await using AsyncServiceScope scope = scopes.CreateAsyncScope();
         Dictionary<int, List<FundHoldingRecord>> portfolios = await scope.ServiceProvider.GetRequiredService<HoldingRepository>().GetLatestHoldingsAsync(cancellationToken);
+        Dictionary<int, decimal>? values = await TopHoldings.LoadValuesAsync(scope.ServiceProvider.GetRequiredService<MyFundRepository>(), scope.ServiceProvider.GetRequiredService<NavRepository>(), cancellationToken);
         SymbolExclusionRepository exclusions = scope.ServiceProvider.GetRequiredService<SymbolExclusionRepository>();
         _rankedDay = exclusions.Today;
         HashSet<string> excluded = await exclusions.GetTodaySymbolsAsync(cancellationToken);
         // Excluded symbols give up their places to the next holdings by weight.
-        List<string> holdings = [.. TopHoldings.Rank(portfolios, null, int.MaxValue).Select(h => h.Symbol).Where(s => !excluded.Contains(s)).Take(count)];
+        List<string> holdings = [.. TopHoldings.Rank(portfolios, values, null, int.MaxValue).Select(h => h.Symbol).Where(s => !excluded.Contains(s)).Take(count)];
         return holdings.Count == 0 ? holdings : [.. holdings, .. MarketIndex.All.Select(i => i.Symbol)];
     }
 

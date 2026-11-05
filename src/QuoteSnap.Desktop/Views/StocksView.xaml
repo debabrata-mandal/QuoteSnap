@@ -51,7 +51,7 @@
 
     <StackPanel Margin="0,0,0,22">
       <TextBlock Text="Stocks" Style="{StaticResource Text.PageTitle}" />
-      <TextBlock Text="Every listed stock your funds hold, largest average weight first: each stock's weight in each fund, averaged over all your funds with holdings. Prices update as they stream in."
+      <TextBlock Text="Every listed stock your funds hold, largest average weight first: each stock's weight in each fund, averaged over all your funds with holdings, weighted by the value of your units once every fund has units. Prices update as they stream in."
                  Style="{StaticResource Text.PageSubtitle}" TextWrapping="Wrap" />
     </StackPanel>
 
@@ -100,7 +100,7 @@
           </Grid.ColumnDefinitions>
           <TextBlock Text="STOCK" Style="{StaticResource Text.Label}" />
           <TextBlock Grid.Column="1" Text="AVG. WEIGHT" Style="{StaticResource Text.Label}" TextAlignment="Right" Margin="0,0,8,0"
-                     ToolTip="The stock's weight in each fund, averaged over all your funds with holdings" />
+                     ToolTip="The stock's weight in each fund, averaged over all your funds with holdings (weighted by the value of your units once every fund has units)" />
           <TextBlock Grid.Column="2" Text="FUNDS" Style="{StaticResource Text.Label}" TextAlignment="Right" ToolTip="How many of your funds hold the stock" />
           <TextBlock Grid.Column="3" Text="PRICE" Style="{StaticResource Text.Label}" TextAlignment="Right" />
           <TextBlock Grid.Column="4" Text="DAY" Style="{StaticResource Text.Label}" TextAlignment="Right" ToolTip="Today's change" />

@@ -58,12 +58,16 @@ public sealed record FundHoldings(int SchemeCode, string SchemeName, string Scan
 /// <param name="PreviousPercent">The weight a month earlier; null when it wasn't held then or that month isn't stored.</param>
 public sealed record FundHolding(string Name, string? Symbol, string? Isin, string AssetType, string? Sector, decimal Percent, decimal? Shares, decimal? PreviousPercent);
 
-/// <summary>The stocks the listed funds hold most, as if the same amount were invested in each fund that has holdings.</summary>
+/// <summary>
+/// The stocks the listed funds hold most: weighted by the value of the units held in each fund once every listed fund
+/// has units and a NAV, otherwise as if the same amount were invested in each fund that has holdings.
+/// </summary>
 /// <param name="FundCount">Listed funds with stored holdings; each stock's weight is averaged over these.</param>
 /// <param name="RequestId">The finished holdings quote request the prices come from; null when none has finished.</param>
 /// <param name="PricesAt">When that request finished.</param>
 /// <param name="Holdings">Largest weight first.</param>
-public sealed record TopHoldingList(int FundCount, Guid? RequestId, DateTimeOffset? PricesAt, IReadOnlyList<TopHolding> Holdings);
+/// <param name="ByValue">True when the weights are averaged by the value held in each fund rather than equally.</param>
+public sealed record TopHoldingList(int FundCount, Guid? RequestId, DateTimeOffset? PricesAt, IReadOnlyList<TopHolding> Holdings, bool ByValue = false);
 
 /// <summary>The holdings symbols left out of live prices today: they aren't fetched or streamed, so the next holdings by weight are streamed instead.</summary>
 /// <param name="Day">The server's local date they're excluded on; tomorrow they're back.</param>
@@ -73,7 +77,7 @@ public sealed record ExcludedSymbolList(DateOnly Day, DateTimeOffset? ExcludedAt
 /// <summary>The body of PUT /api/holdings/exclusions: today's whole list of excluded symbols.</summary>
 public sealed record SetExcludedSymbols(IReadOnlyList<string> Symbols);
 
-/// <param name="Percent">The stock's weight averaged over every fund with holdings, counting funds that don't hold it as 0%.</param>
+/// <param name="Percent">The stock's weight averaged over every fund with holdings (by value held when <see cref="TopHoldingList.ByValue"/>), counting funds that don't hold it as 0%.</param>
 /// <param name="FundCount">How many of the funds hold it.</param>
 /// <param name="ChangePercent">The day's change in percent from the last live prices; null when it has no price.</param>
 public sealed record TopHolding(string Symbol, string Name, string? Sector, decimal Percent, int FundCount, decimal? Ltp, decimal? ChangePercent);

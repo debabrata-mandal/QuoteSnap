@@ -63,17 +63,18 @@ public static class HoldingEndpoints
     private const int DefaultTopLimit = 10;
     private const int MaxTopLimit = 100;
 
-    /// <summary>The stocks the listed funds hold most, by weight averaged over the funds, with the last live prices.</summary>
+    /// <summary>The stocks the listed funds hold most, by weight averaged over the funds (by value held once every fund has units), with the last live prices.</summary>
     /// <param name="limit">At most 100; 10 by default.</param>
     /// <param name="all">True for every stock the funds hold, ignoring <paramref name="limit"/>.</param>
-    private static async Task<Ok<TopHoldingList>> GetTopAsync(int? limit, bool? all, HoldingRepository holdings, QuoteRequestRepository requests, LiveQuoteStore live, CancellationToken cancellationToken)
+    private static async Task<Ok<TopHoldingList>> GetTopAsync(int? limit, bool? all, HoldingRepository holdings, MyFundRepository funds, NavRepository navs, QuoteRequestRepository requests, LiveQuoteStore live, CancellationToken cancellationToken)
     {
         Dictionary<int, List<FundHoldingRecord>> portfolios = await holdings.GetLatestHoldingsAsync(cancellationToken);
+        Dictionary<int, decimal>? values = await TopHoldings.LoadValuesAsync(funds, navs, cancellationToken);
         QuoteRequest? request = await requests.GetLatestFinishedForHoldingsAsync(cancellationToken);
         Dictionary<string, Price> prices = Prices.Merge(request?.Results, live.GetQuotes().Quotes);
         int count = all == true ? int.MaxValue : Math.Clamp(limit ?? DefaultTopLimit, 1, MaxTopLimit);
-        IReadOnlyList<TopHolding> top = TopHoldings.Rank(portfolios, prices, count);
-        return TypedResults.Ok(new TopHoldingList(portfolios.Count, request?.Id, Prices.LatestAt(request, prices), top));
+        IReadOnlyList<TopHolding> top = TopHoldings.Rank(portfolios, values, prices, count);
+        return TypedResults.Ok(new TopHoldingList(portfolios.Count, request?.Id, Prices.LatestAt(request, prices), top, TopHoldings.ByValue(portfolios, values)));
     }
 
     /// <summary>

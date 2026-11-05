@@ -510,8 +510,8 @@ public sealed partial class DashboardViewModel : ObservableObject
         TopHoldingsEmptyText = list.FundCount == 0 ? "No holdings yet. Add funds on the Mutual funds page and fetch their ScanX holdings on the Holdings page." : "None of your funds' holdings are listed stocks.";
     }
 
-    /// <summary>"Average weight across 3 funds · prices from today 10:42", or a hint to get live prices.</summary>
-    public static string? TopHoldingsText(TopHoldingList list) => list.FundCount == 0 ? null : $"Average weight across {Display.Count(list.FundCount, "fund")} · " + (list.PricesAt is { } at ? $"prices from {Display.WhenInSentence(at)}" : "get live prices on the Holdings page");
+    /// <summary>"Average weight across 3 funds · prices from today 10:42" ("Weighted by value across…" once every fund has units), or a hint to get live prices.</summary>
+    public static string? TopHoldingsText(TopHoldingList list) => list.FundCount == 0 ? null : $"{(list.ByValue ? "Weighted by value" : "Average weight")} across {Display.Count(list.FundCount, "fund")} · " + (list.PricesAt is { } at ? $"prices from {Display.WhenInSentence(at)}" : "get live prices on the Holdings page");
 
     private void ShowRequests(QuoteRequestPage page)
     {

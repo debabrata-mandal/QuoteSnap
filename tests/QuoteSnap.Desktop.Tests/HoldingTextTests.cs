@@ -251,6 +251,7 @@ public sealed class HoldingTextTests
         Assert.Null(DashboardViewModel.TopHoldingsText(new TopHoldingList(0, null, null, [])));
         Assert.Equal("Average weight across 2 funds · get live prices on the Holdings page", DashboardViewModel.TopHoldingsText(new TopHoldingList(2, null, null, [])));
         Assert.StartsWith("Average weight across 1 fund · prices from ", DashboardViewModel.TopHoldingsText(new TopHoldingList(1, Guid.NewGuid(), Created, [])));
+        Assert.Equal("Weighted by value across 2 funds · get live prices on the Holdings page", DashboardViewModel.TopHoldingsText(new TopHoldingList(2, null, null, [], ByValue: true)));
     }
 
     [Fact]

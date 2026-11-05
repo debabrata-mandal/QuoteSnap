@@ -80,7 +80,7 @@ public static class MyFundEndpoints
     }
 
     /// <summary>Sets how many units of a listed fund the user holds, so the overall move can weight the funds by value.</summary>
-    private static async Task<Results<Ok<MyFund>, ProblemHttpResult>> SetUnitsAsync(int schemeCode, SetFundUnits body, MyFundRepository funds, NavRepository navs, EventPublisher events, ILoggerFactory loggers, CancellationToken cancellationToken)
+    private static async Task<Results<Ok<MyFund>, ProblemHttpResult>> SetUnitsAsync(int schemeCode, SetFundUnits body, MyFundRepository funds, NavRepository navs, LiveFeedSignal liveFeed, EventPublisher events, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         if (body.Units is { } units && (units <= 0 || units >= 100_000_000_000_000m || decimal.Round(units, 4) != units))
             return TypedResults.Problem("Units must be greater than 0 with at most 4 decimals, or null to clear them.", statusCode: StatusCodes.Status400BadRequest, title: "Invalid units");
@@ -88,6 +88,8 @@ public static class MyFundEndpoints
             return TypedResults.Problem($"Scheme {schemeCode} isn't on your list.", statusCode: StatusCodes.Status404NotFound, title: "Fund not found");
 
         loggers.CreateLogger(typeof(MyFundEndpoints)).LogInformation("Set the units of {SchemeCode} {SchemeName}", fund.SchemeCode, fund.SchemeName);
+        // The live feed ranks the holdings by the value held in each fund.
+        liveFeed.Notify();
         await events.ChangedAsync(ServerChange.MyFunds);
         MutualFundNav? nav = (await navs.FindBySchemeCodesAsync([schemeCode], cancellationToken)).SingleOrDefault();
         return TypedResults.Ok(ToDto(fund, nav));
