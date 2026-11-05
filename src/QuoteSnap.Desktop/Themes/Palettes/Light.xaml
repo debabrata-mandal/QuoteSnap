@@ -1,0 +1,82 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+  <!-- Light palette: white surfaces on a soft grey canvas. Keys match Palettes/Dark.xaml. -->
+  <sys:Boolean x:Key="IsDarkTheme">False</sys:Boolean>
+
+  <Color x:Key="BackgroundColor">#F4F5F8</Color>
+  <Color x:Key="SidebarColor">#EBEDF2</Color>
+  <Color x:Key="SurfaceColor">#FFFFFF</Color>
+  <Color x:Key="SurfaceRaisedColor">#FFFFFF</Color>
+  <Color x:Key="InputColor">#FFFFFF</Color>
+  <Color x:Key="AccentColor">#4F6BED</Color>
+  <Color x:Key="AccentAltColor">#7C5CFF</Color>
+  <Color x:Key="TextColor">#161A22</Color>
+  <Color x:Key="TextMutedColor">#5A6272</Color>
+  <Color x:Key="TextSubtleColor">#8A919E</Color>
+  <Color x:Key="SuccessColor">#15803D</Color>
+  <Color x:Key="WarningColor">#B45309</Color>
+  <Color x:Key="DangerColor">#DC2626</Color>
+  <Color x:Key="InfoColor">#0369A1</Color>
+
+  <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
+  <SolidColorBrush x:Key="BackgroundMicaBrush" Color="#EBF4F5F8" />
+  <SolidColorBrush x:Key="SidebarBrush" Color="{StaticResource SidebarColor}" />
+  <SolidColorBrush x:Key="SidebarMicaBrush" Color="#B3EBEDF2" />
+  <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
+  <SolidColorBrush x:Key="SurfaceRaisedBrush" Color="{StaticResource SurfaceRaisedColor}" />
+  <SolidColorBrush x:Key="InputBrush" Color="{StaticResource InputColor}" />
+  <SolidColorBrush x:Key="BorderBrush" Color="#1A000000" />
+  <SolidColorBrush x:Key="BorderStrongBrush" Color="#33000000" />
+  <SolidColorBrush x:Key="DividerBrush" Color="#12000000" />
+  <SolidColorBrush x:Key="FillSubtleBrush" Color="#08000000" />
+  <SolidColorBrush x:Key="FillBrush" Color="#0F000000" />
+  <SolidColorBrush x:Key="FillStrongBrush" Color="#1A000000" />
+  <SolidColorBrush x:Key="HoverBrush" Color="#0A000000" />
+  <SolidColorBrush x:Key="PressBrush" Color="#14000000" />
+  <SolidColorBrush x:Key="ScrollThumbBrush" Color="#40000000" />
+  <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#66000000" />
+  <SolidColorBrush x:Key="ScrollThumbPressedBrush" Color="#8C000000" />
+
+  <SolidColorBrush x:Key="TextBrush" Color="{StaticResource TextColor}" />
+  <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource TextMutedColor}" />
+  <SolidColorBrush x:Key="TextSubtleBrush" Color="{StaticResource TextSubtleColor}" />
+  <SolidColorBrush x:Key="TextOnAccentBrush" Color="#FFFFFF" />
+
+  <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
+  <SolidColorBrush x:Key="AccentHoverBrush" Color="#3E58D6" />
+  <SolidColorBrush x:Key="AccentSubtleBrush" Color="#264F6BED" />
+  <SolidColorBrush x:Key="SelectionBrush" Color="#1A4F6BED" />
+  <LinearGradientBrush x:Key="AccentGradientBrush" StartPoint="0,0" EndPoint="1,1">
+    <GradientStop Offset="0" Color="{StaticResource AccentColor}" />
+    <GradientStop Offset="1" Color="{StaticResource AccentAltColor}" />
+  </LinearGradientBrush>
+  <LinearGradientBrush x:Key="AccentGradientHorizontalBrush" StartPoint="0,0" EndPoint="1,0">
+    <GradientStop Offset="0" Color="{StaticResource AccentColor}" />
+    <GradientStop Offset="1" Color="{StaticResource AccentAltColor}" />
+  </LinearGradientBrush>
+  <LinearGradientBrush x:Key="ShimmerBrush" StartPoint="0,0" EndPoint="1,0">
+    <GradientStop Offset="0" Color="#004F6BED" />
+    <GradientStop Offset="0.5" Color="#FF4F6BED" />
+    <GradientStop Offset="1" Color="#007C5CFF" />
+  </LinearGradientBrush>
+
+  <SolidColorBrush x:Key="NeutralBrush" Color="{StaticResource TextMutedColor}" />
+  <SolidColorBrush x:Key="NeutralSubtleBrush" Color="#145A6272" />
+  <SolidColorBrush x:Key="NeutralBorderBrush" Color="#405A6272" />
+  <SolidColorBrush x:Key="AccentBorderBrush" Color="#664F6BED" />
+  <SolidColorBrush x:Key="InfoBrush" Color="{StaticResource InfoColor}" />
+  <SolidColorBrush x:Key="InfoSubtleBrush" Color="#1A0369A1" />
+  <SolidColorBrush x:Key="InfoBorderBrush" Color="#590369A1" />
+  <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource SuccessColor}" />
+  <SolidColorBrush x:Key="SuccessSubtleBrush" Color="#1A15803D" />
+  <SolidColorBrush x:Key="SuccessBorderBrush" Color="#5915803D" />
+  <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource WarningColor}" />
+  <SolidColorBrush x:Key="WarningSubtleBrush" Color="#1AB45309" />
+  <SolidColorBrush x:Key="WarningBorderBrush" Color="#59B45309" />
+  <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource DangerColor}" />
+  <SolidColorBrush x:Key="DangerSubtleBrush" Color="#1ADC2626" />
+  <SolidColorBrush x:Key="DangerBorderBrush" Color="#59DC2626" />
+  <SolidColorBrush x:Key="CaptionCloseBrush" Color="#C42B1C" />
+</ResourceDictionary>

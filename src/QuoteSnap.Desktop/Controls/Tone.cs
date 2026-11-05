@@ -3,7 +3,7 @@ using QuoteSnap.Desktop.ViewModels;
 
 namespace QuoteSnap.Desktop.Controls;
 
-/// <summary>The semantic colour of a pill, icon or chip; each has a strong and a subtle brush in Themes/Tokens.xaml.</summary>
+/// <summary>The semantic colour of a pill, icon or chip; each has a strong and a subtle brush in the palettes in Themes/Palettes.</summary>
 public enum Tone
 {
     Neutral,

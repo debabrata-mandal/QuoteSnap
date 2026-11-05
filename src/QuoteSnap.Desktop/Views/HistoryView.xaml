@@ -50,7 +50,7 @@
     <Border Grid.Row="1" Style="{StaticResource Banner}" Tag="{x:Static vm:StatusLevel.Bad}" Margin="0,0,0,16"
             Visibility="{Binding Message, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
       <DockPanel>
-        <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE783;" FontSize="14" Margin="0,1,10,0" VerticalAlignment="Top" Foreground="{StaticResource DangerBrush}" />
+        <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE783;" FontSize="14" Margin="0,1,10,0" VerticalAlignment="Top" Foreground="{DynamicResource DangerBrush}" />
         <TextBlock Text="{Binding Message}" Style="{StaticResource Text.Body}" />
       </DockPanel>
     </Border>
@@ -63,7 +63,7 @@
                   Command="{Binding LoadMoreCommand}" ui:Ui.IsSpinning="{Binding LoadMoreCommand.IsRunning}" />
           <TextBlock Text="{Binding CountText}" Style="{StaticResource Text.Muted}" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" />
         </DockPanel>
-        <Border DockPanel.Dock="Bottom" Height="1" Background="{StaticResource DividerBrush}" />
+        <Border DockPanel.Dock="Bottom" Height="1" Background="{DynamicResource DividerBrush}" />
         <Grid>
           <DataGrid ItemsSource="{Binding VisibleItems}" SelectedItem="{Binding SelectedItem}" Margin="8,4,8,0" AutomationProperties.Name="Requests">
             <DataGrid.Columns>
@@ -102,8 +102,8 @@
           </DataGrid>
           <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
                       Visibility="{Binding VisibleItems, Converter={StaticResource VisibleWhenEmpty}}">
-            <Border Width="52" Height="52" CornerRadius="26" Background="{StaticResource FillSubtleBrush}" HorizontalAlignment="Center">
-              <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE81C;" FontSize="20" Foreground="{StaticResource TextSubtleBrush}" />
+            <Border Width="52" Height="52" CornerRadius="26" Background="{DynamicResource FillSubtleBrush}" HorizontalAlignment="Center">
+              <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE81C;" FontSize="20" Foreground="{DynamicResource TextSubtleBrush}" />
             </Border>
             <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Text.Muted}" TextAlignment="Center" Margin="0,12,0,0" MaxWidth="340" />
           </StackPanel>
@@ -117,8 +117,8 @@
         <Grid>
           <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
                       Visibility="{Binding IsLoadingDetails, Converter={StaticResource InverseBoolToVisibility}}">
-            <Border Width="52" Height="52" CornerRadius="26" Background="{StaticResource FillSubtleBrush}" HorizontalAlignment="Center">
-              <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE8A1;" FontSize="20" Foreground="{StaticResource TextSubtleBrush}" />
+            <Border Width="52" Height="52" CornerRadius="26" Background="{DynamicResource FillSubtleBrush}" HorizontalAlignment="Center">
+              <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE8A1;" FontSize="20" Foreground="{DynamicResource TextSubtleBrush}" />
             </Border>
             <TextBlock Text="Select a request above to see its quotes." Style="{StaticResource Text.Muted}" TextAlignment="Center" Margin="0,12,0,0" />
           </StackPanel>
@@ -142,26 +142,26 @@
               </StackPanel.Resources>
               <Border>
                 <TextBlock Typography.NumeralAlignment="Tabular">
-                  <Run Text="TOTAL " Foreground="{StaticResource TextMutedBrush}" FontSize="{StaticResource FontSizeCaption}" FontWeight="SemiBold" />
+                  <Run Text="TOTAL " Foreground="{DynamicResource TextMutedBrush}" FontSize="{StaticResource FontSizeCaption}" FontWeight="SemiBold" />
                   <Run Text="{Binding Results.Total, Mode=OneWay, StringFormat=N0}" FontWeight="SemiBold" />
                 </TextBlock>
               </Border>
               <Border>
                 <TextBlock Typography.NumeralAlignment="Tabular">
-                  <Run Text="OK " Foreground="{StaticResource TextMutedBrush}" FontSize="{StaticResource FontSizeCaption}" FontWeight="SemiBold" />
-                  <Run Text="{Binding Results.Ok, Mode=OneWay, StringFormat=N0}" FontWeight="SemiBold" Foreground="{StaticResource SuccessBrush}" />
+                  <Run Text="OK " Foreground="{DynamicResource TextMutedBrush}" FontSize="{StaticResource FontSizeCaption}" FontWeight="SemiBold" />
+                  <Run Text="{Binding Results.Ok, Mode=OneWay, StringFormat=N0}" FontWeight="SemiBold" Foreground="{DynamicResource SuccessBrush}" />
                 </TextBlock>
               </Border>
               <Border>
                 <TextBlock Typography.NumeralAlignment="Tabular">
-                  <Run Text="FAILED " Foreground="{StaticResource TextMutedBrush}" FontSize="{StaticResource FontSizeCaption}" FontWeight="SemiBold" />
-                  <Run Text="{Binding Results.Errors, Mode=OneWay, StringFormat=N0}" FontWeight="SemiBold" Foreground="{StaticResource DangerBrush}" />
+                  <Run Text="FAILED " Foreground="{DynamicResource TextMutedBrush}" FontSize="{StaticResource FontSizeCaption}" FontWeight="SemiBold" />
+                  <Run Text="{Binding Results.Errors, Mode=OneWay, StringFormat=N0}" FontWeight="SemiBold" Foreground="{DynamicResource DangerBrush}" />
                 </TextBlock>
               </Border>
               <Border>
                 <TextBlock Typography.NumeralAlignment="Tabular">
-                  <Run Text="INVALID " Foreground="{StaticResource TextMutedBrush}" FontSize="{StaticResource FontSizeCaption}" FontWeight="SemiBold" />
-                  <Run Text="{Binding Results.Invalid, Mode=OneWay, StringFormat=N0}" FontWeight="SemiBold" Foreground="{StaticResource WarningBrush}" />
+                  <Run Text="INVALID " Foreground="{DynamicResource TextMutedBrush}" FontSize="{StaticResource FontSizeCaption}" FontWeight="SemiBold" />
+                  <Run Text="{Binding Results.Invalid, Mode=OneWay, StringFormat=N0}" FontWeight="SemiBold" Foreground="{DynamicResource WarningBrush}" />
                 </TextBlock>
               </Border>
             </StackPanel>

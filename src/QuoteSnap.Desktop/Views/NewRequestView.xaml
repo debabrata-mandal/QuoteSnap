@@ -10,8 +10,8 @@
              d:DataContext="{d:DesignInstance Type=vm:NewRequestViewModel}">
   <UserControl.Resources>
     <Style x:Key="Stat" TargetType="Border">
-      <Setter Property="Background" Value="{StaticResource FillSubtleBrush}" />
-      <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+      <Setter Property="Background" Value="{DynamicResource FillSubtleBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="{StaticResource RadiusControl}" />
       <Setter Property="Padding" Value="12,9" />
@@ -85,7 +85,7 @@
               </TextBox.InputBindings>
             </TextBox>
             <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE721;" FontSize="13" HorizontalAlignment="Left" Margin="13,0,0,0"
-                       Foreground="{StaticResource TextSubtleBrush}" IsHitTestVisible="False" />
+                       Foreground="{DynamicResource TextSubtleBrush}" IsHitTestVisible="False" />
             <Button Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE711;" Width="26" Height="26" HorizontalAlignment="Right" Margin="0,0,5,0"
                     ToolTip="Clear (Esc)" AutomationProperties.Name="Clear search" Command="{Binding ClearSearchCommand}"
                     Visibility="{Binding SearchText, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}" />
@@ -93,7 +93,7 @@
             <Popup IsOpen="{Binding IsSearchOpen}" PlacementTarget="{Binding ElementName=SymbolSearch}" Placement="Bottom"
                    StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" VerticalOffset="2"
                    Width="{Binding ActualWidth, ElementName=SymbolSearch}">
-              <Border Background="{StaticResource SurfaceRaisedBrush}" BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1"
+              <Border Background="{DynamicResource SurfaceRaisedBrush}" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1"
                       CornerRadius="8" Padding="6" Margin="0,0,0,8">
                 <Border.Effect>
                   <DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.45" Color="#000000" />
@@ -115,19 +115,19 @@
                                         Command="{Binding DataContext.AddSymbolCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0"
                                             Visibility="{Binding IsAdded, Converter={StaticResource BoolToVisibility}}">
-                                  <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE73E;" FontSize="12" Foreground="{StaticResource SuccessBrush}" Margin="0,0,6,0" />
-                                  <TextBlock Text="Added" FontSize="{StaticResource FontSizeSmall}" Foreground="{StaticResource SuccessBrush}" VerticalAlignment="Center" />
+                                  <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE73E;" FontSize="12" Foreground="{DynamicResource SuccessBrush}" Margin="0,0,6,0" />
+                                  <TextBlock Text="Added" FontSize="{StaticResource FontSizeSmall}" Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center" />
                                 </StackPanel>
                                 <StackPanel Margin="0,0,10,0" VerticalAlignment="Center">
-                                  <TextBlock Text="{Binding Name}" FontWeight="Medium" Foreground="{StaticResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                                  <TextBlock Text="{Binding Symbol}" Style="{StaticResource Text.Mono}" Foreground="{StaticResource TextMutedBrush}"
+                                  <TextBlock Text="{Binding Name}" FontWeight="Medium" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                  <TextBlock Text="{Binding Symbol}" Style="{StaticResource Text.Mono}" Foreground="{DynamicResource TextMutedBrush}"
                                              FontSize="{StaticResource FontSizeCaption}" Margin="0,2,0,0" />
                                 </StackPanel>
                               </DockPanel>
                             </Border>
                             <DataTemplate.Triggers>
                               <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Row" Property="Background" Value="{StaticResource HoverBrush}" />
+                                <Setter TargetName="Row" Property="Background" Value="{DynamicResource HoverBrush}" />
                               </Trigger>
                             </DataTemplate.Triggers>
                           </DataTemplate>
@@ -156,7 +156,7 @@
                 <TextBlock Text="{Binding SymbolSummary}" FontSize="{StaticResource FontSizeSmall}" Typography.NumeralAlignment="Tabular" />
               </Border>
               <TextBlock Text="Drop a .txt or .csv file onto the box to load it" Style="{StaticResource Text.Muted}"
-                         Foreground="{StaticResource TextSubtleBrush}" VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                         Foreground="{DynamicResource TextSubtleBrush}" VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
             </StackPanel>
           </DockPanel>
 
@@ -200,36 +200,36 @@
               <Border Style="{StaticResource Stat}">
                 <StackPanel>
                   <TextBlock Text="OK" Style="{StaticResource Text.Label}" />
-                  <TextBlock Text="{Binding Results.Ok, StringFormat=N0}" Style="{StaticResource StatValue}" Foreground="{StaticResource SuccessBrush}" />
+                  <TextBlock Text="{Binding Results.Ok, StringFormat=N0}" Style="{StaticResource StatValue}" Foreground="{DynamicResource SuccessBrush}" />
                 </StackPanel>
               </Border>
               <Border Style="{StaticResource Stat}">
                 <StackPanel>
                   <TextBlock Text="FAILED" Style="{StaticResource Text.Label}" />
-                  <TextBlock Text="{Binding Results.Errors, StringFormat=N0}" Style="{StaticResource StatValue}" Foreground="{StaticResource DangerBrush}" />
+                  <TextBlock Text="{Binding Results.Errors, StringFormat=N0}" Style="{StaticResource StatValue}" Foreground="{DynamicResource DangerBrush}" />
                 </StackPanel>
               </Border>
               <Border Style="{StaticResource Stat}">
                 <StackPanel>
                   <TextBlock Text="INVALID" Style="{StaticResource Text.Label}" />
-                  <TextBlock Text="{Binding Results.Invalid, StringFormat=N0}" Style="{StaticResource StatValue}" Foreground="{StaticResource WarningBrush}" />
+                  <TextBlock Text="{Binding Results.Invalid, StringFormat=N0}" Style="{StaticResource StatValue}" Foreground="{DynamicResource WarningBrush}" />
                 </StackPanel>
               </Border>
             </UniformGrid>
 
             <TextBlock DockPanel.Dock="Top" Text="{Binding InvalidSymbolsText}" Style="{StaticResource Text.Message}" Margin="0,12,0,0"
-                       Foreground="{StaticResource WarningBrush}" MaxHeight="36" TextTrimming="CharacterEllipsis" ToolTip="{Binding InvalidSymbolsText}" />
+                       Foreground="{DynamicResource WarningBrush}" MaxHeight="36" TextTrimming="CharacterEllipsis" ToolTip="{Binding InvalidSymbolsText}" />
 
             <DockPanel VerticalAlignment="Bottom">
               <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE8C8;" ToolTip="Copy request ID"
                       AutomationProperties.Name="Copy request ID" Command="{Binding CopyRequestIdCommand}"
                       Visibility="{Binding RequestId, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}" />
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE916;" FontSize="12" Foreground="{StaticResource TextSubtleBrush}" />
+                <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE916;" FontSize="12" Foreground="{DynamicResource TextSubtleBrush}" />
                 <TextBlock Text="{Binding ElapsedText, TargetNullValue=—}" Style="{StaticResource Text.Muted}" Margin="6,0,16,0" Typography.NumeralAlignment="Tabular" />
-                <TextBlock Text="ID" Style="{StaticResource Text.Label}" VerticalAlignment="Center" Foreground="{StaticResource TextSubtleBrush}" />
+                <TextBlock Text="ID" Style="{StaticResource Text.Label}" VerticalAlignment="Center" Foreground="{DynamicResource TextSubtleBrush}" />
                 <TextBlock Text="{Binding ShortRequestId, TargetNullValue=—}" ToolTip="{Binding RequestId}" Style="{StaticResource Text.Mono}"
-                           Foreground="{StaticResource TextMutedBrush}" Margin="6,0,0,0" VerticalAlignment="Center" />
+                           Foreground="{DynamicResource TextMutedBrush}" Margin="6,0,0,0" VerticalAlignment="Center" />
               </StackPanel>
             </DockPanel>
           </DockPanel>

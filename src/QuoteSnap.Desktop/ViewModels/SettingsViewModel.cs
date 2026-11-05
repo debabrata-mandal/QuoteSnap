@@ -19,8 +19,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         _store = store;
         _connection = connection;
+        Theme = ThemeManager.Current;
         Show(loaded);
     }
+
+    /// <summary>The colour theme; a change applies at once and is saved straight away.</summary>
+    [ObservableProperty]
+    public partial AppTheme Theme { get; set; }
 
     [ObservableProperty]
     public partial string BaseAddressText { get; set; } = "";
@@ -58,6 +63,22 @@ public sealed partial class SettingsViewModel : ObservableObject
         typeof(SettingsViewModel).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "1.0.0");
 
     public string Runtime { get; } = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription;
+
+    partial void OnThemeChanged(AppTheme value)
+    {
+        if (value == ThemeManager.Current)
+            return;
+
+        ThemeManager.Apply(value);
+        try
+        {
+            _store.SaveTheme(value);
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+        {
+            Report(StatusLevel.Warning, "Theme not saved", $"The {value} theme applies until you close the app, but it couldn't be saved: {ex.Message}");
+        }
+    }
 
     [RelayCommand]
     private void Save()

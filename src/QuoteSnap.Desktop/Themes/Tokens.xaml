@@ -2,75 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=System.Runtime">
 
-  <!-- Dark-only palette. Alpha comes first in WPF hex colours: #AARRGGBB. -->
-  <Color x:Key="BackgroundColor">#0E1116</Color>
-  <Color x:Key="SidebarColor">#0A0D11</Color>
-  <Color x:Key="SurfaceColor">#161A21</Color>
-  <Color x:Key="SurfaceRaisedColor">#1C212A</Color>
-  <Color x:Key="InputColor">#0B0E13</Color>
-  <Color x:Key="AccentColor">#6C8CFF</Color>
-  <Color x:Key="AccentAltColor">#9B7BFF</Color>
-  <Color x:Key="TextColor">#E6E9EF</Color>
-  <Color x:Key="TextMutedColor">#8B93A1</Color>
-  <Color x:Key="TextSubtleColor">#5E6573</Color>
-  <Color x:Key="SuccessColor">#22C55E</Color>
-  <Color x:Key="WarningColor">#F59E0B</Color>
-  <Color x:Key="DangerColor">#EF4444</Color>
-  <Color x:Key="InfoColor">#38BDF8</Color>
-
-  <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
-  <!-- Translucent versions let the Mica backdrop tint through when it's available. -->
-  <SolidColorBrush x:Key="BackgroundMicaBrush" Color="#E60E1116" />
-  <SolidColorBrush x:Key="SidebarBrush" Color="{StaticResource SidebarColor}" />
-  <SolidColorBrush x:Key="SidebarMicaBrush" Color="#B30A0D11" />
-  <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
-  <SolidColorBrush x:Key="SurfaceRaisedBrush" Color="{StaticResource SurfaceRaisedColor}" />
-  <SolidColorBrush x:Key="InputBrush" Color="{StaticResource InputColor}" />
-  <SolidColorBrush x:Key="BorderBrush" Color="#12FFFFFF" />
-  <SolidColorBrush x:Key="BorderStrongBrush" Color="#24FFFFFF" />
-  <SolidColorBrush x:Key="DividerBrush" Color="#0DFFFFFF" />
-  <SolidColorBrush x:Key="FillSubtleBrush" Color="#0AFFFFFF" />
-  <SolidColorBrush x:Key="FillBrush" Color="#12FFFFFF" />
-  <SolidColorBrush x:Key="FillStrongBrush" Color="#1FFFFFFF" />
-  <SolidColorBrush x:Key="HoverBrush" Color="#0DFFFFFF" />
-  <SolidColorBrush x:Key="PressBrush" Color="#26000000" />
-
-  <SolidColorBrush x:Key="TextBrush" Color="{StaticResource TextColor}" />
-  <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource TextMutedColor}" />
-  <SolidColorBrush x:Key="TextSubtleBrush" Color="{StaticResource TextSubtleColor}" />
-  <SolidColorBrush x:Key="TextOnAccentBrush" Color="#FFFFFF" />
-
-  <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
-  <SolidColorBrush x:Key="AccentHoverBrush" Color="#8AA4FF" />
-  <SolidColorBrush x:Key="AccentSubtleBrush" Color="#296C8CFF" />
-  <SolidColorBrush x:Key="SelectionBrush" Color="#1F6C8CFF" />
-  <LinearGradientBrush x:Key="AccentGradientBrush" StartPoint="0,0" EndPoint="1,1">
-    <GradientStop Offset="0" Color="{StaticResource AccentColor}" />
-    <GradientStop Offset="1" Color="{StaticResource AccentAltColor}" />
-  </LinearGradientBrush>
-  <LinearGradientBrush x:Key="AccentGradientHorizontalBrush" StartPoint="0,0" EndPoint="1,0">
-    <GradientStop Offset="0" Color="{StaticResource AccentColor}" />
-    <GradientStop Offset="1" Color="{StaticResource AccentAltColor}" />
-  </LinearGradientBrush>
-
-  <!-- Tone brushes: ToneBrushConverter looks these up as {Tone}Brush, {Tone}SubtleBrush and {Tone}BorderBrush. -->
-  <SolidColorBrush x:Key="NeutralBrush" Color="{StaticResource TextMutedColor}" />
-  <SolidColorBrush x:Key="NeutralSubtleBrush" Color="#1A8B93A1" />
-  <SolidColorBrush x:Key="NeutralBorderBrush" Color="#338B93A1" />
-  <SolidColorBrush x:Key="AccentBorderBrush" Color="#596C8CFF" />
-  <SolidColorBrush x:Key="InfoBrush" Color="{StaticResource InfoColor}" />
-  <SolidColorBrush x:Key="InfoSubtleBrush" Color="#1F38BDF8" />
-  <SolidColorBrush x:Key="InfoBorderBrush" Color="#5938BDF8" />
-  <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource SuccessColor}" />
-  <SolidColorBrush x:Key="SuccessSubtleBrush" Color="#1F22C55E" />
-  <SolidColorBrush x:Key="SuccessBorderBrush" Color="#5922C55E" />
-  <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource WarningColor}" />
-  <SolidColorBrush x:Key="WarningSubtleBrush" Color="#1FF59E0B" />
-  <SolidColorBrush x:Key="WarningBorderBrush" Color="#59F59E0B" />
-  <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource DangerColor}" />
-  <SolidColorBrush x:Key="DangerSubtleBrush" Color="#1FEF4444" />
-  <SolidColorBrush x:Key="DangerBorderBrush" Color="#59EF4444" />
-  <SolidColorBrush x:Key="CaptionCloseBrush" Color="#C42B1C" />
+  <!-- Colours and brushes live in Palettes/*.xaml, which ThemeManager swaps at runtime; reference them with DynamicResource. -->
 
   <!-- Typography -->
   <FontFamily x:Key="UiFont">Segoe UI Variable Text, Segoe UI</FontFamily>

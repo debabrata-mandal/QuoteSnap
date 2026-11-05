@@ -10,7 +10,7 @@
   <UserControl.Resources>
     <!-- One stock: name, "NSE:HAL-EQ · Aerospace & Defence", average weight with a bar, how many funds hold it, price and day change. -->
     <DataTemplate x:Key="StockTemplate" DataType="{x:Type vm:TopHoldingRow}">
-      <Border x:Name="Row" Padding="20,10,20,10" Background="Transparent" BorderBrush="{StaticResource DividerBrush}" BorderThickness="0,0,0,1">
+      <Border x:Name="Row" Padding="20,10,20,10" Background="Transparent" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1">
         <Grid>
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
@@ -20,12 +20,12 @@
             <ColumnDefinition Width="96" />
           </Grid.ColumnDefinitions>
           <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
-            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Tip}" />
+            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Tip}" />
             <TextBlock Text="{Binding Detail}" Style="{StaticResource Text.Muted}" FontSize="{StaticResource FontSizeCaption}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
           </StackPanel>
           <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
             <TextBlock Text="{Binding WeightText}" FontWeight="SemiBold" HorizontalAlignment="Right" Typography.NumeralAlignment="Tabular" />
-            <ProgressBar Height="3" Maximum="1" Value="{Binding BarFraction, Mode=OneWay}" Margin="24,5,0,0" Foreground="{StaticResource AccentGradientHorizontalBrush}" />
+            <ProgressBar Height="3" Maximum="1" Value="{Binding BarFraction, Mode=OneWay}" Margin="24,5,0,0" Foreground="{DynamicResource AccentGradientHorizontalBrush}" />
           </StackPanel>
           <TextBlock Grid.Column="2" Text="{Binding FundsText}" Style="{StaticResource Text.Muted}" HorizontalAlignment="Right" VerticalAlignment="Center"
                      Typography.NumeralAlignment="Tabular" ToolTip="{Binding FundsTip}" />
@@ -37,7 +37,7 @@
       </Border>
       <DataTemplate.Triggers>
         <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
-          <Setter TargetName="Row" Property="Background" Value="{StaticResource HoverBrush}" />
+          <Setter TargetName="Row" Property="Background" Value="{DynamicResource HoverBrush}" />
         </Trigger>
       </DataTemplate.Triggers>
     </DataTemplate>
@@ -67,7 +67,7 @@
                 </TextBox.InputBindings>
               </TextBox>
               <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE71C;" FontSize="13" HorizontalAlignment="Left" Margin="13,0,0,0"
-                         Foreground="{StaticResource TextSubtleBrush}" IsHitTestVisible="False" />
+                         Foreground="{DynamicResource TextSubtleBrush}" IsHitTestVisible="False" />
               <Button Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE711;" Width="26" Height="26" HorizontalAlignment="Right" Margin="0,0,5,0"
                       ToolTip="Clear the filter" AutomationProperties.Name="Clear the filter" Command="{Binding ClearFilterCommand}"
                       Visibility="{Binding FilterText, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}" />
@@ -79,7 +79,7 @@
             <TextBlock Text="All holdings" Style="{StaticResource Text.Section}" />
             <Border Style="{StaticResource Chip}" Margin="10,0,0,0" Padding="7,1" VerticalAlignment="Center"
                     Visibility="{Binding Summary, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}">
-              <TextBlock Text="{Binding Summary}" Foreground="{StaticResource TextMutedBrush}" FontSize="{StaticResource FontSizeCaption}" />
+              <TextBlock Text="{Binding Summary}" Foreground="{DynamicResource TextMutedBrush}" FontSize="{StaticResource FontSizeCaption}" />
             </Border>
             <TextBlock Text="{Binding Caption}" Style="{StaticResource Text.Muted}" VerticalAlignment="Center" Margin="12,0,0,0" TextTrimming="CharacterEllipsis" />
           </StackPanel>
@@ -105,7 +105,7 @@
           <TextBlock Grid.Column="3" Text="PRICE" Style="{StaticResource Text.Label}" TextAlignment="Right" />
           <TextBlock Grid.Column="4" Text="DAY" Style="{StaticResource Text.Label}" TextAlignment="Right" ToolTip="Today's change" />
         </Grid>
-        <Border DockPanel.Dock="Top" Height="1" Background="{StaticResource DividerBrush}"
+        <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource DividerBrush}"
                 Visibility="{Binding HasStocks, Converter={StaticResource BoolToVisibility}}" />
 
         <Grid>
@@ -126,8 +126,8 @@
           </ItemsControl>
           <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24,40" MaxWidth="360"
                       Visibility="{Binding ShowEmptyState, Converter={StaticResource BoolToVisibility}}">
-            <Border Width="52" Height="52" CornerRadius="26" Background="{StaticResource FillSubtleBrush}" HorizontalAlignment="Center">
-              <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE9D2;" FontSize="20" Foreground="{StaticResource TextSubtleBrush}" />
+            <Border Width="52" Height="52" CornerRadius="26" Background="{DynamicResource FillSubtleBrush}" HorizontalAlignment="Center">
+              <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE9D2;" FontSize="20" Foreground="{DynamicResource TextSubtleBrush}" />
             </Border>
             <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Text.Muted}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,12,0,0" />
           </StackPanel>

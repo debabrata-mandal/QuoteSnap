@@ -4,6 +4,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using QuoteSnap.Desktop.Controls;
 using QuoteSnap.Desktop.Interop;
+using QuoteSnap.Desktop.Services;
 
 namespace QuoteSnap.Desktop;
 
@@ -66,16 +67,25 @@ public partial class MainWindow : Window
     {
         base.OnSourceInitialized(e);
         HwndSource source = (HwndSource)PresentationSource.FromVisual(this);
+        WindowEffects.SetDarkMode(source.Handle, ThemeManager.IsDark);
+        ThemeManager.Changed += OnThemeChanged;
+        Closed += (_, _) => ThemeManager.Changed -= OnThemeChanged;
         if (WindowEffects.Apply(source.Handle))
         {
             // Mica shows through wherever WPF draws nothing, so the surfaces switch to their translucent versions.
             source.CompositionTarget.BackgroundColor = Colors.Transparent;
             Background = Brushes.Transparent;
-            ContentBackground.Background = (Brush)FindResource("BackgroundMicaBrush");
-            Sidebar.Background = (Brush)FindResource("SidebarMicaBrush");
+            ContentBackground.SetResourceReference(BackgroundProperty, "BackgroundMicaBrush");
+            Sidebar.SetResourceReference(BackgroundProperty, "SidebarMicaBrush");
         }
 
         source.AddHook(WndProc);
+    }
+
+    private void OnThemeChanged(object? sender, EventArgs e)
+    {
+        if (PresentationSource.FromVisual(this) is HwndSource source)
+            WindowEffects.SetDarkMode(source.Handle, ThemeManager.IsDark);
     }
 
     private void OnWindowStateChanged()

@@ -5,6 +5,8 @@
   <Application.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
+        <!-- The colour palette; ThemeManager replaces this first entry when the theme changes. -->
+        <ResourceDictionary Source="Themes/Palettes/Dark.xaml" />
         <ResourceDictionary Source="Themes/Controls.xaml" />
         <ResourceDictionary Source="Assets/AppIcon.xaml" />
       </ResourceDictionary.MergedDictionaries>

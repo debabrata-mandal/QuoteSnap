@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Data;
 using QuoteSnap.Contracts;
 using QuoteSnap.Desktop.Controls;
+using QuoteSnap.Desktop.Services;
 using QuoteSnap.Desktop.Text;
 
 namespace QuoteSnap.Desktop;
@@ -17,7 +18,7 @@ public sealed class ToneConverter : IValueConverter
         throw new NotSupportedException();
 }
 
-/// <summary>Status values to the tone's brush from Themes/Tokens.xaml; pass "subtle" for the tinted background or "border" for the outline.</summary>
+/// <summary>Status values to the tone's brush from the palettes in Themes/Palettes; pass "subtle" for the tinted background or "border" for the outline.</summary>
 public sealed class ToneBrushConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -29,7 +30,7 @@ public sealed class ToneBrushConverter : IValueConverter
             _ => "",
         };
         string key = $"{Tones.Of(value)}{variant}Brush";
-        return Application.Current.TryFindResource(key) ?? DependencyProperty.UnsetValue;
+        return ThemeManager.Brush(key);
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
@@ -57,7 +58,7 @@ public sealed class SignToBrushConverter : IValueConverter
             decimal d when d < 0 => "Danger" + suffix,
             _ => parameter is "subtle" ? "FillBrush" : null,
         };
-        return key is null ? DependencyProperty.UnsetValue : Application.Current.TryFindResource(key) ?? DependencyProperty.UnsetValue;
+        return key is null ? DependencyProperty.UnsetValue : ThemeManager.Brush(key);
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
@@ -138,7 +139,7 @@ public sealed class InverseBoolToVisibilityConverter : IValueConverter
 
 /// <summary>
 /// True when the value's text equals the parameter. Converting back from true yields the parameter,
-/// which lets radio buttons drive an index or a filter name.
+/// which lets radio buttons drive an index, an enum or a filter name.
 /// </summary>
 public sealed class EqualsConverter : IValueConverter
 {
@@ -149,6 +150,8 @@ public sealed class EqualsConverter : IValueConverter
     {
         if (value is not true || parameter is not string text)
             return Binding.DoNothing;
+        if (targetType.IsEnum)
+            return Enum.Parse(targetType, text);
         return targetType == typeof(int) ? int.Parse(text, CultureInfo.InvariantCulture) : text;
     }
 }

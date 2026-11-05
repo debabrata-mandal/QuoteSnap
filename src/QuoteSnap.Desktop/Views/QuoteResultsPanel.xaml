@@ -20,7 +20,7 @@
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
           <TextBlock Text="Quotes" Style="{StaticResource Text.Section}" />
           <Border Style="{StaticResource Chip}" Margin="10,0,0,0" Padding="7,1" VerticalAlignment="Center">
-            <TextBlock Text="{Binding RowCountText}" Foreground="{StaticResource TextMutedBrush}" FontSize="{StaticResource FontSizeCaption}"
+            <TextBlock Text="{Binding RowCountText}" Foreground="{DynamicResource TextMutedBrush}" FontSize="{StaticResource FontSizeCaption}"
                        Typography.NumeralAlignment="Tabular" />
           </Border>
         </StackPanel>
@@ -30,7 +30,7 @@
           <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Padding="32,6,10,6"
                    ui:Ui.Placeholder="Filter symbols or errors" AutomationProperties.Name="Filter quotes" />
           <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE721;" FontSize="12" HorizontalAlignment="Left" Margin="12,0,0,0"
-                     Foreground="{StaticResource TextSubtleBrush}" IsHitTestVisible="False" />
+                     Foreground="{DynamicResource TextSubtleBrush}" IsHitTestVisible="False" />
         </Grid>
         <Button Grid.Column="3" Content="Export CSV" ui:Ui.Icon="&#xEDE1;" Command="{Binding ExportCommand}" />
       </Grid>
@@ -84,8 +84,8 @@
 
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24,40"
                     Visibility="{Binding Visible, Converter={StaticResource VisibleWhenEmpty}}">
-          <Border Width="52" Height="52" CornerRadius="26" Background="{StaticResource FillSubtleBrush}" HorizontalAlignment="Center">
-            <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE9D2;" FontSize="20" Foreground="{StaticResource TextSubtleBrush}" />
+          <Border Width="52" Height="52" CornerRadius="26" Background="{DynamicResource FillSubtleBrush}" HorizontalAlignment="Center">
+            <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE9D2;" FontSize="20" Foreground="{DynamicResource TextSubtleBrush}" />
           </Border>
           <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Text.Muted}" TextAlignment="Center" Margin="0,12,0,0" MaxWidth="320" />
         </StackPanel>

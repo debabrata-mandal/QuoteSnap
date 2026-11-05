@@ -18,6 +18,7 @@ public sealed class SettingsStore(string settingsPath, IReadOnlyList<string> env
     private const string ApiKeyVariable = "Auth__ApiKey";
     private const string AdminApiKeyVariable = "Auth__AdminApiKey";
     private const string FyersLoginFileName = "fyers-login.json";
+    private const string AppearanceFileName = "appearance.json";
     private static readonly byte[] Entropy = "QuoteSnap.Desktop.ApiKey.v1"u8.ToArray();
     private static readonly byte[] FyersEntropy = "QuoteSnap.Desktop.FyersLogin.v1"u8.ToArray();
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
@@ -27,6 +28,29 @@ public sealed class SettingsStore(string settingsPath, IReadOnlyList<string> env
     public string SettingsPath { get; } = settingsPath;
 
     public string FyersLoginPath { get; } = Path.Combine(Path.GetDirectoryName(settingsPath) ?? "", FyersLoginFileName);
+
+    public string AppearancePath { get; } = Path.Combine(Path.GetDirectoryName(settingsPath) ?? "", AppearanceFileName);
+
+    /// <summary>The saved theme, or <see cref="AppTheme.Dark"/> when none is saved or the file can't be read.</summary>
+    public AppTheme LoadTheme()
+    {
+        try
+        {
+            if (File.Exists(AppearancePath) && JsonSerializer.Deserialize<StoredAppearance>(File.ReadAllText(AppearancePath), Json) is { } stored && Enum.TryParse(stored.Theme, ignoreCase: true, out AppTheme theme) && Enum.IsDefined(theme))
+                return theme;
+        }
+        catch (Exception ex) when (ex is JsonException or IOException)
+        {
+        }
+
+        return AppTheme.Dark;
+    }
+
+    public void SaveTheme(AppTheme theme)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(AppearancePath)!);
+        File.WriteAllText(AppearancePath, JsonSerializer.Serialize(new StoredAppearance(theme.ToString()), Json));
+    }
 
     public LoadedSettings Load()
     {
@@ -162,4 +186,6 @@ public sealed class SettingsStore(string settingsPath, IReadOnlyList<string> env
     private sealed record StoredSettings(string BaseAddress, string? ProtectedApiKey, string? ProtectedAdminApiKey = null);
 
     private sealed record StoredFyersLogin(string? AppId, string? ProtectedSecretId, string? ProtectedPin, string? RedirectUri);
+
+    private sealed record StoredAppearance(string? Theme);
 }

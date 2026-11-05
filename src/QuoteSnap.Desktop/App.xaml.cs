@@ -16,6 +16,7 @@ public partial class App : Application
         DispatcherUnhandledException += OnUnhandledException;
 
         SettingsStore store = SettingsStore.CreateDefault();
+        ThemeManager.Apply(store.LoadTheme());
         LoadedSettings loaded = store.Load();
         _connection = new QuoteSnapConnection(loaded.Settings);
         MainViewModel main = new(store, _connection, loaded);

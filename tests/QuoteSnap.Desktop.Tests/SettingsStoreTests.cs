@@ -10,6 +10,51 @@ public sealed class SettingsStoreTests : IDisposable
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
     [Fact]
+    public void Without_a_saved_theme_the_theme_is_dark()
+    {
+        SettingsStore store = new(Path.Combine(_root, "desktop-settings.json"), [_root]);
+
+        Assert.Equal(AppTheme.Dark, store.LoadTheme());
+    }
+
+    [Theory]
+    [InlineData(AppTheme.Light)]
+    [InlineData(AppTheme.Purple)]
+    [InlineData(AppTheme.Dark)]
+    public void The_saved_theme_round_trips(AppTheme theme)
+    {
+        SettingsStore store = new(Path.Combine(_root, "settings", "desktop-settings.json"), [_root]);
+
+        store.SaveTheme(theme);
+
+        Assert.Equal(theme, new SettingsStore(Path.Combine(_root, "settings", "desktop-settings.json"), [_root]).LoadTheme());
+    }
+
+    [Theory]
+    [InlineData("not json")]
+    [InlineData("{\"Theme\":\"Neon\"}")]
+    [InlineData("{\"Theme\":\"7\"}")]
+    public void An_unreadable_or_unknown_theme_falls_back_to_dark(string json)
+    {
+        SettingsStore store = new(Path.Combine(_root, "desktop-settings.json"), [_root]);
+        File.WriteAllText(store.AppearancePath, json);
+
+        Assert.Equal(AppTheme.Dark, store.LoadTheme());
+    }
+
+    [Fact]
+    public void Removing_saved_settings_keeps_the_theme()
+    {
+        SettingsStore store = new(Path.Combine(_root, "desktop-settings.json"), [_root]);
+        store.Save(new DesktopSettings(new Uri("http://192.168.1.20:8080/"), "saved-api-key-0000"));
+        store.SaveTheme(AppTheme.Light);
+
+        store.Reset();
+
+        Assert.Equal(AppTheme.Light, store.LoadTheme());
+    }
+
+    [Fact]
     public void Without_saved_settings_the_api_key_comes_from_the_nearest_env_file()
     {
         File.WriteAllText(Path.Combine(_root, ".env"), "QUOTESNAP_DB_PASSWORD=x\nAuth__ApiKey=from-env-file-0000\n");

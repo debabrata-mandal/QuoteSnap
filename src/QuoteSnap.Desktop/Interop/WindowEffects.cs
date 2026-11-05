@@ -26,10 +26,9 @@ internal static partial class WindowEffects
     /// <summary>Windows 11 22H2, the first build with DWMWA_SYSTEMBACKDROP_TYPE.</summary>
     private const int MicaBuild = 22621;
 
-    /// <summary>Dark caption and rounded corners; returns whether the Mica backdrop was applied.</summary>
+    /// <summary>Rounded corners; returns whether the Mica backdrop was applied.</summary>
     public static bool Apply(IntPtr hwnd)
     {
-        SetInt(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, 1);
         SetInt(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND);
         if (Environment.OSVersion.Version.Build < MicaBuild || !SetInt(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, DWMSBT_MAINWINDOW))
             return false;
@@ -38,6 +37,9 @@ internal static partial class WindowEffects
         SetWindowLong(hwnd, GWL_STYLE, GetWindowLong(hwnd, GWL_STYLE) & ~WS_SYSMENU);
         return true;
     }
+
+    /// <summary>Dark or light frame and Mica tint, to match the app's theme.</summary>
+    public static void SetDarkMode(IntPtr hwnd, bool dark) => SetInt(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, dark ? 1 : 0);
 
     /// <summary>The screen point packed into a WM_NCHITTEST lParam.</summary>
     public static (int X, int Y) PointFromLParam(IntPtr lParam)

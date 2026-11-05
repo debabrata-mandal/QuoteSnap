@@ -21,7 +21,7 @@
 
     <!-- A fund on the user's list: avatar, name, "Growth · Equity · Large & Mid Cap", NAV and date; remove appears on hover. Drag a row to move it. -->
     <DataTemplate x:Key="MyFundTemplate" DataType="{x:Type vm:FundRow}">
-      <Border x:Name="Row" Padding="20,12,12,12" Background="Transparent" BorderBrush="{StaticResource DividerBrush}" BorderThickness="0,0,0,1"
+      <Border x:Name="Row" Padding="20,12,12,12" Background="Transparent" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1"
               ToolTip="{Binding Details}">
         <Grid>
           <Grid.ColumnDefinitions>
@@ -33,35 +33,35 @@
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
           <Border Style="{StaticResource Avatar}" Background="{Binding AvatarColor}">
-            <TextBlock Text="{Binding Initials}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextOnAccentBrush}"
+            <TextBlock Text="{Binding Initials}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextOnAccentBrush}"
                        HorizontalAlignment="Center" VerticalAlignment="Center" />
           </Border>
           <StackPanel Grid.Column="1" Margin="14,0,12,0" VerticalAlignment="Center">
-            <TextBlock Text="{Binding Name}" FontSize="{StaticResource FontSizeSection}" FontWeight="Medium" Foreground="{StaticResource TextBrush}"
+            <TextBlock Text="{Binding Name}" FontSize="{StaticResource FontSizeSection}" FontWeight="Medium" Foreground="{DynamicResource TextBrush}"
                        TextWrapping="Wrap" TextTrimming="CharacterEllipsis" LineStackingStrategy="BlockLineHeight" LineHeight="19" MaxHeight="38"
                        ToolTip="{Binding Name}" />
             <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Text.Muted}" Margin="0,3,0,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
           </StackPanel>
           <StackPanel x:Name="NavBlock" Grid.Column="2" VerticalAlignment="Center">
             <TextBlock HorizontalAlignment="Right" FontSize="{StaticResource FontSizeSection}" FontWeight="SemiBold"
-                       Foreground="{StaticResource TextBrush}" Typography.NumeralAlignment="Tabular">
-              <Run Text="₹" Foreground="{StaticResource TextMutedBrush}" FontWeight="Normal" /><Run Text="{Binding NavText, Mode=OneWay}" />
+                       Foreground="{DynamicResource TextBrush}" Typography.NumeralAlignment="Tabular">
+              <Run Text="₹" Foreground="{DynamicResource TextMutedBrush}" FontWeight="Normal" /><Run Text="{Binding NavText, Mode=OneWay}" />
             </TextBlock>
             <TextBlock Text="{Binding NavDateText}" Style="{StaticResource Text.Muted}" HorizontalAlignment="Right" Margin="0,3,0,0"
                        FontSize="{StaticResource FontSizeCaption}" Typography.NumeralAlignment="Tabular" />
           </StackPanel>
-          <TextBlock x:Name="MissingText" Grid.Column="2" Text="Not in AMFI file" Style="{StaticResource Text.Muted}" Foreground="{StaticResource WarningBrush}"
+          <TextBlock x:Name="MissingText" Grid.Column="2" Text="Not in AMFI file" Style="{StaticResource Text.Muted}" Foreground="{DynamicResource WarningBrush}"
                      VerticalAlignment="Center" Visibility="Collapsed" />
           <ui:RollingText Grid.Column="3" Text="{Binding EstimateChangeText}" Key="{Binding SchemeCode, StringFormat=funds:{0}:change}" HorizontalAlignment="Right"
                           VerticalAlignment="Center" FontSize="{StaticResource FontSizeSection}" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular"
                           Foreground="{Binding EstimateChangePercent, Converter={StaticResource SignBrush}}" ToolTip="{Binding EstimateTip}" />
           <StackPanel x:Name="EstimatedNav" Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTip="{Binding EstimateTip}"
                       TextElement.FontSize="{StaticResource FontSizeSection}" TextElement.FontWeight="SemiBold" Typography.NumeralAlignment="Tabular">
-            <TextBlock Text="₹" Foreground="{StaticResource TextMutedBrush}" FontWeight="Normal" />
-            <ui:RollingText Text="{Binding EstimatedNavText}" Key="{Binding SchemeCode, StringFormat=funds:{0}:nav}" Foreground="{StaticResource TextBrush}" />
+            <TextBlock Text="₹" Foreground="{DynamicResource TextMutedBrush}" FontWeight="Normal" />
+            <ui:RollingText Text="{Binding EstimatedNavText}" Key="{Binding SchemeCode, StringFormat=funds:{0}:nav}" Foreground="{DynamicResource TextBrush}" />
           </StackPanel>
           <TextBlock x:Name="NoEstimatedNav" Grid.Column="4" Text="{Binding EstimatedNavText}" HorizontalAlignment="Right" VerticalAlignment="Center"
-                     FontSize="{StaticResource FontSizeSection}" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" ToolTip="{Binding EstimateTip}"
+                     FontSize="{StaticResource FontSizeSection}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" ToolTip="{Binding EstimateTip}"
                      Visibility="Collapsed" />
           <Button x:Name="RemoveButton" Grid.Column="5" Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE711;" Margin="8,0,0,0" Opacity="0"
                   ToolTip="Remove from my funds" AutomationProperties.Name="Remove from my funds"
@@ -70,7 +70,7 @@
       </Border>
       <DataTemplate.Triggers>
         <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
-          <Setter TargetName="Row" Property="Background" Value="{StaticResource HoverBrush}" />
+          <Setter TargetName="Row" Property="Background" Value="{DynamicResource HoverBrush}" />
           <Setter TargetName="RemoveButton" Property="Opacity" Value="1" />
         </Trigger>
         <Trigger SourceName="Row" Property="IsKeyboardFocusWithin" Value="True">
@@ -88,7 +88,7 @@
           <Setter TargetName="Row" Property="Cursor" Value="SizeAll" />
         </DataTrigger>
         <DataTrigger Binding="{Binding IsDragging}" Value="True">
-          <Setter TargetName="Row" Property="Background" Value="{StaticResource HoverBrush}" />
+          <Setter TargetName="Row" Property="Background" Value="{DynamicResource HoverBrush}" />
           <Setter TargetName="Row" Property="Opacity" Value="0.6" />
         </DataTrigger>
       </DataTemplate.Triggers>
@@ -104,15 +104,15 @@
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
           <Border Style="{StaticResource Avatar}" Width="30" Height="30" CornerRadius="15" Background="{Binding AvatarColor}">
-            <TextBlock Text="{Binding Initials}" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource TextOnAccentBrush}"
+            <TextBlock Text="{Binding Initials}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextOnAccentBrush}"
                        HorizontalAlignment="Center" VerticalAlignment="Center" />
           </Border>
           <StackPanel Grid.Column="1" Margin="12,0,10,0" VerticalAlignment="Center">
-            <TextBlock Text="{Binding Name}" FontWeight="Medium" Foreground="{StaticResource TextBrush}" TextTrimming="CharacterEllipsis" />
+            <TextBlock Text="{Binding Name}" FontWeight="Medium" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
             <TextBlock Style="{StaticResource Text.Muted}" FontSize="{StaticResource FontSizeCaption}" Margin="0,2,0,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis">
               <Run Text="{Binding Subtitle, Mode=OneWay}" />
-              <Run Text="·" Foreground="{StaticResource TextSubtleBrush}" />
-              <Run Text="₹" /><Run Text="{Binding NavText, Mode=OneWay}" Foreground="{StaticResource TextBrush}" />
+              <Run Text="·" Foreground="{DynamicResource TextSubtleBrush}" />
+              <Run Text="₹" /><Run Text="{Binding NavText, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
             </TextBlock>
           </StackPanel>
           <Button Grid.Column="2" Content="Add" ui:Ui.Icon="&#xE710;" Height="28" Padding="10,0" FontSize="{StaticResource FontSizeSmall}"
@@ -121,14 +121,14 @@
                   Command="{Binding DataContext.AddCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
           <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0"
                       Visibility="{Binding IsAdded, Converter={StaticResource BoolToVisibility}}">
-            <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE73E;" FontSize="12" Foreground="{StaticResource SuccessBrush}" Margin="0,0,6,0" />
-            <TextBlock Text="Added" FontSize="{StaticResource FontSizeSmall}" Foreground="{StaticResource SuccessBrush}" VerticalAlignment="Center" />
+            <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE73E;" FontSize="12" Foreground="{DynamicResource SuccessBrush}" Margin="0,0,6,0" />
+            <TextBlock Text="Added" FontSize="{StaticResource FontSizeSmall}" Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center" />
           </StackPanel>
         </Grid>
       </Border>
       <DataTemplate.Triggers>
         <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
-          <Setter TargetName="Row" Property="Background" Value="{StaticResource HoverBrush}" />
+          <Setter TargetName="Row" Property="Background" Value="{DynamicResource HoverBrush}" />
         </Trigger>
       </DataTemplate.Triggers>
     </DataTemplate>
@@ -185,7 +185,7 @@
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
               <TextBlock Text="My funds" Style="{StaticResource Text.Section}" />
               <Border Style="{StaticResource Chip}" Margin="10,0,0,0" Padding="7,1" VerticalAlignment="Center">
-                <TextBlock Text="{Binding MyFundsSummary}" Foreground="{StaticResource TextMutedBrush}" FontSize="{StaticResource FontSizeCaption}" />
+                <TextBlock Text="{Binding MyFundsSummary}" Foreground="{DynamicResource TextMutedBrush}" FontSize="{StaticResource FontSizeCaption}" />
               </Border>
               <TextBlock Text="{Binding AsOfText}" Style="{StaticResource Text.Message}" VerticalAlignment="Center" Margin="12,0,0,0" />
             </StackPanel>
@@ -203,7 +203,7 @@
           <Border DockPanel.Dock="Top" Style="{StaticResource Banner}" Tag="{x:Static vm:StatusLevel.Bad}" Padding="14,12" Margin="20,0,20,12"
                   Visibility="{Binding IsConfirmingRemove, Converter={StaticResource BoolToVisibility}}">
             <StackPanel>
-              <TextBlock Text="{Binding RemoveQuestion}" FontWeight="SemiBold" Foreground="{StaticResource DangerBrush}" Margin="0,0,0,2" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding RemoveQuestion}" FontWeight="SemiBold" Foreground="{DynamicResource DangerBrush}" Margin="0,0,0,2" TextWrapping="Wrap" />
               <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,0,12"
                          Text="It leaves your list and its stored holdings are deleted, so it drops out of today's estimates and holdings. You can add it back by searching, then fetch its holdings again." />
               <StackPanel Orientation="Horizontal">
@@ -225,7 +225,7 @@
             <TextBlock DockPanel.Dock="Right" Text="NAV" Style="{StaticResource Text.Label}" Width="96" TextAlignment="Right" />
             <TextBlock Text="FUND" Style="{StaticResource Text.Label}" />
           </DockPanel>
-          <Border DockPanel.Dock="Top" Height="1" Background="{StaticResource DividerBrush}"
+          <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource DividerBrush}"
                   Visibility="{Binding HasFunds, Converter={StaticResource BoolToVisibility}}" />
 
           <Grid>
@@ -236,8 +236,8 @@
             </ScrollViewer>
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24,40" MaxWidth="360"
                         Visibility="{Binding ShowEmptyState, Converter={StaticResource BoolToVisibility}}">
-              <Border Width="56" Height="56" CornerRadius="28" Background="{StaticResource AccentSubtleBrush}" HorizontalAlignment="Center">
-                <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE825;" FontSize="22" Foreground="{StaticResource AccentBrush}" />
+              <Border Width="56" Height="56" CornerRadius="28" Background="{DynamicResource AccentSubtleBrush}" HorizontalAlignment="Center">
+                <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE825;" FontSize="22" Foreground="{DynamicResource AccentBrush}" />
               </Border>
               <TextBlock Text="Your list is empty" Style="{StaticResource Text.Section}" HorizontalAlignment="Center" Margin="0,14,0,0" />
               <TextBlock Text="Search for a fund on the right, such as “parag parikh flexi” or “nippon power infra”, then press Add."
@@ -270,7 +270,7 @@
                 </TextBox.InputBindings>
               </TextBox>
               <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE721;" FontSize="13" HorizontalAlignment="Left" Margin="13,0,0,0"
-                         Foreground="{StaticResource TextSubtleBrush}" IsHitTestVisible="False" />
+                         Foreground="{DynamicResource TextSubtleBrush}" IsHitTestVisible="False" />
               <Button Style="{StaticResource Button.Icon}" ui:Ui.Icon="&#xE711;" Width="26" Height="26" HorizontalAlignment="Right" Margin="0,0,5,0"
                       ToolTip="Clear (Esc)" AutomationProperties.Name="Clear search" Command="{Binding ClearSearchCommand}"
                       Visibility="{Binding SearchText, Converter={StaticResource VisibleWhenNull}, ConverterParameter=invert}" />
@@ -292,7 +292,7 @@
               </ScrollViewer>
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16,24" MaxWidth="280"
                           Visibility="{Binding SearchResults, Converter={StaticResource VisibleWhenEmpty}}">
-                <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE721;" FontSize="22" Foreground="{StaticResource TextSubtleBrush}" />
+                <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE721;" FontSize="22" Foreground="{DynamicResource TextSubtleBrush}" />
                 <TextBlock Text="{Binding SearchEmptyText}" Style="{StaticResource Text.Muted}" TextAlignment="Center" Margin="0,10,0,0" />
               </StackPanel>
             </Grid>
@@ -319,7 +319,7 @@
               <TextBlock DockPanel.Dock="Right" Text="{Binding LatestNavDateText}" FontWeight="SemiBold" Typography.NumeralAlignment="Tabular" />
               <TextBlock Text="Latest NAV date" Style="{StaticResource Text.Muted}" />
             </DockPanel>
-            <TextBlock Text="{Binding StatusError}" Style="{StaticResource Text.Message}" Foreground="{StaticResource WarningBrush}" Margin="0,0,0,8"
+            <TextBlock Text="{Binding StatusError}" Style="{StaticResource Text.Message}" Foreground="{DynamicResource WarningBrush}" Margin="0,0,0,8"
                        MaxHeight="36" TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusError}" />
             <ProgressBar IsIndeterminate="True" Height="3" Margin="0,2,0,10"
                          Visibility="{Binding RefreshNavsCommand.IsRunning, Converter={StaticResource BoolToVisibility}}" />

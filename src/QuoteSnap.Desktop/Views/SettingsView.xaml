@@ -19,7 +19,7 @@
       <Setter Property="FontSize" Value="18" />
       <Setter Property="Width" Value="24" />
       <Setter Property="Margin" Value="0,0,16,0" />
-      <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
     </Style>
     <Style x:Key="SettingTitle" TargetType="TextBlock">
       <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
@@ -40,9 +40,43 @@
         <Trigger Property="IsChecked" Value="True">
           <Setter Property="ui:Ui.Icon" Value="&#xED1A;" />
           <Setter Property="ToolTip" Value="Hide key" />
-          <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+          <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
         </Trigger>
       </Style.Triggers>
+    </Style>
+    <!-- A theme choice: a small preview of the theme with its name; the chosen one gets an accent outline. -->
+    <Style x:Key="ThemeTile" TargetType="RadioButton">
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Margin" Value="0,0,12,0" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+      <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <StackPanel>
+              <Border x:Name="Frame" Width="168" Height="104" Padding="3" CornerRadius="10" BorderThickness="2" BorderBrush="{DynamicResource BorderStrongBrush}" Background="Transparent">
+                <ContentPresenter />
+              </Border>
+              <StackPanel Orientation="Horizontal" Margin="2,8,0,0">
+                <TextBlock x:Name="Check" Style="{StaticResource Text.Icon}" Text="&#xE73E;" FontSize="12" Margin="0,0,6,0" Foreground="{DynamicResource AccentBrush}" Visibility="Collapsed" VerticalAlignment="Center" />
+                <TextBlock Text="{TemplateBinding Tag}" FontWeight="SemiBold" VerticalAlignment="Center" />
+              </StackPanel>
+            </StackPanel>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource TextSubtleBrush}" />
+              </Trigger>
+              <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}" />
+              </Trigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                <Setter TargetName="Check" Property="Visibility" Value="Visible" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
     </Style>
   </UserControl.Resources>
 
@@ -53,7 +87,90 @@
       </Grid.ColumnDefinitions>
       <StackPanel>
         <TextBlock Text="Settings" Style="{StaticResource Text.PageTitle}" />
-        <TextBlock Text="How the app reaches the QuoteSnap API. To log in to Fyers, open the Fyers login page." Style="{StaticResource Text.PageSubtitle}" />
+        <TextBlock Text="How the app looks and how it reaches the QuoteSnap API. To log in to Fyers, open the Fyers login page." Style="{StaticResource Text.PageSubtitle}" />
+
+        <TextBlock Text="Appearance" Style="{StaticResource Group}" />
+
+        <!-- The previews use fixed colours: each shows its own theme, whatever theme is active. -->
+        <Border Style="{StaticResource SettingRow}">
+          <StackPanel>
+            <DockPanel>
+              <TextBlock Style="{StaticResource SettingIcon}" Text="&#xE790;" />
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Theme" Style="{StaticResource SettingTitle}" />
+                <TextBlock Text="Changes apply straight away and are remembered next time." Style="{StaticResource SettingDescription}" />
+              </StackPanel>
+            </DockPanel>
+            <WrapPanel Margin="40,14,0,4" KeyboardNavigation.DirectionalNavigation="Cycle">
+              <RadioButton Style="{StaticResource ThemeTile}" Tag="Dark" AutomationProperties.Name="Dark theme" GroupName="Theme"
+                           IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=Dark}">
+                <Border CornerRadius="7" Background="#0E1116" ClipToBounds="True">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="34" />
+                      <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <Border Background="#0A0D11" CornerRadius="7,0,0,7" />
+                    <StackPanel Grid.Column="1" Margin="10,10,10,0">
+                      <Border Height="6" Width="60" CornerRadius="3" Background="#E6E9EF" HorizontalAlignment="Left" />
+                      <Border Height="40" CornerRadius="5" Background="#161A21" BorderBrush="#24FFFFFF" BorderThickness="1" Margin="0,8,0,0" />
+                      <Border Height="8" Width="44" CornerRadius="4" Background="#6C8CFF" HorizontalAlignment="Left" Margin="0,8,0,0" />
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </RadioButton>
+              <RadioButton Style="{StaticResource ThemeTile}" Tag="Light" AutomationProperties.Name="Light theme" GroupName="Theme"
+                           IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=Light}">
+                <Border CornerRadius="7" Background="#F4F5F8" ClipToBounds="True">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="34" />
+                      <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <Border Background="#EBEDF2" CornerRadius="7,0,0,7" />
+                    <StackPanel Grid.Column="1" Margin="10,10,10,0">
+                      <Border Height="6" Width="60" CornerRadius="3" Background="#161A22" HorizontalAlignment="Left" />
+                      <Border Height="40" CornerRadius="5" Background="#FFFFFF" BorderBrush="#1F000000" BorderThickness="1" Margin="0,8,0,0" />
+                      <Border Height="8" Width="44" CornerRadius="4" Background="#4F6BED" HorizontalAlignment="Left" Margin="0,8,0,0" />
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </RadioButton>
+              <RadioButton Style="{StaticResource ThemeTile}" Tag="Purple" AutomationProperties.Name="Purple theme" GroupName="Theme"
+                           IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=Purple}">
+                <Border CornerRadius="7" ClipToBounds="True">
+                  <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                      <GradientStop Color="#4A1D7A" Offset="0" />
+                      <GradientStop Color="#0D0816" Offset="0.5" />
+                      <GradientStop Color="#2A0B33" Offset="1" />
+                    </LinearGradientBrush>
+                  </Border.Background>
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="34" />
+                      <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <Border Background="#99050409" CornerRadius="7,0,0,7" />
+                    <StackPanel Grid.Column="1" Margin="10,10,10,0">
+                      <Border Height="6" Width="60" CornerRadius="3" Background="#F3EEFF" HorizontalAlignment="Left" />
+                      <Border Height="40" CornerRadius="5" Background="#C71E1730" BorderBrush="#47C4B5FD" BorderThickness="1" Margin="0,8,0,0" />
+                      <Border Height="8" Width="44" CornerRadius="4" HorizontalAlignment="Left" Margin="0,8,0,0">
+                        <Border.Background>
+                          <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                            <GradientStop Color="#8B5CF6" Offset="0" />
+                            <GradientStop Color="#C084FC" Offset="0.5" />
+                            <GradientStop Color="#F472B6" Offset="1" />
+                          </LinearGradientBrush>
+                        </Border.Background>
+                      </Border>
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </RadioButton>
+            </WrapPanel>
+          </StackPanel>
+        </Border>
 
         <TextBlock Text="Connection" Style="{StaticResource Group}" />
 
@@ -148,7 +265,7 @@
             <TextBlock Style="{StaticResource SettingIcon}" Text="&#xE8B7;" />
             <StackPanel VerticalAlignment="Center">
               <TextBlock Text="Settings file" Style="{StaticResource SettingTitle}" />
-              <TextBlock Text="{Binding SettingsPath}" Style="{StaticResource Text.Mono}" Foreground="{StaticResource TextMutedBrush}" Margin="0,3,0,0" />
+              <TextBlock Text="{Binding SettingsPath}" Style="{StaticResource Text.Mono}" Foreground="{DynamicResource TextMutedBrush}" Margin="0,3,0,0" />
               <TextBlock Text="The API keys are encrypted for your Windows account before they're saved." Style="{StaticResource SettingDescription}" />
             </StackPanel>
           </DockPanel>
@@ -158,7 +275,7 @@
 
         <Border Style="{StaticResource SettingRow}">
           <DockPanel>
-            <Border Width="28" Height="28" CornerRadius="8" Background="{StaticResource AccentGradientBrush}" Margin="0,0,14,0" VerticalAlignment="Center">
+            <Border Width="28" Height="28" CornerRadius="8" Background="{DynamicResource AccentGradientBrush}" Margin="0,0,14,0" VerticalAlignment="Center">
               <TextBlock Style="{StaticResource Text.Icon}" Text="&#xE9D2;" FontSize="14" Foreground="White" />
             </Border>
             <StackPanel VerticalAlignment="Center">
