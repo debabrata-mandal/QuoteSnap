@@ -21,6 +21,7 @@ The service needs no Fyers settings of its own. The login tool sends the Fyers A
 | `src/QuoteSnap.Desktop` | Windows desktop app (WPF): status dashboard, quote requests, history, mutual fund NAVs, fund holdings and the Fyers login |
 | `tests/` | Unit tests and integration tests (real API, PostgreSQL in Docker, fake Fyers) |
 | `docker-compose.yml` | PostgreSQL for local development |
+| `k8s/` | Kubernetes manifests for the API and PostgreSQL (Docker Desktop's Kubernetes) |
 
 ## Running locally
 
@@ -225,7 +226,7 @@ Invoke-RestMethod "http://127.0.0.1:8080/api/my-funds/152712/holdings?month=2026
 
 - A background worker goes through the funds one at a time, pausing between calls (`Holdings__DelayBetweenRequestsMs`, default 750). A fund takes one or two seconds, so the fetch returns `202` straight away. Poll it for progress; while it runs, the response carries `Retry-After: 1`. Only one fetch runs at a time, and one cut short by a restart resumes when the service starts.
 - Each fund ends `Ok` with its holding count and month, `NotFound`, or `Error` with the reason. The fetch ends `Completed`, `CompletedWithErrors`, or `Failed` when no fund succeeded.
-- Funds are matched to the source's schemes by name and fund house. Plan, option, punctuation and words like "Fund" are ignored, and small spelling differences are tolerated within the same fund house. Equity, hybrid, index and most other funds are covered, but few debt, liquid or fixed-maturity ones; those come back `NotFound`.
+- Funds are matched to the source's schemes by name and fund house. Plan, option, punctuation and words like "Fund" are ignored, and small spelling differences are tolerated within the same fund house. A fund house AMFI has renamed by extending its name is still found under the old one (AMFI's "Zerodha CASE Mutual Fund" is the source's "Zerodha Mutual Fund"). Equity, hybrid, index and most other funds are covered, but few debt, liquid or fixed-maturity ones; those come back `NotFound`.
 - A successful fetch replaces all 12 months stored for the fund. A failed one leaves them as they were. Removing a fund from the list deletes its holdings.
 - `POST /api/holdings/quotes` collects the distinct Fyers symbols from the latest stored month of every listed fund and submits them as one ordinary quote request (same validation, Fyers login check and worker as `POST /api/quote-requests`). Poll `/api/quote-requests/{id}`, or `GET /api/holdings/quotes/latest` to read back the last one. These requests are flagged in the `QuoteRequests` table (`ForHoldings`) and are deleted by the usual retention cleanup.
 - Symbols that keep failing (e.g. a suspended stock with no last traded price) can be excluded for today with `PUT /api/holdings/exclusions`; the desktop offers this on a request's errors, after a confirmation. Excluded symbols are left out of `POST /api/holdings/quotes` and the live feed until the local date changes.
@@ -289,6 +290,30 @@ docker run -d --name quotesnap --restart unless-stopped `
 ```
 
 The `quotesnap-data` volume holds the encryption keys for the stored Fyers session. Keep it, and back it up with the database: without the keys the stored session can't be decrypted and you have to log in again.
+
+## Deploying to Kubernetes
+
+`k8s/` runs the API and its own PostgreSQL in the `quotesnap` namespace, for example on Docker Desktop's Kubernetes (Settings → Kubernetes → Enable). Stop the local API first: the cluster's API takes port 8080, and two APIs would compete for Fyers' 100 streamed symbols. The cluster's database starts empty, so log in to Fyers and add your funds again.
+
+```powershell
+docker build -t quotesnap:local .
+
+# The secret, from the values in .env (expected-fyers-id is optional).
+kubectl create namespace quotesnap
+kubectl create secret generic quotesnap -n quotesnap `
+    --from-literal=db-password=<QUOTESNAP_DB_PASSWORD> `
+    --from-literal=api-key=<Auth__ApiKey> `
+    --from-literal=admin-api-key=<Auth__AdminApiKey>
+
+kubectl apply -k k8s
+kubectl get pods -n quotesnap
+```
+
+The API is then on `http://localhost:8080`, so the desktop app and login tool work unchanged. It runs as exactly one pod (its queues, live feed and event hub are in memory), applies migrations when it starts, and uses `/health` for its probes. PostgreSQL is reachable only inside the cluster; browse it with Adminer at [http://localhost:8081/?pgsql=postgres&username=quotesnap&db=quotesnap](http://localhost:8081/?pgsql=postgres&username=quotesnap&db=quotesnap) (the password is `QUOTESNAP_DB_PASSWORD`; stop Docker Compose first, as its Adminer also uses 8081), or with `kubectl exec -it -n quotesnap postgres-0 -- psql -U quotesnap -d quotesnap`. Its data and the API's encryption keys are on persistent volumes that survive restarts and redeploys, but `kubectl delete namespace quotesnap` deletes them.
+
+Docker Desktop's load balancer listens on every network interface, so other machines on your network can reach the API and Adminer too (if the Windows firewall allows it). The API still needs its keys and Adminer the database password.
+
+After changing the code, run `./k8s/deploy.ps1`. It builds the image with a unique tag, applies `k8s/`, waits for the rollout, checks `/health` and removes all but the newest 3 builds. It also creates the namespace and the secret from `.env` when they're missing, so on a fresh cluster it's the only command you need. `-SkipBuild` applies just manifest changes. Logs: `kubectl logs -n quotesnap deploy/quotesnap -f`.
 
 ## Development
 

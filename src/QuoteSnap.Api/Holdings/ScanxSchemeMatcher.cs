@@ -23,12 +23,26 @@ public static partial class ScanxSchemeMatcher
     /// <returns>Null when no ScanX scheme is close enough.</returns>
     public static ScanxScheme? Match(string schemeName, string? fundHouse, IReadOnlyList<ScanxScheme> schemes)
     {
-        string key = Key(schemeName);
-        if (key.Length == 0)
+        List<string> words = Words(schemeName);
+        if (words.Count == 0)
             return null;
 
-        string? amc = fundHouse is null ? null : AmcKey(fundHouse);
-        List<ScanxScheme> sameAmc = amc is null ? [] : [.. schemes.Where(s => AmcKey(s.Amc) == amc)];
+        List<ScanxScheme> sameAmc = [];
+        if (fundHouse is not null)
+        {
+            List<string> amc = AmcWords(fundHouse);
+            sameAmc = [.. schemes.Where(s => string.Concat(AmcWords(s.Amc)) == string.Concat(amc))];
+            // AMFI may rename a fund house by adding to its name ("Zerodha CASE Mutual Fund", still "Zerodha Mutual Fund"
+            // on ScanX), and its funds' names carry the addition too: "Zerodha CASE Nifty 50 Index Fund".
+            if (sameAmc.Count == 0 && ScanxAmc(amc, schemes) is { } scanxAmc)
+            {
+                sameAmc = [.. schemes.Where(s => AmcWords(s.Amc).SequenceEqual(scanxAmc))];
+                if (words.Take(amc.Count).SequenceEqual(amc))
+                    words = [.. scanxAmc, .. words.Skip(amc.Count)];
+            }
+        }
+
+        string key = string.Concat(words);
         IReadOnlyList<ScanxScheme> candidates = sameAmc.Count > 0 ? sameAmc : schemes;
 
         if (candidates.FirstOrDefault(s => Key(s.Name) == key) is { } exact)
@@ -94,8 +108,16 @@ public static partial class ScanxSchemeMatcher
     [GeneratedRegex("^[ivxl]{1,6}$")]
     private static partial Regex RomanNumeral();
 
-    private static string AmcKey(string amc) =>
-        Key(amc.Replace("Mutual Fund", "", StringComparison.OrdinalIgnoreCase));
+    private static List<string> AmcWords(string amc) => Words(amc.Replace("Mutual Fund", "", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// The longest ScanX fund house whose words start AMFI's renamed one (AMFI's "Zerodha CASE" is ScanX's "Zerodha"),
+    /// or null.
+    /// </summary>
+    private static List<string>? ScanxAmc(List<string> amc, IReadOnlyList<ScanxScheme> schemes) =>
+        schemes.Select(s => s.Amc).Distinct(StringComparer.OrdinalIgnoreCase).Select(AmcWords)
+            .Where(a => a.Count > 0 && a.Count < amc.Count && amc.Take(a.Count).SequenceEqual(a))
+            .MaxBy(a => a.Count);
 
     /// <summary>Dice coefficient of the two keys' letter pairs.</summary>
     private static double Similarity(string a, string b)

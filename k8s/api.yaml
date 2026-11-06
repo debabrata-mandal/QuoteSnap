@@ -1,0 +1,115 @@
+# The QuoteSnap API, on http://localhost:8080 through Docker Desktop's load balancer. The load balancer listens on every
+# network interface, so other machines on the network can reach it too; every call still needs an API key.
+apiVersion: v1
+kind: Service
+metadata:
+  name: quotesnap
+  labels:
+    app: quotesnap
+spec:
+  type: LoadBalancer
+  selector:
+    app: quotesnap
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+# The encryption keys for the stored Fyers login. Without them the login can't be decrypted and you have to log in again.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: quotesnap-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 100Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quotesnap
+spec:
+  # Exactly one: its queues, the Fyers live feed and the event hub live in memory, and Fyers allows 100 streamed
+  # symbols per user, so a second copy would conflict. Recreate stops the old pod before starting the new one.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: quotesnap
+  template:
+    metadata:
+      labels:
+        app: quotesnap
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 1654
+      containers:
+        - name: api
+          # Built locally with: docker build -t quotesnap:local .
+          image: quotesnap:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: QUOTESNAP_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: quotesnap
+                  key: db-password
+            - name: ConnectionStrings__QuoteSnap
+              value: Host=postgres;Port=5432;Database=quotesnap;Username=quotesnap;Password=$(QUOTESNAP_DB_PASSWORD)
+            - name: Auth__ApiKey
+              valueFrom:
+                secretKeyRef:
+                  name: quotesnap
+                  key: api-key
+            - name: Auth__AdminApiKey
+              valueFrom:
+                secretKeyRef:
+                  name: quotesnap
+                  key: admin-api-key
+            - name: Fyers__ExpectedFyersId
+              valueFrom:
+                secretKeyRef:
+                  name: quotesnap
+                  key: expected-fyers-id
+                  optional: true
+            # "Today" (excluded symbols, the live feed's daily re-rank) follows the market's time zone.
+            - name: TZ
+              value: Asia/Kolkata
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          # The API applies migrations before it listens, waiting up to a minute for PostgreSQL.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: quotesnap-data

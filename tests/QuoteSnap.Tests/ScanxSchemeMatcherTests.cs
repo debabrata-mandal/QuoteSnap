@@ -20,6 +20,8 @@ public sealed class ScanxSchemeMatcherTests
         new("Sundaram Mutual Fund", 35008, "Sundaram Long Term Tax Advantage Fund Series III Direct-Growth"),
         new("ICICI Prudential Mutual Fund", 42229, "ICICI Prudential Nifty SDL Sep 2027 Index Fund Direct-Growth"),
         new("PPFAS Mutual Fund", 19701, "Parag Parikh Flexi Cap Fund Direct-Growth"),
+        new("Zerodha Mutual Fund", 51001, "Zerodha Nifty Large Midcap 250 Index Fund Direct-Growth"),
+        new("Zerodha Mutual Fund", 51002, "Zerodha ELSS Tax Saver Nifty Large Midcap 250 Index Fund Direct-Growth"),
     ];
 
     [Theory]
@@ -35,6 +37,9 @@ public sealed class ScanxSchemeMatcherTests
     [InlineData("Axis CRISIL IBX 50:50 Gilt Plus SDL June 2028 Index Fund", "Axis Mutual Fund", 50002)]
     [InlineData("Parag Parikh Flexi Cap Fund", "PPFAS Mutual Fund", 19701)]
     [InlineData("Parag Parikh Flexi Cap Fund", null, 19701)]
+    [InlineData("Zerodha CASE Nifty LargeMidcap 250 Index Fund", "Zerodha CASE Mutual Fund", 51001)]
+    [InlineData("Zerodha CASE ELSS Tax Saver Nifty LargeMidcap 250 Index Fund", "Zerodha CASE Mutual Fund", 51002)]
+    [InlineData("Zerodha Nifty LargeMidcap 250 Index Fund", "Zerodha CASE Mutual Fund", 51001)]
     public void Finds_the_scanx_scheme(string schemeName, string? fundHouse, int planId)
     {
         Assert.Equal(planId, ScanxSchemeMatcher.Match(schemeName, fundHouse, Schemes)?.PlanId);
@@ -52,6 +57,7 @@ public sealed class ScanxSchemeMatcherTests
     [InlineData("ICICI Prudential Nifty SDL Sep 2026 Index Fund", "ICICI Prudential Mutual Fund")]
     [InlineData("HDFC Liquid Fund", "HDFC Mutual Fund")]
     [InlineData("Nifty India Defence Index Fund", "Unknown Mutual Fund")]
+    [InlineData("Zerodha CASE Nifty 50 Index Fund", "Zerodha CASE Mutual Fund")]
     public void Different_funds_are_not_matched(string schemeName, string? fundHouse)
     {
         Assert.Null(ScanxSchemeMatcher.Match(schemeName, fundHouse, Schemes));

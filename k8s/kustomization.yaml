@@ -1,0 +1,10 @@
+# Deploys the API and PostgreSQL to Docker Desktop's Kubernetes: kubectl apply -k k8s (see the README).
+# The quotesnap secret isn't here; create it with kubectl first.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: quotesnap
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - api.yaml
+  - adminer.yaml
