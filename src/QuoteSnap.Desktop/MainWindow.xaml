@@ -54,6 +54,9 @@
           <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" ui:Ui.Icon="&#xE8D7;" Content="Fyers login"
                        AutomationProperties.Name="Fyers login"
                        IsChecked="{Binding SelectedTabIndex, Converter={StaticResource Equals}, ConverterParameter=6}" />
+          <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" ui:Ui.Icon="&#xE895;" Content="Zerodha sync"
+                       AutomationProperties.Name="Zerodha sync"
+                       IsChecked="{Binding SelectedTabIndex, Converter={StaticResource Equals}, ConverterParameter=8}" />
           <RadioButton Style="{StaticResource NavItem}" GroupName="Nav" ui:Ui.Icon="&#xE713;" Content="Settings"
                        AutomationProperties.Name="Settings"
                        IsChecked="{Binding SelectedTabIndex, Converter={StaticResource Equals}, ConverterParameter=4}" />
@@ -141,6 +144,8 @@
                         Visibility="{Binding DataContext.SelectedTabIndex, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource EqualsToVisibility}, ConverterParameter=7}" />
       <views:FyersLoginView DataContext="{Binding FyersLogin}" Style="{StaticResource Page}"
                             Visibility="{Binding DataContext.SelectedTabIndex, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource EqualsToVisibility}, ConverterParameter=6}" />
+      <views:ZerodhaView DataContext="{Binding Zerodha}" Style="{StaticResource Page}"
+                         Visibility="{Binding DataContext.SelectedTabIndex, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource EqualsToVisibility}, ConverterParameter=8}" />
       <views:SettingsView DataContext="{Binding Settings}" Style="{StaticResource Page}"
                           Visibility="{Binding DataContext.SelectedTabIndex, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource EqualsToVisibility}, ConverterParameter=4}" />
     </Grid>

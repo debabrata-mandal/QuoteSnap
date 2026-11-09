@@ -133,6 +133,14 @@ public sealed class SettingsStore(string settingsPath, IReadOnlyList<string> env
             File.Delete(FyersLoginPath);
     }
 
+    /// <summary>Zerodha__ApiKey, Zerodha__ApiSecret and Zerodha__RedirectUri from .env; the app never saves them itself.</summary>
+    public LoadedZerodhaApp LoadZerodhaApp()
+    {
+        (string? envPath, IReadOnlyDictionary<string, string> env) = ReadEnvFile();
+        ZerodhaAppDetails details = new(env.GetValueOrDefault("Zerodha__ApiKey"), env.GetValueOrDefault("Zerodha__ApiSecret"), env.GetValueOrDefault("Zerodha__RedirectUri") ?? ZerodhaLoginOptions.DefaultRedirectUri);
+        return new LoadedZerodhaApp(details, (details.ApiKey ?? details.ApiSecret) is not null ? $"Prefilled from {envPath}" : "Not saved on this PC; add Zerodha__ApiKey and Zerodha__ApiSecret to the repository's .env to prefill them");
+    }
+
     private LoadedSettings Defaults(string? problem)
     {
         (string? envPath, IReadOnlyDictionary<string, string> env) = ReadEnvFile();

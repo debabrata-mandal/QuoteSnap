@@ -10,23 +10,24 @@ namespace QuoteSnap.Client;
 /// </summary>
 internal sealed class LoopbackCallbackListener : IDisposable
 {
-    private const string SuccessPage =
-        "<!doctype html><html><head><meta charset=\"utf-8\"><title>QuoteSnap</title></head>"
-        + "<body style=\"font-family:sans-serif\"><p>Fyers login received. You can close this tab and return to QuoteSnap.</p></body></html>";
-
     private readonly TcpListener _listener;
     private readonly string _path;
+    private readonly string _successPage;
 
-    private LoopbackCallbackListener(TcpListener listener, string path)
+    private LoopbackCallbackListener(TcpListener listener, string path, string broker)
     {
         _listener = listener;
         _path = path;
+        _successPage = "<!doctype html><html><head><meta charset=\"utf-8\"><title>QuoteSnap</title></head>"
+            + $"<body style=\"font-family:sans-serif\"><p>{broker} login received. You can close this tab and return to QuoteSnap.</p></body></html>";
     }
 
     public int Port => ((IPEndPoint)_listener.LocalEndpoint).Port;
 
     /// <param name="port">0 picks a free port (used by tests).</param>
-    public static LoopbackCallbackListener Start(int port, string path)
+    /// <param name="broker">Named on the page the browser shows after the redirect.</param>
+    /// <param name="listenError">Makes the exception thrown when the port can't be opened, from its message and cause.</param>
+    public static LoopbackCallbackListener Start(int port, string path, string broker = "Fyers", Func<string, Exception, Exception>? listenError = null)
     {
         TcpListener listener = new(IPAddress.Loopback, port);
         try
@@ -36,10 +37,11 @@ internal sealed class LoopbackCallbackListener : IDisposable
         catch (SocketException ex)
         {
             listener.Dispose();
-            throw new FyersLoginException($"Could not listen on 127.0.0.1:{port} ({ex.SocketErrorCode}). Close whatever is using that port, or use manual mode.", ex);
+            string message = $"Could not listen on 127.0.0.1:{port} ({ex.SocketErrorCode}). Close whatever is using that port, or use manual mode.";
+            throw listenError?.Invoke(message, ex) ?? new FyersLoginException(message, ex);
         }
 
-        return new LoopbackCallbackListener(listener, path);
+        return new LoopbackCallbackListener(listener, path, broker);
     }
 
     /// <summary>Returns the full callback URL, including its query string.</summary>
@@ -85,7 +87,7 @@ internal sealed class LoopbackCallbackListener : IDisposable
                 string? target = await ReadRequestTargetAsync(stream, timeout.Token);
                 if (target is not null && IsCallbackPath(target))
                 {
-                    await RespondAsync(stream, "200 OK", SuccessPage, timeout.Token);
+                    await RespondAsync(stream, "200 OK", _successPage, timeout.Token);
                     callback.TrySetResult(new Uri($"http://127.0.0.1:{Port}{target}"));
                 }
                 else

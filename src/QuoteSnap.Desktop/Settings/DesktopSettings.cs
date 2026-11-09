@@ -1,6 +1,6 @@
 namespace QuoteSnap.Desktop.Settings;
 
-/// <param name="AdminApiKey">Only needed for the Fyers login; must match the API's Auth__AdminApiKey.</param>
+/// <param name="AdminApiKey">Only needed for the Fyers login and the Zerodha sync; must match the API's Auth__AdminApiKey.</param>
 public sealed record DesktopSettings(Uri BaseAddress, string? ApiKey, string? AdminApiKey = null)
 {
     public static readonly Uri DefaultBaseAddress = new("http://127.0.0.1:8080/");
@@ -29,3 +29,9 @@ public sealed record FyersLoginDetails(string? AppId, string? SecretId, string? 
 /// <param name="IsRemembered">Whether the details were saved on this PC rather than read from .env.</param>
 /// <param name="Source">Where the details came from, shown on the Fyers login page.</param>
 public sealed record LoadedFyersLogin(FyersLoginDetails Details, bool IsRemembered, string Source);
+
+/// <summary>The Kite Connect app (from developers.kite.trade) that each Zerodha sync logs in with.</summary>
+public sealed record ZerodhaAppDetails(string? ApiKey, string? ApiSecret, string RedirectUri);
+
+/// <param name="Source">Where the details came from, shown on the Zerodha page.</param>
+public sealed record LoadedZerodhaApp(ZerodhaAppDetails Details, string Source);

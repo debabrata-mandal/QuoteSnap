@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.DataProtection.Repositories;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi;
 using QuoteSnap.Api.Data;
@@ -17,6 +18,7 @@ using QuoteSnap.Api.Logging;
 using QuoteSnap.Api.Nav;
 using QuoteSnap.Api.Options;
 using QuoteSnap.Api.Services;
+using QuoteSnap.Api.Zerodha;
 using QuoteSnap.Contracts;
 using Serilog;
 
@@ -46,6 +48,10 @@ builder.Services.AddOptions<AuthOptions>()
     .BindConfiguration(AuthOptions.SectionName)
     .ValidateDataAnnotations()
     .ValidateOnStart();
+builder.Services.AddOptions<ZerodhaOptions>()
+    .BindConfiguration(ZerodhaOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
 builder.Services.AddOptions<NavOptions>()
     .BindConfiguration(NavOptions.SectionName)
     .ValidateDataAnnotations()
@@ -70,6 +76,7 @@ builder.Services.AddScoped<MyFundRepository>();
 builder.Services.AddScoped<HoldingRepository>();
 builder.Services.AddScoped<FyersSymbolRepository>();
 builder.Services.AddScoped<SymbolExclusionRepository>();
+builder.Services.AddScoped<ZerodhaService>();
 builder.Services.AddSingleton<FundSearchCache>();
 
 IDataProtectionBuilder dataProtection = builder.Services.AddDataProtection().SetApplicationName("QuoteSnap");
@@ -124,6 +131,10 @@ builder.Services.AddHttpClient<FyersSymbolImporter>((services, client) =>
     })
     .AddExternalCallLogging("Fyers symbol master");
 
+IHttpClientBuilder kite = builder.Services.AddHttpClient<KiteClient>(client => client.DefaultRequestHeaders.UserAgent.ParseAdd("QuoteSnap"));
+kite.AddStandardResilienceHandler(options => options.Retry.DisableForUnsafeHttpMethods());
+kite.AddExternalCallLogging("Zerodha");
+
 builder.Services.AddProblemDetails();
 // 3.0 rather than the 3.1 default: import tools such as Bruno and Postman read 3.0 reliably.
 builder.Services.AddOpenApi(options => options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_0);
@@ -144,6 +155,7 @@ app.MapStatusEndpoints();
 app.MapAdminEndpoints();
 app.MapNavEndpoints();
 app.MapMyFundEndpoints();
+app.MapZerodhaEndpoints();
 app.MapHoldingEndpoints();
 app.MapFyersSymbolEndpoints();
 app.MapLiveEndpoints();

@@ -15,6 +15,7 @@ public sealed partial class MainViewModel : ObservableObject
     public const int HoldingsTab = 5;
     public const int FyersLoginTab = 6;
     public const int StocksTab = 7;
+    public const int ZerodhaTab = 8;
 
     private readonly QuoteSnapConnection _connection;
 
@@ -31,6 +32,7 @@ public sealed partial class MainViewModel : ObservableObject
         Stocks = new StocksViewModel(connection);
         Settings = new SettingsViewModel(store, connection, loaded);
         FyersLogin = new FyersLoginViewModel(connection, store);
+        Zerodha = new ZerodhaViewModel(connection, store);
 
         Holdings.AddFundsRequested += (_, _) => SelectedTabIndex = NavTab;
         Dashboard.ProblemsRequested += async (_, request) =>
@@ -41,6 +43,8 @@ public sealed partial class MainViewModel : ObservableObject
         };
         FyersLogin.SettingsRequested += (_, _) => SelectedTabIndex = SettingsTab;
         FyersLogin.SessionChanged += async (_, _) => await Dashboard.RefreshIfIdleAsync();
+        Zerodha.SettingsRequested += (_, _) => SelectedTabIndex = SettingsTab;
+        Zerodha.FundsSynced += async (_, _) => await Dashboard.RefreshIfIdleAsync();
 
         NewRequest.RequestFinished += async (_, _) => await Dashboard.RefreshIfIdleAsync();
         Nav.NavsRefreshed += async (_, _) => await Dashboard.RefreshIfIdleAsync();
@@ -62,6 +66,8 @@ public sealed partial class MainViewModel : ObservableObject
     public StocksViewModel Stocks { get; }
 
     public FyersLoginViewModel FyersLogin { get; }
+
+    public ZerodhaViewModel Zerodha { get; }
 
     public SettingsViewModel Settings { get; }
 

@@ -9,6 +9,7 @@ public static class ServiceCollectionExtensions
     {
         services.Configure(configure);
         services.AddTransient<FyersLoginFlow>();
+        services.AddTransient<ZerodhaMfSyncFlow>();
         return services.AddHttpClient<QuoteSnapClient>((provider, http) =>
             http.BaseAddress = provider.GetRequiredService<IOptions<QuoteSnapClientOptions>>().Value.BaseAddress);
     }

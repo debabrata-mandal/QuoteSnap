@@ -15,6 +15,7 @@ using QuoteSnap.Api.Holdings;
 using QuoteSnap.Api.Live;
 using QuoteSnap.Api.Nav;
 using QuoteSnap.Api.Services;
+using QuoteSnap.Api.Zerodha;
 using QuoteSnap.Client;
 using QuoteSnap.Contracts;
 
@@ -92,6 +93,19 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
     public (HttpStatusCode Status, string Body) FyersLogoutResponse { get; set; } =
         (HttpStatusCode.OK, """{"s":"ok","code":200,"message":"Logged out successfully"}""");
 
+    /// <summary>What the fake Kite token exchange answers.</summary>
+    public (HttpStatusCode Status, string Body) KiteLoginResponse { get; set; } =
+        (HttpStatusCode.OK, """{"status":"success","data":{"user_id":"AB1234","user_name":"Test User","access_token":"kite-access-token"}}""");
+
+    /// <summary>The data list of the fake Kite mutual fund holdings.</summary>
+    public string KiteMfHoldings { get; set; } = "[]";
+
+    /// <summary>What the fake Kite logout answers.</summary>
+    public (HttpStatusCode Status, string Body) KiteLogoutResponse { get; set; } = (HttpStatusCode.OK, """{"status":"success","data":true}""");
+
+    /// <summary>The (method, path and query, Authorization header, form body) of each call to Kite, in order.</summary>
+    public ConcurrentQueue<(string Method, string PathAndQuery, string? Authorization, string? Body)> KiteCalls { get; } = new();
+
     public static string NewDataDirectory() =>
         Path.Combine(Path.GetTempPath(), "quotesnap-tests", Guid.NewGuid().ToString("N"));
 
@@ -144,6 +158,7 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
             services.AddHttpClient<ScanxClient>().ConfigurePrimaryHttpMessageHandler(() => new FakeScanxHandler(this));
             services.AddHttpClient<FyersSymbolImporter>().ConfigurePrimaryHttpMessageHandler(() => new FakeSymbolMasterHandler(this));
             services.AddHttpClient<FyersAuthClient>().ConfigurePrimaryHttpMessageHandler(() => new FakeFyersAuthHandler(this));
+            services.AddHttpClient<KiteClient>().ConfigurePrimaryHttpMessageHandler(() => new FakeKiteHandler(this));
 
             if (!StartWorker)
             {
@@ -317,5 +332,26 @@ internal sealed class FakeFyersAuthHandler(QuoteSnapApiFactory factory) : HttpMe
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
         (HttpStatusCode status, string body) = factory.FyersLogoutResponse;
         return Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") });
+    }
+}
+
+/// <summary>Answers the Kite token exchange, mutual fund holdings and logout from the factory's Kite settings; other calls get 404.</summary>
+internal sealed class FakeKiteHandler(QuoteSnapApiFactory factory) : HttpMessageHandler
+{
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        string path = request.RequestUri?.AbsolutePath ?? "";
+        string? authorization = request.Headers.Authorization?.ToString();
+        string? body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
+        factory.KiteCalls.Enqueue((request.Method.Method, request.RequestUri?.PathAndQuery ?? "", authorization, body));
+
+        (HttpStatusCode status, string json) = (request.Method.Method, path) switch
+        {
+            ("POST", "/session/token") => factory.KiteLoginResponse,
+            ("GET", "/mf/holdings") => (HttpStatusCode.OK, $$"""{"status":"success","data":{{factory.KiteMfHoldings}}}"""),
+            ("DELETE", "/session/token") => factory.KiteLogoutResponse,
+            _ => (HttpStatusCode.NotFound, """{"status":"error","message":"Route not found","error_type":"GeneralException"}"""),
+        };
+        return new HttpResponseMessage(status) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
     }
 }

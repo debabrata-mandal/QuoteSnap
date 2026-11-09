@@ -320,6 +320,23 @@ public sealed class QuoteSnapClient
     private Task<(QuoteRequestDetails Value, TimeSpan? RetryAfter)> GetWithRetryAfterAsync(Guid requestId, CancellationToken cancellationToken) =>
         GetWithRetryAfterAsync<QuoteRequestDetails>($"api/quote-requests/{requestId}", cancellationToken);
 
+    public async Task<ZerodhaLoginUrl> GetZerodhaLoginUrlAsync(string apiKey, string state, CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, $"admin/zerodha/login-url?apiKey={Uri.EscapeDataString(apiKey)}&state={Uri.EscapeDataString(state)}", null, admin: true, cancellationToken);
+        return await ReadAsync<ZerodhaLoginUrl>(response, cancellationToken);
+    }
+
+    /// <summary>
+    /// Hands a fresh Kite request token to the service, which logs in, reads the mutual fund holdings, logs out and makes
+    /// the fund list match them. The service keeps neither the token nor the API secret.
+    /// </summary>
+    public async Task<ZerodhaMfSyncResult> SyncZerodhaMutualFundsAsync(ZerodhaAppCredentials app, string requestToken, CancellationToken cancellationToken = default)
+    {
+        JsonContent body = JsonContent.Create(new SyncZerodhaMutualFunds(app, requestToken), options: Json);
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Post, "admin/zerodha/mf-sync", body, admin: true, cancellationToken);
+        return await ReadAsync<ZerodhaMfSyncResult>(response, cancellationToken);
+    }
+
     private async Task<(T Value, TimeSpan? RetryAfter)> GetWithRetryAfterAsync<T>(string path, CancellationToken cancellationToken)
     {
         using HttpResponseMessage response = await SendAsync(HttpMethod.Get, path, null, admin: false, cancellationToken);

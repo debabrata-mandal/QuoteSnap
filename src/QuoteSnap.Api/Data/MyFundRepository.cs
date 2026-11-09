@@ -1,7 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
 
 namespace QuoteSnap.Api.Data;
+
+public sealed record MyFundSyncChanges(List<MyFundRecord> Added, List<MyFundRecord> Updated, List<MyFundRecord> Removed, List<MyFundRecord> Unchanged);
 
 public sealed class MyFundRepository(QuoteSnapDbContext db)
 {
@@ -57,6 +60,51 @@ public sealed class MyFundRepository(QuoteSnapDbContext db)
         fund.Units = units;
         await db.SaveChangesAsync(cancellationToken);
         return fund;
+    }
+
+    /// <summary>
+    /// Makes the list exactly <paramref name="wanted"/>, in one transaction: funds not on it yet are added last (in the
+    /// given order), listed funds get the wanted units, and every other listed fund is removed with its holdings.
+    /// </summary>
+    public async Task<MyFundSyncChanges> SyncAsync(IReadOnlyList<MyFundRecord> wanted, CancellationToken cancellationToken)
+    {
+        await using IDbContextTransaction transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        Dictionary<int, MyFundRecord> existing = await db.MyFunds.ToDictionaryAsync(f => f.SchemeCode, cancellationToken);
+        HashSet<int> wantedCodes = [.. wanted.Select(f => f.SchemeCode)];
+
+        MyFundSyncChanges changes = new([], [], [], []);
+        foreach (MyFundRecord fund in existing.Values.Where(f => !wantedCodes.Contains(f.SchemeCode)).OrderBy(f => f.Position))
+        {
+            changes.Removed.Add(fund);
+            db.MyFunds.Remove(fund);
+        }
+
+        int position = (existing.Values.Where(f => wantedCodes.Contains(f.SchemeCode)).Max(f => (int?)f.Position) ?? -1) + 1;
+        foreach (MyFundRecord fund in wanted)
+        {
+            if (existing.TryGetValue(fund.SchemeCode, out MyFundRecord? listed))
+            {
+                if (listed.Units == fund.Units)
+                {
+                    changes.Unchanged.Add(listed);
+                }
+                else
+                {
+                    listed.Units = fund.Units;
+                    changes.Updated.Add(listed);
+                }
+            }
+            else
+            {
+                fund.Position = position++;
+                db.MyFunds.Add(fund);
+                changes.Added.Add(fund);
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return changes;
     }
 
     /// <returns>False when the fund wasn't on the list.</returns>
