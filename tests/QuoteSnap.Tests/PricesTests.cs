@@ -43,4 +43,35 @@ public sealed class PricesTests
         Assert.Equal(Fetched, Prices.LatestAt(null, prices));
         Assert.Null(Prices.LatestAt(null, Prices.Merge(null, [])));
     }
+
+    [Fact]
+    public void On_a_market_holiday_the_last_sessions_change_is_ignored()
+    {
+        // Fyers on a holiday: the previous close moved up to the last session's close, but the change percent is still that session's.
+        DateTimeOffset holiday = new(2026, 11, 10, 4, 14, 0, TimeSpan.Zero);
+        List<QuoteResult> fetched =
+        [
+            new() { Symbol = "NSE:AARTIIND-EQ", Status = QuoteResultStatus.Ok, Ltp = 459.8m, Change = 13.1m, ChangePercent = 2.93m, PreviousClose = 459.8m, ExchangeTime = new(2026, 11, 10, 0, 0, 0, TimeSpan.Zero), FetchedAt = holiday },
+            new() { Symbol = "NSE:ABB-EQ", Status = QuoteResultStatus.Ok, Ltp = 6915m, Change = 55.5m, ChangePercent = 0.81m, PreviousClose = 6915m, ExchangeTime = new(2026, 11, 10, 0, 0, 0, TimeSpan.Zero), FetchedAt = holiday },
+        ];
+        LiveQuote[] live = [new("NSE:ABB-EQ", 6915m, 55.5m, 0.81m, holiday.AddMinutes(1))];
+
+        Dictionary<string, Price> prices = Prices.Merge(fetched, live);
+
+        Assert.Equal(new Dictionary<string, decimal> { ["NSE:AARTIIND-EQ"] = 0m, ["NSE:ABB-EQ"] = 0m }, Prices.DayChanges(prices));
+    }
+
+    [Fact]
+    public void A_live_tick_is_measured_against_the_previous_close_of_the_same_trading_day_only()
+    {
+        DateTimeOffset today = new(2026, 11, 11, 4, 0, 0, TimeSpan.Zero);
+        QuoteResult Fetched(string symbol, DateTimeOffset tradingDay) => new() { Symbol = symbol, Status = QuoteResultStatus.Ok, Ltp = 100m, ChangePercent = 0m, PreviousClose = 100m, ExchangeTime = tradingDay, FetchedAt = today.AddMinutes(-1) };
+        List<QuoteResult> fetched = [Fetched("NSE:HAL-EQ", new(2026, 11, 11, 0, 0, 0, TimeSpan.Zero)), Fetched("NSE:BEL-EQ", new(2026, 11, 10, 0, 0, 0, TimeSpan.Zero))];
+        LiveQuote[] live = [new("NSE:HAL-EQ", 102m, 5m, 5m, today), new("NSE:BEL-EQ", 102m, 5m, 5m, today)];
+
+        Dictionary<string, decimal> changes = Prices.DayChanges(Prices.Merge(fetched, live));
+
+        Assert.Equal(2m, changes["NSE:HAL-EQ"]);
+        Assert.Equal(5m, changes["NSE:BEL-EQ"]);
+    }
 }

@@ -92,4 +92,15 @@ public sealed class NavEstimatorTests
         Assert.Equal(1m, Assert.Single(changes).Value);
         Assert.True(changes.ContainsKey("nse:hal-eq"));
     }
+
+    [Theory]
+    [InlineData(2.93, 459.8, 459.8, 0.0)]
+    [InlineData(-0.32, 1924.4, 1930.5, -0.316)]
+    [InlineData(1.0, 101.0, null, 1.0)]
+    public void A_quotes_day_change_is_against_its_previous_close_when_it_has_one(double changePercent, double ltp, double? previousClose, double expected)
+    {
+        QuoteResult result = new() { Symbol = "NSE:HAL-EQ", Status = QuoteResultStatus.Ok, Ltp = (decimal)ltp, ChangePercent = (decimal)changePercent, PreviousClose = (decimal?)previousClose };
+
+        Assert.Equal((decimal)expected, NavEstimator.DayChange(result));
+    }
 }

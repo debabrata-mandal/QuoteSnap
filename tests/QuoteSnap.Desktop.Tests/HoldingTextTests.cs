@@ -167,6 +167,8 @@ public sealed class HoldingTextTests
     [InlineData("1.234", "+1.23%")]
     [InlineData("-0.5", "−0.50%")]
     [InlineData("0", "0.00%")]
+    [InlineData("0.0004", "0.00%")]
+    [InlineData("-0.004", "0.00%")]
     [InlineData(null, "—")]
     public void Day_changes_are_signed_percentages(string? percent, string expected)
     {

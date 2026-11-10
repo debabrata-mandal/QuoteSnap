@@ -13,12 +13,21 @@ public static class NavEstimator
         Dictionary<string, decimal> changes = new(StringComparer.OrdinalIgnoreCase);
         foreach (QuoteResult result in results)
         {
-            if (result.Status == QuoteResultStatus.Ok && DayChange(result.ChangePercent, result.Change, result.Ltp) is { } change)
+            if (result.Status == QuoteResultStatus.Ok && DayChange(result) is { } change)
                 changes[result.Symbol] = change;
         }
 
         return changes;
     }
+
+    /// <summary>
+    /// The quote's change against its previous close. On a market holiday Fyers moves the previous close up to the last
+    /// session's close but keeps that session's change percent, which the last NAV already includes.
+    /// </summary>
+    public static decimal? DayChange(QuoteResult result) => result.Ltp is { } ltp && result.PreviousClose is { } previousClose && previousClose > 0 ? Against(ltp, previousClose) : DayChange(result.ChangePercent, result.Change, result.Ltp);
+
+    /// <summary>The change in percent from <paramref name="previousClose"/> to <paramref name="ltp"/>.</summary>
+    public static decimal Against(decimal ltp, decimal previousClose) => Math.Round((ltp - previousClose) / previousClose * 100, 4);
 
     /// <summary>The quote's change percent, or else its change against the previous price (LTP minus change).</summary>
     public static decimal? DayChange(decimal? changePercent, decimal? change, decimal? ltp)

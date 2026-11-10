@@ -45,20 +45,20 @@ public sealed class StatusTextConverter : IValueConverter
         throw new NotSupportedException();
 }
 
-/// <summary>Green for a rise, red for a fall; leaves the default colour for zero or no value.</summary>
+/// <summary>Green for a rise, red for a fall, as shown to two decimals; the normal text colour for zero or no value.</summary>
 public sealed class SignToBrushConverter : IValueConverter
 {
     /// <param name="parameter">"subtle" for the tinted background brushes, with a neutral fill for no change.</param>
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
         string suffix = parameter is "subtle" ? "SubtleBrush" : "Brush";
-        string? key = value switch
+        string key = value switch
         {
-            decimal d when d > 0 => "Success" + suffix,
-            decimal d when d < 0 => "Danger" + suffix,
-            _ => parameter is "subtle" ? "FillBrush" : null,
+            decimal d when Math.Round(d, 2) > 0 => "Success" + suffix,
+            decimal d when Math.Round(d, 2) < 0 => "Danger" + suffix,
+            _ => parameter is "subtle" ? "FillBrush" : "TextBrush",
         };
-        return key is null ? DependencyProperty.UnsetValue : ThemeManager.Brush(key);
+        return ThemeManager.Brush(key);
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
@@ -70,9 +70,10 @@ public sealed class ChangeTextConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        if (value is not decimal change)
+        if (value is not decimal raw)
             return Display.Missing;
 
+        decimal change = Math.Round(raw, 2);
         string magnitude = Math.Abs(change).ToString("N2", CultureInfo.CurrentCulture);
         if (parameter is "percent")
             return change > 0 ? $"+{magnitude}%" : change < 0 ? $"−{magnitude}%" : $"{magnitude}%";

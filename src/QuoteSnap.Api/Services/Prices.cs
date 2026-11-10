@@ -9,24 +9,38 @@ public sealed record Price(decimal? Ltp, decimal? DayChange, DateTimeOffset? At)
 /// <summary>Combines the last holdings quote request with the live feed: per symbol, whichever price is newer.</summary>
 public static class Prices
 {
+    private static readonly TimeSpan Ist = TimeSpan.FromMinutes(330);
+
     /// <param name="results">Results of the last finished holdings quote request; null when there's none.</param>
     /// <param name="live">The live feed's latest ticks.</param>
     public static Dictionary<string, Price> Merge(IEnumerable<QuoteResult>? results, IEnumerable<LiveQuote> live)
     {
         Dictionary<string, Price> prices = new(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, QuoteResult> fetched = new(StringComparer.OrdinalIgnoreCase);
         foreach (QuoteResult result in results ?? [])
         {
-            if (result.Status == QuoteResultStatus.Ok)
-                prices.TryAdd(result.Symbol, new Price(result.Ltp, NavEstimator.DayChange(result.ChangePercent, result.Change, result.Ltp), result.FetchedAt));
+            if (result.Status == QuoteResultStatus.Ok && fetched.TryAdd(result.Symbol, result))
+                prices[result.Symbol] = new Price(result.Ltp, NavEstimator.DayChange(result), result.FetchedAt);
         }
 
         foreach (LiveQuote quote in live)
         {
-            if (!prices.TryGetValue(quote.Symbol, out Price? fetched) || fetched.At is not { } fetchedAt || quote.UpdatedAt >= fetchedAt)
-                prices[quote.Symbol] = new Price(quote.Ltp, NavEstimator.DayChange(quote.ChangePercent, quote.Change, quote.Ltp), quote.UpdatedAt);
+            if (!prices.TryGetValue(quote.Symbol, out Price? price) || price.At is not { } fetchedAt || quote.UpdatedAt >= fetchedAt)
+                prices[quote.Symbol] = new Price(quote.Ltp, DayChange(quote, fetched.GetValueOrDefault(quote.Symbol)), quote.UpdatedAt);
         }
 
         return prices;
+    }
+
+    /// <summary>
+    /// A tick's change against the fetched quote's previous close when that quote is from the tick's trading day, since
+    /// a tick's own change can be the last session's (already in the last NAV) on a market holiday.
+    /// </summary>
+    private static decimal? DayChange(LiveQuote quote, QuoteResult? fetched)
+    {
+        if (fetched is { PreviousClose: { } previousClose, ExchangeTime: { } tradingDay } && previousClose > 0 && DateOnly.FromDateTime(tradingDay.UtcDateTime) == DateOnly.FromDateTime(quote.UpdatedAt.ToOffset(Ist).DateTime))
+            return NavEstimator.Against(quote.Ltp, previousClose);
+        return NavEstimator.DayChange(quote.ChangePercent, quote.Change, quote.Ltp);
     }
 
     /// <summary>Each symbol's day change in percent, leaving out prices without one.</summary>

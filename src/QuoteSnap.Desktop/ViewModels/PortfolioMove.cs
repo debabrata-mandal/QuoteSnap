@@ -66,10 +66,10 @@ public sealed record PortfolioMove(decimal ChangePercent, int EstimatedFunds, in
 
     private static string Arrow(decimal value) => value switch { > 0 => "▲ ", < 0 => "▼ ", _ => "" };
 
-    private static string Arrowed(decimal percent) => percent switch
+    private static string Arrowed(decimal percent) => Math.Round(percent, 2) switch
     {
-        > 0 => $"▲ {percent.ToString("N2", CultureInfo.CurrentCulture)}%",
-        < 0 => $"▼ {Math.Abs(percent).ToString("N2", CultureInfo.CurrentCulture)}%",
+        > 0 and decimal p => $"▲ {p.ToString("N2", CultureInfo.CurrentCulture)}%",
+        < 0 and decimal p => $"▼ {Math.Abs(p).ToString("N2", CultureInfo.CurrentCulture)}%",
         _ => "0.00%",
     };
 }

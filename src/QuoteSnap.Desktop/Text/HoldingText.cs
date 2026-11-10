@@ -112,8 +112,9 @@ public static class HoldingText
     /// <summary>The day's change as "+1.32%" or "−0.82%".</summary>
     public static string DayChange(decimal? percent)
     {
-        if (percent is not { } change)
+        if (percent is not { } raw)
             return Display.Missing;
+        decimal change = Math.Round(raw, 2);
         string magnitude = Math.Abs(change).ToString("N2", CultureInfo.CurrentCulture);
         return change > 0 ? $"+{magnitude}%" : change < 0 ? $"−{magnitude}%" : $"{magnitude}%";
     }
