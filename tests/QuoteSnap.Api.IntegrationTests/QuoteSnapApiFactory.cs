@@ -100,9 +100,6 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
     /// <summary>The data list of the fake Kite mutual fund holdings.</summary>
     public string KiteMfHoldings { get; set; } = "[]";
 
-    /// <summary>What the fake Kite logout answers.</summary>
-    public (HttpStatusCode Status, string Body) KiteLogoutResponse { get; set; } = (HttpStatusCode.OK, """{"status":"success","data":true}""");
-
     /// <summary>The (method, path and query, Authorization header, form body) of each call to Kite, in order.</summary>
     public ConcurrentQueue<(string Method, string PathAndQuery, string? Authorization, string? Body)> KiteCalls { get; } = new();
 
@@ -349,7 +346,6 @@ internal sealed class FakeKiteHandler(QuoteSnapApiFactory factory) : HttpMessage
         {
             ("POST", "/session/token") => factory.KiteLoginResponse,
             ("GET", "/mf/holdings") => (HttpStatusCode.OK, $$"""{"status":"success","data":{{factory.KiteMfHoldings}}}"""),
-            ("DELETE", "/session/token") => factory.KiteLogoutResponse,
             _ => (HttpStatusCode.NotFound, """{"status":"error","message":"Route not found","error_type":"GeneralException"}"""),
         };
         return new HttpResponseMessage(status) { Content = new StringContent(json, Encoding.UTF8, "application/json") };

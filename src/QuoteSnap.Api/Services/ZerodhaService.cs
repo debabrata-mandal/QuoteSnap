@@ -12,7 +12,8 @@ public sealed class ZerodhaAccountMismatchException(string message) : Exception(
 
 /// <summary>
 /// Syncs the fund list with the Zerodha mutual fund holdings. Every sync starts from a fresh Kite login, and its access
-/// token is revoked as soon as the holdings are read: nothing about the Zerodha login is stored.
+/// token is dropped once the holdings are read: nothing about the Zerodha login is stored. The token isn't revoked,
+/// because that also signs the browser out of Kite web; Kite ends it at 6 AM IST.
 /// </summary>
 public sealed class ZerodhaService(
     KiteClient kite,
@@ -37,24 +38,13 @@ public sealed class ZerodhaService(
     public async Task<ZerodhaMfSyncResult> SyncMutualFundsAsync(ZerodhaAppCredentials app, string requestToken, CancellationToken cancellationToken)
     {
         KiteLogin login = await kite.ExchangeRequestTokenAsync(app.ApiKey, app.ApiSecret, requestToken, cancellationToken);
-        IReadOnlyList<KiteMfHolding> holdings;
-        try
+        if (_options.ExpectedUserId is { Length: > 0 } expected && !string.Equals(expected, login.UserId, StringComparison.OrdinalIgnoreCase))
         {
-            if (_options.ExpectedUserId is { Length: > 0 } expected && !string.Equals(expected, login.UserId, StringComparison.OrdinalIgnoreCase))
-            {
-                logger.LogWarning("Rejected a Zerodha login for {UserId}; only {ExpectedUserId} is allowed", login.UserId, expected);
-                throw new ZerodhaAccountMismatchException($"This service only accepts Zerodha client ID {expected}, but the login was for {login.UserId}.");
-            }
-
-            holdings = await kite.GetMfHoldingsAsync(app.ApiKey, login.AccessToken, cancellationToken);
-        }
-        catch
-        {
-            await TryLogoutAsync(app.ApiKey, login.AccessToken);
-            throw;
+            logger.LogWarning("Rejected a Zerodha login for {UserId}; only {ExpectedUserId} is allowed", login.UserId, expected);
+            throw new ZerodhaAccountMismatchException($"This service only accepts Zerodha client ID {expected}, but the login was for {login.UserId}.");
         }
 
-        bool loggedOut = await TryLogoutAsync(app.ApiKey, login.AccessToken);
+        IReadOnlyList<KiteMfHolding> holdings = await kite.GetMfHoldingsAsync(app.ApiKey, login.AccessToken, cancellationToken);
 
         // A fund held in several folios comes once per folio.
         List<(string Isin, string Fund, decimal Units)> held = [.. holdings
@@ -104,27 +94,7 @@ public sealed class ZerodhaService(
             await events.ChangedAsync(ServerChange.MyFunds);
         }
 
-        return new ZerodhaMfSyncResult(login.UserId, syncedAt, ToDto(changes.Added), ToDto(changes.Updated), ToDto(changes.Removed), ToDto(changes.Unchanged), unmatched, loggedOut);
-    }
-
-    /// <returns>Whether the access token no longer works at Zerodha.</returns>
-    // Not cancellable: the token should be revoked even when the caller gave up.
-    private async Task<bool> TryLogoutAsync(string apiKey, string accessToken)
-    {
-        try
-        {
-            await kite.LogoutAsync(apiKey, accessToken, CancellationToken.None);
-            return true;
-        }
-        catch (KiteTokenException)
-        {
-            return true;
-        }
-        catch (Exception ex) when (ex is KiteApiException or HttpRequestException or TaskCanceledException)
-        {
-            logger.LogWarning("Could not revoke the Zerodha access token; Kite ends it at 6 AM IST: {Error}", ex.Message);
-            return false;
-        }
+        return new ZerodhaMfSyncResult(login.UserId, syncedAt, ToDto(changes.Added), ToDto(changes.Updated), ToDto(changes.Removed), ToDto(changes.Unchanged), unmatched);
     }
 
     private static List<ZerodhaSyncedFund> ToDto(List<MyFundRecord> records) => [.. records.Select(f => new ZerodhaSyncedFund(f.SchemeCode, f.SchemeName, f.Units))];

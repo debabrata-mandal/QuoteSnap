@@ -12,7 +12,7 @@ public sealed record KiteLogin(string UserId, string? UserName, string AccessTok
 /// <param name="Isin">Kite's tradingsymbol for mutual funds is the ISIN.</param>
 public sealed record KiteMfHolding(string Isin, string Fund, string? Folio, decimal Quantity);
 
-/// <summary>The Kite Connect v3 calls QuoteSnap needs: the login, mutual fund holdings and logout.</summary>
+/// <summary>The Kite Connect v3 calls QuoteSnap needs: the login and the mutual fund holdings.</summary>
 public sealed class KiteClient(HttpClient http, IOptions<ZerodhaOptions> options)
 {
     private readonly ZerodhaOptions _options = options.Value;
@@ -61,13 +61,6 @@ public sealed class KiteClient(HttpClient http, IOptions<ZerodhaOptions> options
         }
 
         return holdings;
-    }
-
-    /// <summary>Invalidates the access token; Kite web and other apps stay signed in.</summary>
-    public async Task LogoutAsync(string apiKey, string accessToken, CancellationToken cancellationToken)
-    {
-        using HttpRequestMessage request = new(HttpMethod.Delete, Url($"session/token?api_key={Uri.EscapeDataString(apiKey)}&access_token={Uri.EscapeDataString(accessToken)}"));
-        (await SendAsync(request, cancellationToken)).Dispose();
     }
 
     private async Task<JsonDocument> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)

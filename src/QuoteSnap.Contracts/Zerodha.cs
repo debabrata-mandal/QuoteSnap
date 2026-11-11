@@ -23,5 +23,4 @@ public sealed record ZerodhaUnmatchedHolding(string Isin, string Fund, decimal U
 /// <param name="UserId">The Zerodha client ID that was logged in, e.g. "AB1234".</param>
 /// <param name="Updated">Funds already on the list whose units changed.</param>
 /// <param name="Unchanged">Funds already on the list with the same units.</param>
-/// <param name="LoggedOut">Whether Zerodha revoked the access token after the sync; it is never stored either way, and Kite ends it at 6 AM IST.</param>
-public sealed record ZerodhaMfSyncResult(string UserId, DateTimeOffset SyncedAt, IReadOnlyList<ZerodhaSyncedFund> Added, IReadOnlyList<ZerodhaSyncedFund> Updated, IReadOnlyList<ZerodhaSyncedFund> Removed, IReadOnlyList<ZerodhaSyncedFund> Unchanged, IReadOnlyList<ZerodhaUnmatchedHolding> Unmatched, bool LoggedOut);
+public sealed record ZerodhaMfSyncResult(string UserId, DateTimeOffset SyncedAt, IReadOnlyList<ZerodhaSyncedFund> Added, IReadOnlyList<ZerodhaSyncedFund> Updated, IReadOnlyList<ZerodhaSyncedFund> Removed, IReadOnlyList<ZerodhaSyncedFund> Unchanged, IReadOnlyList<ZerodhaUnmatchedHolding> Unmatched);

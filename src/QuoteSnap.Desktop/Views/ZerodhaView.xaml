@@ -27,7 +27,7 @@
 
       <StackPanel Margin="0,0,0,22">
         <TextBlock Text="Zerodha" Style="{StaticResource Text.PageTitle}" />
-        <TextBlock Text="Makes My funds match your Zerodha (Coin) mutual fund holdings: held funds are added with their units, and funds you no longer hold are removed. Every sync asks you to log in to Zerodha; QuoteSnap logs out again as soon as it has read the holdings and keeps no Zerodha login."
+        <TextBlock Text="Makes My funds match your Zerodha (Coin) mutual fund holdings: held funds are added with their units, and funds you no longer hold are removed. Every sync asks you to log in to Zerodha; QuoteSnap keeps no Zerodha login, and your Kite web session in the browser stays signed in."
                    Style="{StaticResource Text.PageSubtitle}" />
       </StackPanel>
 

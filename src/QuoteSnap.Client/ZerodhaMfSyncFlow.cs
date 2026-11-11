@@ -20,7 +20,7 @@ public sealed class ZerodhaLoginOptions
 
 /// <summary>
 /// Syncs the fund list with the Zerodha mutual fund holdings: runs the Kite browser login, then hands the one-time
-/// request token to the QuoteSnap service, which reads the holdings and logs out again. No Zerodha login is kept.
+/// request token to the QuoteSnap service, which reads the holdings and drops the token. No Zerodha login is kept.
 /// </summary>
 public sealed class ZerodhaMfSyncFlow(QuoteSnapClient client)
 {

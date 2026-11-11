@@ -27,7 +27,7 @@ public sealed class ZerodhaTests
         $$"""{"folio":"{{folio}}","fund":"{{fund}}","tradingsymbol":"{{isin}}","average_price":10,"last_price":11,"last_price_date":"2026-10-29","pnl":1,"quantity":{{quantity.ToString(System.Globalization.CultureInfo.InvariantCulture)}},"pledged_quantity":0}""";
 
     [Fact]
-    public async Task A_sync_makes_my_funds_match_the_holdings_and_logs_out()
+    public async Task A_sync_makes_my_funds_match_the_holdings_without_logging_out_of_kite()
     {
         await using QuoteSnapApiFactory factory = new() { NavFile = File };
         QuoteSnapClient client = factory.CreateQuoteSnapClient();
@@ -38,7 +38,6 @@ public sealed class ZerodhaTests
         ZerodhaMfSyncResult result = await client.SyncZerodhaMutualFundsAsync(App, "request-1");
 
         Assert.Equal("AB1234", result.UserId);
-        Assert.True(result.LoggedOut);
         Assert.Equal([152712, 148001], result.Added.Select(f => f.SchemeCode));
         Assert.Equal(12.75m, result.Added.Single(f => f.SchemeCode == 152712).Units);
         Assert.Equal([152045], result.Removed.Select(f => f.SchemeCode));
@@ -50,10 +49,10 @@ public sealed class ZerodhaTests
         Assert.Equal([12.75m, 1m], list.Funds.Select(f => f.Units));
 
         (string Method, string PathAndQuery, string? Authorization, string? Body)[] calls = [.. factory.KiteCalls];
-        Assert.Equal(["POST", "GET", "DELETE"], calls.Select(c => c.Method));
+        // Revoking the token (DELETE /session/token) would also sign the browser out of Kite web.
+        Assert.Equal(["POST", "GET"], calls.Select(c => c.Method));
         Assert.Contains("checksum=" + KiteClient.Checksum("kite-key", "request-1", "kite-secret"), calls[0].Body);
         Assert.Equal("token kite-key:kite-access-token", calls[1].Authorization);
-        Assert.Equal("/session/token?api_key=kite-key&access_token=kite-access-token", calls[2].PathAndQuery);
 
         factory.KiteMfHoldings = $"[{Holding("INF247L01DH2", "MOTILAL OSWAL DEFENCE", "1", 20m)},{Holding("INF879O01118", "PPFAS LIQUID IDCW", "3", 1m)}]";
         ZerodhaMfSyncResult again = await client.SyncZerodhaMutualFundsAsync(App, "request-2");
@@ -82,17 +81,19 @@ public sealed class ZerodhaTests
     }
 
     [Fact]
-    public async Task A_failed_holdings_read_still_logs_out()
+    public async Task A_failed_holdings_read_changes_nothing()
     {
         await using QuoteSnapApiFactory factory = new() { NavFile = File };
         QuoteSnapClient client = factory.CreateQuoteSnapClient();
         await client.RefreshNavsAsync();
+        await client.AddMyFundAsync(152045);
         factory.KiteMfHoldings = "{}";
 
         QuoteSnapApiException ex = await Assert.ThrowsAsync<QuoteSnapApiException>(() => client.SyncZerodhaMutualFundsAsync(App, "request-1"));
 
         Assert.Equal(HttpStatusCode.BadGateway, ex.StatusCode);
-        Assert.Equal(["POST", "GET", "DELETE"], factory.KiteCalls.Select(c => c.Method));
+        Assert.Equal(["POST", "GET"], factory.KiteCalls.Select(c => c.Method));
+        Assert.Equal([152045], (await client.GetMyFundsAsync()).Funds.Select(f => f.SchemeCode));
     }
 
     [Fact]

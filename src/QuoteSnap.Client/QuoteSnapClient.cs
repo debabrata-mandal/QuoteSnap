@@ -327,7 +327,7 @@ public sealed class QuoteSnapClient
     }
 
     /// <summary>
-    /// Hands a fresh Kite request token to the service, which logs in, reads the mutual fund holdings, logs out and makes
+    /// Hands a fresh Kite request token to the service, which logs in, reads the mutual fund holdings and makes
     /// the fund list match them. The service keeps neither the token nor the API secret.
     /// </summary>
     public async Task<ZerodhaMfSyncResult> SyncZerodhaMutualFundsAsync(ZerodhaAppCredentials app, string requestToken, CancellationToken cancellationToken = default)

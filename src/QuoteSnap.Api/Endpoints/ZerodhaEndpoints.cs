@@ -29,7 +29,7 @@ public static class ZerodhaEndpoints
     }
 
     /// <summary>
-    /// Logs in to Zerodha with the request token, reads the mutual fund holdings and logs out again, then makes the fund
+    /// Logs in to Zerodha with the request token, reads the mutual fund holdings and drops the token, then makes the fund
     /// list match: adds held Direct Plan funds with their units, updates listed ones and removes funds no longer held.
     /// </summary>
     private static async Task<Results<Ok<ZerodhaMfSyncResult>, ProblemHttpResult>> SyncAsync(SyncZerodhaMutualFunds? body, ZerodhaService zerodha, NavRepository navs, ILoggerFactory loggers, CancellationToken cancellationToken)

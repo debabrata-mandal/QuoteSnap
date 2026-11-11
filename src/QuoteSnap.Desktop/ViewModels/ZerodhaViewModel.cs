@@ -15,7 +15,7 @@ public sealed record ZerodhaSyncRow(string Change, string Name, string Detail);
 
 /// <summary>
 /// The Zerodha page: syncs My funds with the Zerodha mutual fund holdings. Every sync logs in to Kite in the browser,
-/// and the service logs out as soon as it has read the holdings, so no Zerodha login is kept anywhere.
+/// and the service drops the token as soon as it has read the holdings, so no Zerodha login is kept anywhere.
 /// </summary>
 public sealed partial class ZerodhaViewModel : ObservableObject
 {
@@ -206,11 +206,10 @@ public sealed partial class ZerodhaViewModel : ObservableObject
         Changes = rows;
 
         string counts = $"{result.Added.Count} added, {result.Updated.Count} updated, {result.Removed.Count} removed, {result.Unchanged.Count} unchanged";
-        string logout = result.LoggedOut ? "QuoteSnap logged out of Zerodha straight after reading the holdings." : "Zerodha couldn't be asked to log out; the unused token ends by itself at 6 AM.";
         if (result.Unmatched.Count > 0)
-            Report(StatusLevel.Warning, $"{counts}. {Display.Count(result.Unmatched.Count, "holding")} couldn't be matched to a fund and were left out. {logout}", $"Synced with {result.UserId}");
+            Report(StatusLevel.Warning, $"{counts}. {Display.Count(result.Unmatched.Count, "holding")} couldn't be matched to a fund and were left out.", $"Synced with {result.UserId}");
         else
-            Report(StatusLevel.Good, $"{counts}. {logout}", $"Synced with {result.UserId}");
+            Report(StatusLevel.Good, $"{counts}.", $"Synced with {result.UserId}");
     }
 
     private static string Units(decimal? units) => units is { } u ? $"{u:#,##0.####} units" : Display.Missing;
