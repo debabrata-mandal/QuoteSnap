@@ -46,5 +46,8 @@ public interface IQuoteSnapEvents
     /// <summary>Today's NAV estimates, after live ticks or a change to the funds, holdings, NAVs or holdings prices.</summary>
     Task EstimatesUpdated(NavEstimateList estimates);
 
+    /// <summary>NSE's market status or the error reading it changed; checked once a minute while a client is connected.</summary>
+    Task MarketStatusChanged(MarketStatus status);
+
     Task Changed(ServerChange change);
 }

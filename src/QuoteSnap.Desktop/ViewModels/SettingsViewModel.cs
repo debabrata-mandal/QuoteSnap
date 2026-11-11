@@ -29,11 +29,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         Show(loaded);
     }
 
-    /// <summary>Whether to request the holdings' live prices every 15 minutes while NSE is trading; saved straight away.</summary>
+    /// <summary>Whether to request the holdings' live prices every 5 minutes while NSE is trading; saved straight away.</summary>
     [ObservableProperty]
     public partial bool AutoFetchPrices { get; set; }
 
-    /// <summary>What the last automatic check did; null until the first one.</summary>
+    /// <summary>The last automatic check's result and live countdown; null while disabled.</summary>
     [ObservableProperty]
     public partial string? AutoFetchText { get; set; }
 

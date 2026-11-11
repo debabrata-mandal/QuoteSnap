@@ -50,7 +50,11 @@ public sealed partial class MainViewModel : ObservableObject
 
         NewRequest.RequestFinished += async (_, _) => await Dashboard.RefreshIfIdleAsync();
         Nav.NavsRefreshed += async (_, _) => await Dashboard.RefreshIfIdleAsync();
-        _autoPrices.PricesRequested += async () => await Task.WhenAll(Holdings.FollowLatestPricesAsync(), Nav.ResumePricesAsync());
+        _autoPrices.PricesRequested += () =>
+        {
+            _ = Holdings.FollowLatestPricesAsync();
+            _ = Nav.ResumePricesAsync();
+        };
         connection.Changed += (_, _) => OnPropertyChanged(nameof(Title));
     }
 

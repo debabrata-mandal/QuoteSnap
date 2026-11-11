@@ -459,6 +459,23 @@ public sealed class HoldingTests
     }
 
     [Fact]
+    public async Task Scheduled_requests_reuse_a_recent_finished_fetch_while_others_start_a_new_one()
+    {
+        await using QuoteSnapApiFactory factory = await ListedAsync(true, Dsp);
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+        await factory.SeedSessionAsync();
+        await FetchAsync(client);
+        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(20));
+        QuoteRequestAccepted first = await client.StartHoldingQuotesAsync();
+        await client.WaitForCompletionAsync(first.RequestId, cancellationToken: timeout.Token);
+
+        Assert.Equal(first.RequestId, (await client.StartHoldingQuotesAsync(TimeSpan.FromMinutes(4))).RequestId);
+        Assert.NotEqual(first.RequestId, (await client.StartHoldingQuotesAsync()).RequestId);
+        QuoteSnapApiException ex = await Assert.ThrowsAsync<QuoteSnapApiException>(() => client.StartHoldingQuotesAsync(TimeSpan.FromSeconds(-1)));
+        Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+    }
+
+    [Fact]
     public async Task Live_prices_need_fetched_holdings_with_symbols()
     {
         await using QuoteSnapApiFactory factory = await ListedAsync(true, Dsp);

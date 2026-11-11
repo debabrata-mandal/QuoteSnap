@@ -185,11 +185,13 @@ public sealed class QuoteSnapClient
 
     /// <summary>
     /// Requests quotes for the distinct stock symbols in every listed fund's latest holdings, except those excluded for
-    /// today. Returns the running request instead when one is already queued or running. Wait for it with <see cref="WaitForCompletionAsync"/>.
+    /// today. Returns the running request instead when one is already queued or running, or, with
+    /// <paramref name="reuseWithin"/>, one that started that recently and didn't fail. Wait for it with <see cref="WaitForCompletionAsync"/>.
     /// </summary>
-    public async Task<QuoteRequestAccepted> StartHoldingQuotesAsync(CancellationToken cancellationToken = default)
+    public async Task<QuoteRequestAccepted> StartHoldingQuotesAsync(TimeSpan? reuseWithin = null, CancellationToken cancellationToken = default)
     {
-        using HttpResponseMessage response = await SendAsync(HttpMethod.Post, "api/holdings/quotes", null, admin: false, cancellationToken);
+        string path = reuseWithin is { } window ? $"api/holdings/quotes?reuseWithinSeconds={(int)window.TotalSeconds}" : "api/holdings/quotes";
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Post, path, null, admin: false, cancellationToken);
         return await ReadAsync<QuoteRequestAccepted>(response, cancellationToken);
     }
 

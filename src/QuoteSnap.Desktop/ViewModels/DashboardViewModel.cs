@@ -30,7 +30,7 @@ public sealed partial class DashboardViewModel : ObservableObject
     private Dictionary<string, decimal?> _dayChanges = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, LiveQuote> _indexQuotes = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Reads everything once, then follows the pushes from the API's event hub; there is no polling.</summary>
+    /// <summary>Follows the API's event hub; the market status is read when the hub connects and then pushed.</summary>
     public DashboardViewModel(QuoteSnapConnection connection, SymbolExclusions exclusions)
     {
         _connection = connection;
@@ -46,7 +46,13 @@ public sealed partial class DashboardViewModel : ObservableObject
             OnPropertyChanged(nameof(ConnectionHost));
             await RefreshIfIdleAsync();
         };
-        connection.HubConnected += async () => await RefreshIfIdleAsync();
+        // Pushes missed while disconnected aren't replayed, so the market status is read once per connection.
+        connection.HubConnected += async () =>
+        {
+            _ = RefreshMarketIfIdleAsync();
+            await RefreshIfIdleAsync();
+        };
+        connection.MarketStatusChanged += ShowMarket;
         connection.HubStateChanged += async () => await OnHubStateChangedAsync();
         connection.ServerChanged += async _ => await RefreshIfIdleAsync();
         connection.QuoteRequestUpdated += async r =>
@@ -94,6 +100,15 @@ public sealed partial class DashboardViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string? FyersDetail { get; set; }
+
+    [ObservableProperty]
+    public partial StatusLevel MarketLevel { get; set; }
+
+    [ObservableProperty]
+    public partial string MarketSummary { get; set; } = "Checking";
+
+    [ObservableProperty]
+    public partial string? MarketDetail { get; set; }
 
     [ObservableProperty]
     public partial double FyersValidity { get; set; }
@@ -216,6 +231,45 @@ public sealed partial class DashboardViewModel : ObservableObject
     public partial DateTimeOffset? LastChecked { get; set; }
 
     public void Start() => _ = RefreshIfIdleAsync();
+
+    private Task RefreshMarketIfIdleAsync() => RefreshMarketCommand.IsRunning ? Task.CompletedTask : RefreshMarketCommand.ExecuteAsync(null);
+
+    [RelayCommand]
+    private Task RefreshMarketAsync() => ReadMarketAsync(_connection.Client);
+
+    internal async Task ReadMarketAsync(QuoteSnapClient client)
+    {
+        try
+        {
+            using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(30));
+            ShowMarket(await client.GetMarketStatusAsync(timeout.Token).WaitAsync(TimeSpan.FromSeconds(30)));
+        }
+        catch (Exception ex)
+        {
+            ShowMarketError(ErrorText.Describe(ex, _connection.Settings.BaseAddress));
+        }
+    }
+
+    internal void ShowMarket(MarketStatus market)
+    {
+        if (market.Error is { } error)
+        {
+            ShowMarketError(error);
+            return;
+        }
+
+        string? status = string.IsNullOrWhiteSpace(market.Status) ? null : market.Status.Trim();
+        MarketSummary = market.IsOpen ? "Open" : string.Equals(status, "CLOSED", StringComparison.OrdinalIgnoreCase) ? "Closed" : status ?? "Unknown";
+        MarketLevel = market.IsOpen ? StatusLevel.Good : status is null ? StatusLevel.Warning : StatusLevel.Unknown;
+        MarketDetail = $"NSE cash market: {status ?? "Fyers returned no status"}. Checked {Display.Time(market.CheckedAt)}; the API pushes any change.";
+    }
+
+    private void ShowMarketError(string detail)
+    {
+        MarketLevel = StatusLevel.Warning;
+        MarketSummary = "Unavailable";
+        MarketDetail = detail;
+    }
 
     /// <summary>Refreshes, or refreshes once more after the one already running, so no change is missed.</summary>
     public async Task RefreshIfIdleAsync()
@@ -410,6 +464,9 @@ public sealed partial class DashboardViewModel : ObservableObject
         FyersSummary = NavSummary = RequestsSummary = "Unknown";
         FyersValue = NavValue = RequestsValue = Display.Missing;
         FyersDetail = NavDetail = RequestsDetail = "Shown once the API responds.";
+        MarketLevel = StatusLevel.Unknown;
+        MarketSummary = "Unknown";
+        MarketDetail = "Shown once the API responds.";
         ProblemRequest = null;
         FyersValidity = 0;
         LiveFeed = LiveFeedTile.Unknown("Unknown", "Shown once the API responds.");

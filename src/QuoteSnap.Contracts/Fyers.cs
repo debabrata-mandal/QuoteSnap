@@ -6,7 +6,8 @@ public sealed record ServiceStatus(string Version, DateTimeOffset ServerTime, Fy
 
 /// <summary>Whether NSE's normal capital market session is trading now, as Fyers reports it.</summary>
 /// <param name="Status">Fyers' status for the session, such as OPEN, PREOPEN or CLOSE; null when Fyers didn't list it.</param>
-public sealed record MarketStatus(bool IsOpen, string? Status, DateTimeOffset CheckedAt);
+/// <param name="Error">Why Fyers couldn't be asked; only set on pushed statuses, since GET answers with a problem instead.</param>
+public sealed record MarketStatus(bool IsOpen, string? Status, DateTimeOffset CheckedAt, string? Error = null);
 
 public sealed record FyersLoginUrl(string Url);
 

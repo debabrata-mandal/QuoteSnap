@@ -30,5 +30,5 @@ public sealed class FyersOptions
     public int MaxRequestsPerSecond { get; set; } = 5;
 
     [Range(1, 200)]
-    public int MaxRequestsPerMinute { get; set; } = 150;
+    public int MaxRequestsPerMinute { get; set; } = 50;
 }

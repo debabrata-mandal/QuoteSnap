@@ -91,6 +91,8 @@ if (builder.Configuration["QuoteSnap:DataProtectionCertificatePath"] is { Length
 
 builder.Services.AddFyersClients();
 builder.Services.AddSingleton<SessionService>();
+builder.Services.AddSingleton<MarketStatusCache>();
+builder.Services.AddSingleton<HoldingQuoteStartLock>();
 builder.Services.AddSingleton<QuoteRequestQueue>();
 builder.Services.AddHostedService<QuoteRequestWorker>();
 builder.Services.AddHostedService<CleanupService>();
@@ -104,6 +106,7 @@ builder.Services.AddSignalR();
 builder.Services.AddSingleton<HubPresence>();
 builder.Services.AddSingleton<EventPublisher>();
 builder.Services.AddHostedService<EventBroadcaster>();
+builder.Services.AddHostedService<MarketStatusMonitor>();
 
 // The NAV file is about 1.5 MB and the scheme master about 4 MB.
 builder.Services.AddHttpClient<NavImporter>(client =>

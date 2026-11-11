@@ -41,6 +41,7 @@ public sealed class QuoteSnapHubClient : IAsyncDisposable
         _connection.On<LiveFeedStatus>(nameof(IQuoteSnapEvents.LiveFeedStatusChanged), s => LiveFeedStatusChanged?.Invoke(s));
         _connection.On<LiveQuoteList>(nameof(IQuoteSnapEvents.LiveQuotesUpdated), q => LiveQuotesUpdated?.Invoke(q));
         _connection.On<NavEstimateList>(nameof(IQuoteSnapEvents.EstimatesUpdated), e => EstimatesUpdated?.Invoke(e));
+        _connection.On<MarketStatus>(nameof(IQuoteSnapEvents.MarketStatusChanged), s => MarketStatusChanged?.Invoke(s));
         _connection.On<ServerChange>(nameof(IQuoteSnapEvents.Changed), c => Changed?.Invoke(c));
 
         _connection.Reconnecting += _ => RaiseStateChanged();
@@ -68,6 +69,8 @@ public sealed class QuoteSnapHubClient : IAsyncDisposable
     public event Action<LiveQuoteList>? LiveQuotesUpdated;
 
     public event Action<NavEstimateList>? EstimatesUpdated;
+
+    public event Action<MarketStatus>? MarketStatusChanged;
 
     public event Action<ServerChange>? Changed;
 

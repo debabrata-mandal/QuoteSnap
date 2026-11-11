@@ -79,12 +79,18 @@ public static class HoldingEndpoints
 
     /// <summary>
     /// Submits one quote request for the distinct stock symbols in the latest month of every listed fund, except those
-    /// excluded for today. While such a request is queued or running, starting another returns that one instead.
+    /// excluded for today. While such a request is queued or running, starting another returns that one instead; with
+    /// reuseWithinSeconds, so does one that started that recently and didn't fail, so several clients fetching on a
+    /// schedule share one Fyers fetch.
     /// </summary>
-    private static async Task<Results<Accepted<QuoteRequestAccepted>, Ok<QuoteRequestAccepted>, ProblemHttpResult>> StartQuotesAsync(HoldingRepository holdings, SymbolExclusionRepository exclusions, QuoteRequestRepository requests, QuoteRequestQueue queue, SessionService session, EventPublisher events, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken)
+    private static async Task<Results<Accepted<QuoteRequestAccepted>, Ok<QuoteRequestAccepted>, ProblemHttpResult>> StartQuotesAsync(int? reuseWithinSeconds, HoldingRepository holdings, SymbolExclusionRepository exclusions, QuoteRequestRepository requests, QuoteRequestQueue queue, SessionService session, EventPublisher events, HoldingQuoteStartLock startLock, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
+        if (reuseWithinSeconds is < 0 or > 3600)
+            return TypedResults.Problem("reuseWithinSeconds must be between 0 and 3600.", statusCode: StatusCodes.Status400BadRequest, title: "Invalid reuse window");
+
+        using IDisposable started = await startLock.AcquireAsync(cancellationToken);
         if (await requests.GetLatestForHoldingsAsync(includeResults: false, cancellationToken) is { } latest
-            && !latest.Status.IsTerminal())
+            && (!latest.Status.IsTerminal() || latest.Status != QuoteRequestStatus.Failed && time.GetUtcNow() - latest.CreatedAt < TimeSpan.FromSeconds(reuseWithinSeconds ?? 0)))
         {
             return TypedResults.Ok(new QuoteRequestAccepted(
                 latest.Id, latest.Status, latest.TotalSymbols, [], $"/api/quote-requests/{latest.Id}", null));

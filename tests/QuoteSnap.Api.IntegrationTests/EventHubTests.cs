@@ -1,5 +1,8 @@
 using System.Collections.Concurrent;
 using System.Net;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using QuoteSnap.Api.Events;
 using QuoteSnap.Client;
 using QuoteSnap.Contracts;
 
@@ -51,6 +54,35 @@ public sealed class EventHubTests
         Assert.Equal(QuoteRequestStatus.Queued, mine[0].Status);
         Assert.Contains(mine, p => p.Status == QuoteRequestStatus.Running && p.SucceededCount > 0);
         Assert.Equal((QuoteRequestStatus.Completed, 120), (mine[^1].Status, mine[^1].SucceededCount));
+    }
+
+    [Fact]
+    public async Task Market_status_changes_are_pushed_once()
+    {
+        await using QuoteSnapApiFactory factory = new(startWorker: false);
+        factory.QuoteProvider.MarketStatus = "OPEN";
+        MarketStatusMonitor monitor = factory.Services.GetServices<IHostedService>().OfType<MarketStatusMonitor>().Single();
+        await using QuoteSnapHubClient hub = factory.CreateHubClient();
+        ConcurrentQueue<MarketStatus> pushed = new();
+        hub.MarketStatusChanged += pushed.Enqueue;
+        using CancellationTokenSource timeout = new(WaitLimit);
+        await hub.StartAsync(timeout.Token);
+        HubPresence presence = factory.Services.GetRequiredService<HubPresence>();
+        await WaitForAsync(() => presence.Count == 1, timeout.Token);
+
+        await monitor.CheckAsync(timeout.Token);
+        await monitor.CheckAsync(timeout.Token);
+        await WaitForAsync(() => pushed.Count == 1, timeout.Token);
+        Assert.Contains("Fyers", pushed.Single().Error);
+
+        await factory.SeedSessionAsync();
+        await monitor.CheckAsync(timeout.Token);
+        await monitor.CheckAsync(timeout.Token);
+        await WaitForAsync(() => pushed.Count == 2, timeout.Token);
+        await Task.Delay(200, timeout.Token);
+
+        MarketStatus open = Assert.Single(pushed.Skip(1));
+        Assert.Equal((true, "OPEN", null), (open.IsOpen, open.Status, open.Error));
     }
 
     internal static async Task WaitForAsync(Func<bool> condition, CancellationToken cancellationToken)

@@ -70,6 +70,8 @@ public sealed class EventPublisher(IHubContext<EventHub, IQuoteSnapEvents> hub, 
 
     public Task EstimatesUpdatedAsync(NavEstimateList estimates) => SendAsync(nameof(IQuoteSnapEvents.EstimatesUpdated), () => $"{estimates.Funds.Count(f => f.ChangePercent is not null)} of {estimates.Funds.Count} funds estimated, prices at {estimates.PricesAt?.ToLocalTime():HH:mm:ss}", c => c.EstimatesUpdated(estimates));
 
+    public Task MarketStatusChangedAsync(MarketStatus status) => SendAsync(nameof(IQuoteSnapEvents.MarketStatusChanged), () => status.Error ?? status.Status ?? "no status", c => c.MarketStatusChanged(status));
+
     private async Task SendAsync(string name, Func<string> describe, Func<IQuoteSnapEvents, Task> send)
     {
         try

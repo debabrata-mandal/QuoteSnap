@@ -29,24 +29,15 @@ public static class StatusEndpoints
         return app;
     }
 
-    /// <summary>Asks Fyers whether NSE's capital market is trading now; a rejected access token is refreshed once.</summary>
-    private static async Task<Results<Ok<MarketStatus>, ProblemHttpResult>> GetMarketStatusAsync(SessionService session, IQuoteProvider provider, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken)
+    /// <summary>
+    /// Asks Fyers whether NSE's capital market is trading now, reusing an answer up to a minute old; a rejected access
+    /// token is refreshed once.
+    /// </summary>
+    private static async Task<Results<Ok<MarketStatus>, ProblemHttpResult>> GetMarketStatusAsync(SessionService session, IQuoteProvider provider, MarketStatusCache cache, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         try
         {
-            AccessTokenLease lease = await session.GetAccessTokenAsync(cancellationToken);
-            string? status;
-            try
-            {
-                status = await provider.GetMarketStatusAsync(lease.AppId, lease.Token, cancellationToken);
-            }
-            catch (FyersAuthException)
-            {
-                lease = await session.RefreshAsync(lease.Version, cancellationToken);
-                status = await provider.GetMarketStatusAsync(lease.AppId, lease.Token, cancellationToken);
-            }
-
-            return TypedResults.Ok(new MarketStatus(status == "OPEN", status, time.GetUtcNow()));
+            return TypedResults.Ok(await cache.GetAsync(ct => ReadMarketStatusAsync(session, provider, ct), cancellationToken));
         }
         catch (FyersReloginRequiredException ex)
         {
@@ -60,6 +51,20 @@ public static class StatusEndpoints
         {
             loggers.CreateLogger(typeof(StatusEndpoints)).LogWarning("Couldn't read the market status from Fyers: {Error}", ex.Message);
             return TypedResults.Problem($"Fyers couldn't say whether the market is open: {ex.Message}", statusCode: StatusCodes.Status502BadGateway, title: "Market status unavailable");
+        }
+    }
+
+    internal static async Task<string?> ReadMarketStatusAsync(SessionService session, IQuoteProvider provider, CancellationToken cancellationToken)
+    {
+        AccessTokenLease lease = await session.GetAccessTokenAsync(cancellationToken);
+        try
+        {
+            return await provider.GetMarketStatusAsync(lease.AppId, lease.Token, cancellationToken);
+        }
+        catch (FyersAuthException)
+        {
+            lease = await session.RefreshAsync(lease.Version, cancellationToken);
+            return await provider.GetMarketStatusAsync(lease.AppId, lease.Token, cancellationToken);
         }
     }
 }

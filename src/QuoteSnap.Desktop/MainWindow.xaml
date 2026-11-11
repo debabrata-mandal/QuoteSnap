@@ -121,6 +121,9 @@
         <ui:StatusPill Margin="0,0,8,0" Tone="{Binding Dashboard.FyersLevel, Converter={StaticResource Tone}}"
                        Text="{Binding Dashboard.FyersSummary, StringFormat=Fyers  {0}}" ToolTip="{Binding Dashboard.FyersDetail}"
                        WindowChrome.IsHitTestVisibleInChrome="True" />
+        <ui:StatusPill Margin="0,0,8,0" Tone="{Binding Dashboard.MarketLevel, Converter={StaticResource Tone}}"
+                       Text="{Binding Dashboard.MarketSummary, StringFormat=Market  {0}}" ToolTip="{Binding Dashboard.MarketDetail}"
+                       WindowChrome.IsHitTestVisibleInChrome="True" />
         <ui:StatusPill Tone="{Binding Dashboard.NavLevel, Converter={StaticResource Tone}}"
                        Text="{Binding Dashboard.NavSummary, StringFormat=NAVs  {0}}" ToolTip="{Binding Dashboard.NavDetail}"
                        WindowChrome.IsHitTestVisibleInChrome="True" />

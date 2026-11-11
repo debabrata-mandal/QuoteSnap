@@ -37,6 +37,8 @@ public sealed class QuoteSnapConnection : IDisposable
 
     public event Action<NavEstimateList>? EstimatesUpdated;
 
+    public event Action<MarketStatus>? MarketStatusChanged;
+
     public event Action<ServerChange>? ServerChanged;
 
     /// <summary>After every (re)connection of the hub; anything pushed while disconnected should be read again.</summary>
@@ -101,6 +103,7 @@ public sealed class QuoteSnapConnection : IDisposable
         hub.LiveFeedStatusChanged += s => Post(hub, () => LiveFeedStatusChanged?.Invoke(s));
         hub.LiveQuotesUpdated += q => Post(hub, () => LiveQuotesUpdated?.Invoke(q));
         hub.EstimatesUpdated += e => Post(hub, () => EstimatesUpdated?.Invoke(e));
+        hub.MarketStatusChanged += s => Post(hub, () => MarketStatusChanged?.Invoke(s));
         hub.Changed += c => Post(hub, () => ServerChanged?.Invoke(c));
         hub.Connected += () => Post(hub, () => HubConnected?.Invoke());
         hub.StateChanged += () => Post(hub, () => HubStateChanged?.Invoke());

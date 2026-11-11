@@ -55,7 +55,7 @@ public sealed class SettingsStore(string settingsPath, IReadOnlyList<string> env
         File.WriteAllText(AppearancePath, JsonSerializer.Serialize(new StoredAppearance(theme.ToString()), Json));
     }
 
-    /// <summary>Whether to fetch the holdings' live prices every 15 minutes while the market is open; off when unsaved or unreadable.</summary>
+    /// <summary>Whether to fetch the holdings' live prices every 5 minutes while the market is open; off when unsaved or unreadable.</summary>
     public bool LoadAutoFetchPrices()
     {
         try
