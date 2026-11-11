@@ -4,6 +4,10 @@ public sealed record FyersSessionInfo(FyersAuthState State, string? FyersId, Dat
 
 public sealed record ServiceStatus(string Version, DateTimeOffset ServerTime, FyersSessionInfo Fyers);
 
+/// <summary>Whether NSE's normal capital market session is trading now, as Fyers reports it.</summary>
+/// <param name="Status">Fyers' status for the session, such as OPEN, PREOPEN or CLOSE; null when Fyers didn't list it.</param>
+public sealed record MarketStatus(bool IsOpen, string? Status, DateTimeOffset CheckedAt);
+
 public sealed record FyersLoginUrl(string Url);
 
 /// <summary>The Fyers API app (from myapi.fyers.in) and the account PIN; the service stores them encrypted.</summary>

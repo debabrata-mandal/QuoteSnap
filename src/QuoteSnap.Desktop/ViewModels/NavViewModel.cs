@@ -387,7 +387,7 @@ public sealed partial class NavViewModel : ObservableObject
     }
 
     /// <summary>Follows a live-prices request started elsewhere, such as on the Holdings page, that's still running.</summary>
-    private async Task ResumePricesAsync()
+    public async Task ResumePricesAsync()
     {
         if (IsGettingPrices)
             return;

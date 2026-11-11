@@ -167,6 +167,9 @@ public sealed partial class HoldingsViewModel : ObservableObject
         await Task.WhenAll(RefreshAsync(), _exclusions.RefreshAsync());
     }
 
+    /// <summary>Follows a live-prices request started elsewhere, such as by the automatic fetch, once the page has been opened.</summary>
+    public Task FollowLatestPricesAsync() => _activated ? LoadLatestPricesAsync() : Task.CompletedTask;
+
     public bool HasExcluded => _exclusions.Today.Count > 0;
 
     /// <summary>"Excluded today: NSE:DIACABS-BE, NSE:OMNI-EQ. They aren't fetched or streamed; …".</summary>

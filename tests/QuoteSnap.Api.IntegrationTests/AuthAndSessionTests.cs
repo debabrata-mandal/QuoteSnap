@@ -42,6 +42,33 @@ public sealed class AuthAndSessionTests
         Assert.Equal(FyersAuthState.Ok, (await factory.CreateQuoteSnapClient().GetFyersSessionAsync()).State);
     }
 
+    [Theory]
+    [InlineData("OPEN", true)]
+    [InlineData("CLOSE", false)]
+    [InlineData("PREOPEN", false)]
+    [InlineData(null, false)]
+    public async Task The_market_is_open_only_while_fyers_says_nse_is_open(string? status, bool open)
+    {
+        await using QuoteSnapApiFactory factory = new();
+        await factory.SeedSessionAsync();
+        factory.QuoteProvider.MarketStatus = status;
+
+        MarketStatus market = await factory.CreateQuoteSnapClient().GetMarketStatusAsync();
+
+        Assert.Equal(open, market.IsOpen);
+        Assert.Equal(status, market.Status);
+    }
+
+    [Fact]
+    public async Task The_market_status_needs_a_fyers_login()
+    {
+        await using QuoteSnapApiFactory factory = new();
+
+        QuoteSnapApiException ex = await Assert.ThrowsAsync<QuoteSnapApiException>(() => factory.CreateQuoteSnapClient().GetMarketStatusAsync());
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, ex.StatusCode);
+    }
+
     [Fact]
     public async Task Logout_revokes_the_token_at_fyers_and_forgets_the_session()
     {

@@ -234,6 +234,12 @@ public sealed class FakeQuoteProvider : IQuoteProvider
     /// <summary><see cref="Stopwatch.GetTimestamp"/> at each call.</summary>
     public ConcurrentQueue<long> CallTimestamps { get; } = new();
 
+    /// <summary>What the fake market status answers for NSE's capital market.</summary>
+    public string? MarketStatus { get; set; } = "OPEN";
+
+    public Task<string?> GetMarketStatusAsync(string appId, string accessToken, CancellationToken cancellationToken) =>
+        appId == QuoteSnapApiFactory.App.AppId ? Task.FromResult(MarketStatus) : throw new InvalidOperationException($"Expected the stored App ID, got '{appId}'.");
+
     public Task<IReadOnlyList<ProviderQuote>> GetQuotesAsync(string appId, string accessToken, IReadOnlyList<string> symbols, CancellationToken cancellationToken)
     {
         if (appId != QuoteSnapApiFactory.App.AppId)

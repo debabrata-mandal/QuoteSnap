@@ -14,14 +14,28 @@ public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly SettingsStore _store;
     private readonly QuoteSnapConnection _connection;
+    private readonly AutoPriceFetcher _autoPrices;
+    private readonly bool _loaded;
 
-    public SettingsViewModel(SettingsStore store, QuoteSnapConnection connection, LoadedSettings loaded)
+    public SettingsViewModel(SettingsStore store, QuoteSnapConnection connection, LoadedSettings loaded, AutoPriceFetcher autoPrices)
     {
         _store = store;
         _connection = connection;
+        _autoPrices = autoPrices;
         Theme = ThemeManager.Current;
+        AutoFetchPrices = store.LoadAutoFetchPrices();
+        _loaded = true;
+        autoPrices.Checked += text => AutoFetchText = text;
         Show(loaded);
     }
+
+    /// <summary>Whether to request the holdings' live prices every 15 minutes while NSE is trading; saved straight away.</summary>
+    [ObservableProperty]
+    public partial bool AutoFetchPrices { get; set; }
+
+    /// <summary>What the last automatic check did; null until the first one.</summary>
+    [ObservableProperty]
+    public partial string? AutoFetchText { get; set; }
 
     /// <summary>The colour theme; a change applies at once and is saved straight away.</summary>
     [ObservableProperty]
@@ -77,6 +91,24 @@ public sealed partial class SettingsViewModel : ObservableObject
         catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
         {
             Report(StatusLevel.Warning, "Theme not saved", $"The {value} theme applies until you close the app, but it couldn't be saved: {ex.Message}");
+        }
+    }
+
+    partial void OnAutoFetchPricesChanged(bool value)
+    {
+        if (!_loaded)
+            return;
+
+        _autoPrices.SetEnabled(value);
+        if (!value)
+            AutoFetchText = null;
+        try
+        {
+            _store.SaveAutoFetchPrices(value);
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+        {
+            AutoFetchText = $"This applies until you close the app, but it couldn't be saved: {ex.Message}";
         }
     }
 

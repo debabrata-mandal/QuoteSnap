@@ -38,6 +38,25 @@ public sealed class FyersQuoteProvider(HttpClient http, IOptions<FyersOptions> o
             .ToList();
     }
 
+    private const int NseExchange = 10;
+    private const int CapitalMarketSegment = 10;
+
+    public async Task<string?> GetMarketStatusAsync(string appId, string accessToken, CancellationToken cancellationToken)
+    {
+        using HttpRequestMessage request = new(HttpMethod.Get, new Uri($"{_options.DataBaseUrl.TrimEnd('/')}/marketStatus"));
+        request.Headers.TryAddWithoutValidation("Authorization", $"{appId}:{accessToken}");
+
+        using HttpResponseMessage response = await http.SendAsync(request, cancellationToken);
+        using JsonDocument document = await FyersJson.ReadOkAsync(response, cancellationToken);
+        if (!document.RootElement.TryGetProperty("marketStatus", out JsonElement rows) || rows.ValueKind != JsonValueKind.Array)
+            return null;
+
+        return rows.EnumerateArray()
+            .Where(row => FyersJson.GetInt(row, "exchange") == NseExchange && FyersJson.GetInt(row, "segment") == CapitalMarketSegment && FyersJson.GetString(row, "market_type") == "NORMAL")
+            .Select(row => FyersJson.GetString(row, "status"))
+            .FirstOrDefault();
+    }
+
     private static ProviderQuote Parse(string symbol, JsonElement item)
     {
         JsonElement values = item.TryGetProperty("v", out JsonElement v) ? v : default;

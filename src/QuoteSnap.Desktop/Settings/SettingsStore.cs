@@ -19,6 +19,7 @@ public sealed class SettingsStore(string settingsPath, IReadOnlyList<string> env
     private const string AdminApiKeyVariable = "Auth__AdminApiKey";
     private const string FyersLoginFileName = "fyers-login.json";
     private const string AppearanceFileName = "appearance.json";
+    private const string AutoPricesFileName = "auto-prices.json";
     private static readonly byte[] Entropy = "QuoteSnap.Desktop.ApiKey.v1"u8.ToArray();
     private static readonly byte[] FyersEntropy = "QuoteSnap.Desktop.FyersLogin.v1"u8.ToArray();
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
@@ -30,6 +31,8 @@ public sealed class SettingsStore(string settingsPath, IReadOnlyList<string> env
     public string FyersLoginPath { get; } = Path.Combine(Path.GetDirectoryName(settingsPath) ?? "", FyersLoginFileName);
 
     public string AppearancePath { get; } = Path.Combine(Path.GetDirectoryName(settingsPath) ?? "", AppearanceFileName);
+
+    public string AutoPricesPath { get; } = Path.Combine(Path.GetDirectoryName(settingsPath) ?? "", AutoPricesFileName);
 
     /// <summary>The saved theme, or <see cref="AppTheme.Dark"/> when none is saved or the file can't be read.</summary>
     public AppTheme LoadTheme()
@@ -50,6 +53,25 @@ public sealed class SettingsStore(string settingsPath, IReadOnlyList<string> env
     {
         Directory.CreateDirectory(Path.GetDirectoryName(AppearancePath)!);
         File.WriteAllText(AppearancePath, JsonSerializer.Serialize(new StoredAppearance(theme.ToString()), Json));
+    }
+
+    /// <summary>Whether to fetch the holdings' live prices every 15 minutes while the market is open; off when unsaved or unreadable.</summary>
+    public bool LoadAutoFetchPrices()
+    {
+        try
+        {
+            return File.Exists(AutoPricesPath) && JsonSerializer.Deserialize<StoredAutoPrices>(File.ReadAllText(AutoPricesPath), Json) is { Enabled: true };
+        }
+        catch (Exception ex) when (ex is JsonException or IOException)
+        {
+            return false;
+        }
+    }
+
+    public void SaveAutoFetchPrices(bool enabled)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(AutoPricesPath)!);
+        File.WriteAllText(AutoPricesPath, JsonSerializer.Serialize(new StoredAutoPrices(enabled), Json));
     }
 
     public LoadedSettings Load()
@@ -196,4 +218,6 @@ public sealed class SettingsStore(string settingsPath, IReadOnlyList<string> env
     private sealed record StoredFyersLogin(string? AppId, string? ProtectedSecretId, string? ProtectedPin, string? RedirectUri);
 
     private sealed record StoredAppearance(string? Theme);
+
+    private sealed record StoredAutoPrices(bool Enabled);
 }

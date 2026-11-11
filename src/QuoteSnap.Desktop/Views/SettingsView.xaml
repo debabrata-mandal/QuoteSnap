@@ -172,6 +172,21 @@
           </StackPanel>
         </Border>
 
+        <TextBlock Text="Live prices" Style="{StaticResource Group}" />
+
+        <Border Style="{StaticResource SettingRow}">
+          <DockPanel>
+            <CheckBox DockPanel.Dock="Right" Style="{StaticResource ToggleSwitch}" VerticalAlignment="Center" IsChecked="{Binding AutoFetchPrices}"
+                      AutomationProperties.Name="Fetch live prices every 15 minutes" />
+            <TextBlock Style="{StaticResource SettingIcon}" Text="&#xE895;" />
+            <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+              <TextBlock Text="Fetch live prices every 15 minutes" Style="{StaticResource SettingTitle}" />
+              <TextBlock Text="{Binding AutoFetchText, TargetNullValue=While the app is open and Fyers says NSE is trading; needs a Fyers login.}"
+                         Style="{StaticResource SettingDescription}" />
+            </StackPanel>
+          </DockPanel>
+        </Border>
+
         <TextBlock Text="Connection" Style="{StaticResource Group}" />
 
         <Border Style="{StaticResource SettingRow}">

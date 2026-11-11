@@ -43,6 +43,20 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void Fetching_live_prices_automatically_is_off_until_turned_on()
+    {
+        string path = Path.Combine(_root, "settings", "desktop-settings.json");
+        SettingsStore store = new(path, [_root]);
+        Assert.False(store.LoadAutoFetchPrices());
+
+        store.SaveAutoFetchPrices(true);
+        Assert.True(new SettingsStore(path, [_root]).LoadAutoFetchPrices());
+
+        File.WriteAllText(store.AutoPricesPath, "not json");
+        Assert.False(store.LoadAutoFetchPrices());
+    }
+
+    [Fact]
     public void Removing_saved_settings_keeps_the_theme()
     {
         SettingsStore store = new(Path.Combine(_root, "desktop-settings.json"), [_root]);

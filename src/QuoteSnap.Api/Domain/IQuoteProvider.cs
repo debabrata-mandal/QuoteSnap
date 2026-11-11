@@ -4,6 +4,9 @@ public interface IQuoteProvider
 {
     /// <summary>Returns exactly one quote per requested symbol, in the same order.</summary>
     Task<IReadOnlyList<ProviderQuote>> GetQuotesAsync(string appId, string accessToken, IReadOnlyList<string> symbols, CancellationToken cancellationToken);
+
+    /// <summary>The status of NSE's normal capital market session, such as OPEN or CLOSE; null when it isn't listed.</summary>
+    Task<string?> GetMarketStatusAsync(string appId, string accessToken, CancellationToken cancellationToken);
 }
 
 public sealed record ProviderQuote(string Symbol)

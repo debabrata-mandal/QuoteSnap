@@ -85,6 +85,29 @@ public sealed class FyersQuoteProviderTests
             CreateProvider(handler).GetQuotesAsync(AppId, "token", ["NSE:SBIN-EQ"], CancellationToken.None));
     }
 
+    [Fact]
+    public async Task The_market_status_is_nse_capital_markets_normal_session()
+    {
+        StubHttpHandler handler = new(_ => StubHttpHandler.Json("""
+            {
+              "code": 200, "s": "ok",
+              "marketStatus": [
+                { "exchange": 10, "market_type": "CALL_AUCTION2", "segment": 10, "status": "CLOSED" },
+                { "exchange": 10, "market_type": "NORMAL", "segment": 11, "status": "CLOSED" },
+                { "exchange": 12, "market_type": "NORMAL", "segment": 10, "status": "CLOSED" },
+                { "exchange": 10, "market_type": "NORMAL", "segment": 10, "status": "OPEN" }
+              ]
+            }
+            """));
+
+        string? status = await CreateProvider(handler).GetMarketStatusAsync(AppId, "abc", CancellationToken.None);
+
+        Assert.Equal("OPEN", status);
+        HttpRequestMessage request = Assert.Single(handler.Requests);
+        Assert.Equal("https://fyers.test/data/marketStatus", request.RequestUri!.AbsoluteUri);
+        Assert.Equal("XJ12345-100:abc", request.Headers.GetValues("Authorization").Single());
+    }
+
     private static FyersQuoteProvider CreateProvider(StubHttpHandler handler) =>
         new(new HttpClient(handler), Microsoft.Extensions.Options.Options.Create(Options));
 }

@@ -18,6 +18,7 @@ public sealed partial class MainViewModel : ObservableObject
     public const int ZerodhaTab = 8;
 
     private readonly QuoteSnapConnection _connection;
+    private readonly AutoPriceFetcher _autoPrices;
 
     public MainViewModel(SettingsStore store, QuoteSnapConnection connection, LoadedSettings loaded)
     {
@@ -30,7 +31,8 @@ public sealed partial class MainViewModel : ObservableObject
         Nav = new NavViewModel(connection, dialogs);
         Holdings = new HoldingsViewModel(connection, dialogs, exclusions);
         Stocks = new StocksViewModel(connection);
-        Settings = new SettingsViewModel(store, connection, loaded);
+        _autoPrices = new AutoPriceFetcher(connection);
+        Settings = new SettingsViewModel(store, connection, loaded, _autoPrices);
         FyersLogin = new FyersLoginViewModel(connection, store);
         Zerodha = new ZerodhaViewModel(connection, store);
 
@@ -48,6 +50,7 @@ public sealed partial class MainViewModel : ObservableObject
 
         NewRequest.RequestFinished += async (_, _) => await Dashboard.RefreshIfIdleAsync();
         Nav.NavsRefreshed += async (_, _) => await Dashboard.RefreshIfIdleAsync();
+        _autoPrices.PricesRequested += async () => await Task.WhenAll(Holdings.FollowLatestPricesAsync(), Nav.ResumePricesAsync());
         connection.Changed += (_, _) => OnPropertyChanged(nameof(Title));
     }
 
@@ -78,6 +81,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         Dashboard.Start();
         _connection.Start();
+        _autoPrices.SetEnabled(Settings.AutoFetchPrices);
     }
 
     [RelayCommand]
