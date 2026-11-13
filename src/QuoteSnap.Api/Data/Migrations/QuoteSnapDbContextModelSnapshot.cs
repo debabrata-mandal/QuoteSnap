@@ -261,6 +261,43 @@ namespace QuoteSnap.Api.Data.Migrations
                     b.ToTable("MyFunds", (string)null);
                 });
 
+            modelBuilder.Entity("QuoteSnap.Api.Data.NavEstimateRecord", b =>
+                {
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date");
+
+                    b.Property<int>("SchemeCode")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("ChangePercent")
+                        .HasPrecision(9, 4)
+                        .HasColumnType("numeric(9,4)");
+
+                    b.Property<decimal?>("EstimatedNav")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<decimal?>("Nav")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PricedHoldings")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("PricesAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("SavedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Day", "SchemeCode");
+
+                    b.ToTable("NavEstimates", (string)null);
+                });
+
             modelBuilder.Entity("QuoteSnap.Api.Domain.FyersSymbol", b =>
                 {
                     b.Property<string>("Isin")

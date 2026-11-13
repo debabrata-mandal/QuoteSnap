@@ -92,6 +92,13 @@ public sealed class QuoteSnapClient
         return await ReadAsync<NavEstimateList>(response, cancellationToken);
     }
 
+    /// <summary>The NAV estimates saved when each day's last holdings quote request finished, for the last 7 days, newest first.</summary>
+    public async Task<List<NavEstimateDay>> GetNavEstimateHistoryAsync(CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "api/my-funds/estimates/history", null, admin: false, cancellationToken);
+        return await ReadAsync<List<NavEstimateDay>>(response, cancellationToken);
+    }
+
     /// <summary>Adds a scheme to the user's list; adding one that's already there returns it unchanged.</summary>
     public async Task<MyFund> AddMyFundAsync(int schemeCode, CancellationToken cancellationToken = default)
     {

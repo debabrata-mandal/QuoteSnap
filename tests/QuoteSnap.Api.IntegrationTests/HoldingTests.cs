@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net;
+using Microsoft.Extensions.DependencyInjection;
+using QuoteSnap.Api.Data;
 using QuoteSnap.Client;
 using QuoteSnap.Contracts;
 
@@ -543,6 +545,37 @@ public sealed class HoldingTests
         Assert.Null(parag.HoldingsMonth);
         Assert.Null(parag.ChangePercent);
         Assert.Equal(92.1m, parag.Nav);
+    }
+
+    [Fact]
+    public async Task Finished_holdings_quotes_save_todays_estimates_and_cleanup_drops_days_older_than_a_week()
+    {
+        await using QuoteSnapApiFactory factory = await ListedAsync(true, Dsp, Motilal);
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+        await factory.SeedSessionAsync();
+        await FetchAsync(client);
+        Assert.Empty(await client.GetNavEstimateHistoryAsync());
+
+        await client.StartHoldingQuotesAsync();
+        await WaitForAsync(async () => (await client.GetNavEstimateHistoryAsync()).Count == 1);
+
+        await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+        NavEstimateRepository repository = scope.ServiceProvider.GetRequiredService<NavEstimateRepository>();
+        NavEstimateDay today = Assert.Single(await client.GetNavEstimateHistoryAsync());
+        Assert.Equal(repository.Today, today.Day);
+        Assert.NotNull(today.PricesAt);
+        Assert.Equal([Dsp, Motilal], today.Funds.Select(f => f.SchemeCode));
+        Assert.Equal(0.2204m, today.Funds[0].ChangePercent);
+        Assert.Equal(14.3165m, today.Funds[0].EstimatedNav);
+
+        QuoteSnapDbContext db = scope.ServiceProvider.GetRequiredService<QuoteSnapDbContext>();
+        db.NavEstimates.AddRange(Saved(repository.Today.AddDays(-6)), Saved(repository.Today.AddDays(-7)));
+        await db.SaveChangesAsync();
+
+        Assert.Equal(1, await repository.DeleteExpiredAsync(default));
+        Assert.Equal([repository.Today, repository.Today.AddDays(-6)], (await client.GetNavEstimateHistoryAsync()).Select(d => d.Day));
+
+        static NavEstimateRecord Saved(DateOnly day) => new() { Day = day, SchemeCode = Dsp, SavedAt = DateTimeOffset.UtcNow };
     }
 
     [Fact]

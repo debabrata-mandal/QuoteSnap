@@ -128,6 +128,7 @@ Invoke-RestMethod "http://127.0.0.1:8080$($r.statusUrl)" -Headers $h
 | `GET /api/nav/schemes?code=...` | Latest NAVs by AMFI scheme code, in the order asked |
 | `GET /api/my-funds` | Your fund list, in your order (the order added until rearranged), each with its latest NAV |
 | `GET /api/my-funds/estimates` | Today's estimated NAV move for each listed fund, from its holdings' weights and the last holdings live prices |
+| `GET /api/my-funds/estimates/history` | The estimates saved when each day's last holdings live-prices request finished, for the last 7 days |
 | `PUT /api/my-funds/{schemeCode}` | Add a Direct Plan scheme to your list (`201`, or `200` if it's already there) |
 | `DELETE /api/my-funds/{schemeCode}` | Remove a scheme from your list (`204`, also when it wasn't there) |
 | `PUT /api/my-funds/{schemeCode}/units` | Set the units you hold: `{ "units": 1234.567 }`, or `null` to clear (`200`; `400` unless above 0 with at most 4 decimals; `404` if the fund isn't listed) |
@@ -254,7 +255,8 @@ Invoke-RestMethod "http://127.0.0.1:8080/api/my-funds/152712/holdings?month=2026
 - Estimated change % = Σ (holding weight % × stock's day change %) / 100. The day change is the quote's change percent, or its change divided by the previous price (LTP − change).
 - Lines without a live price (TREPS, repo, net payables, cash, debt, unlisted shares or failed quotes) count as unchanged at their weight. `pricedPercent` and `pricedHoldings` show how much of the fund the estimate covers.
 - Estimated NAV = latest AMFI NAV × (1 + change % / 100). The NAV is usually the previous trading day's, so the estimate is today's move on top of it; `navDate` and `pricesAt` say what it's based on.
-- Nothing is stored. `changePercent` and `estimatedNav` are null for funds without holdings or before any live prices have been fetched. It's an estimate: the portfolio is a month old and fund expenses and intraday trades aren't known.
+- The live estimate isn't stored. `changePercent` and `estimatedNav` are null for funds without holdings or before any live prices have been fetched. It's an estimate: the portfolio is a month old and fund expenses and intraday trades aren't known.
+- When a `POST /api/holdings/quotes` request finishes with any prices, the estimates from its prices alone are saved for the day, replacing that day's earlier save. `GET /api/my-funds/estimates/history` returns the last 7 days' saves, newest first: per fund only the NAV, change %, estimated NAV and priced holdings count, plus the day's `pricesAt` (names are on `GET /api/my-funds`). The hub pushes `Changed(EstimateHistory)` after each save. Older days are deleted by the hourly cleanup.
 - Each fund also has the `units` you hold (null until entered with `PUT /api/my-funds/{schemeCode}/units`). Once every listed fund has units, the desktop dashboard weights the overall move by each fund's value (units × latest NAV) and can show today's estimated gain or loss in rupees, hidden until you press the eye icon, then shown for 5 seconds. Until then it's the plain average of the funds' estimated changes.
 
 ### Top holdings
@@ -273,7 +275,7 @@ Instead of polling, clients can connect to the SignalR hub at `/hubs/events` (sa
 | `LiveQuotesUpdated(list)` | Once a second, only the streamed quotes that ticked since the last push |
 | `EstimatesUpdated(list)` | Once a second when prices, funds, holdings or NAVs changed: the same list as `GET /api/my-funds/estimates` |
 | `MarketStatusChanged(status)` | NSE's market status, or the error reading it (in `error`), changed. The API checks Fyers once a minute through the same cache as `GET /api/market/status`, since Fyers doesn't push it |
-| `Changed(what)` | `FyersSession`, `Navs`, `FyersSymbols`, `MyFunds` or `Holdings` changed; read them again |
+| `Changed(what)` | `FyersSession`, `Navs`, `FyersSymbols`, `MyFunds`, `Holdings` or `EstimateHistory` changed; read them again |
 
 Nothing is pushed while no client is connected. A client should read the state once after every (re)connection, since pushes in between are missed. The desktop app uses the hub and no longer polls. In Development the API logs every push and each second's ticked quotes at Debug (`QuoteSnap.Api.Events`, `QuoteSnap.Api.Live` in `appsettings.Development.json`); set `QuoteSnap.Api.Live` to `Verbose` to also log each tick received from Fyers.
 

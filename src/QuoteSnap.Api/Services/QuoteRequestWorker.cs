@@ -107,6 +107,27 @@ public sealed class QuoteRequestWorker(QuoteRequestQueue queue, IServiceScopeFac
         logger.LogInformation(
             "Quote request {RequestId} finished as {Status} in {ElapsedMs:0} ms: {Succeeded} ok, {Failed} failed of {SymbolCount} fetched",
             requestId, status, Stopwatch.GetElapsedTime(start).TotalMilliseconds, succeeded, failed, pending.Count);
+        if (status != QuoteRequestStatus.Failed)
+            await SaveEstimatesAsync(scope.ServiceProvider, requestId, cancellationToken);
+    }
+
+    /// <summary>Saves today's NAV estimates from a finished holdings request's prices, if it's the latest one.</summary>
+    private async Task SaveEstimatesAsync(IServiceProvider services, Guid requestId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            EstimateBasis basis = await EstimateBasis.LoadAsync(services, cancellationToken);
+            if (basis.Request?.Id != requestId)
+                return;
+            NavEstimateList estimates = basis.Estimate([]);
+            await services.GetRequiredService<NavEstimateRepository>().SaveTodayAsync(estimates, cancellationToken);
+            logger.LogInformation("Quote request {RequestId}: saved today's NAV estimates for {Funds} funds", requestId, estimates.Funds.Count);
+            await events.ChangedAsync(ServerChange.EstimateHistory);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(ex, "Quote request {RequestId}: couldn't save today's NAV estimates", requestId);
+        }
     }
 
     private sealed record BatchInfo(Guid RequestId, int Number, int Count, int Symbols);

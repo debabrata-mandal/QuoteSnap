@@ -19,7 +19,8 @@ public sealed class CleanupService(IServiceScopeFactory scopes, IOptions<QuoteSn
                 QuoteRequestRepository repository = scope.ServiceProvider.GetRequiredService<QuoteRequestRepository>();
                 int deleted = await repository.DeleteOlderThanAsync(cutoff, stoppingToken);
                 int fetches = await scope.ServiceProvider.GetRequiredService<HoldingRepository>().DeleteFetchesOlderThanAsync(cutoff, stoppingToken);
-                logger.LogInformation("Cleanup deleted {Requests} quote requests (with their results) and {Fetches} holdings fetch records older than {RetentionDays} days ({Cutoff}); next run in 1 hour", deleted, fetches, options.Value.RetentionDays, cutoff);
+                int estimates = await scope.ServiceProvider.GetRequiredService<NavEstimateRepository>().DeleteExpiredAsync(stoppingToken);
+                logger.LogInformation("Cleanup deleted {Requests} quote requests (with their results) and {Fetches} holdings fetch records older than {RetentionDays} days ({Cutoff}), and {Estimates} saved NAV estimates older than {EstimateDays} days; next run in 1 hour", deleted, fetches, options.Value.RetentionDays, cutoff, estimates, NavEstimateRepository.RetentionDays);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

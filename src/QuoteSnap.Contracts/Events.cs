@@ -26,6 +26,9 @@ public enum ServerChange
 
     /// <summary>A holdings fetch finished, so the stored holdings may have changed.</summary>
     Holdings,
+
+    /// <summary>A holdings quote request finished and today's NAV estimates were saved; see GET /api/my-funds/estimates/history.</summary>
+    EstimateHistory,
 }
 
 /// <summary>The messages the hub sends; the method names are the SignalR targets.</summary>

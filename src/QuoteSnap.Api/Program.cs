@@ -76,6 +76,7 @@ builder.Services.AddScoped<MyFundRepository>();
 builder.Services.AddScoped<HoldingRepository>();
 builder.Services.AddScoped<FyersSymbolRepository>();
 builder.Services.AddScoped<SymbolExclusionRepository>();
+builder.Services.AddScoped<NavEstimateRepository>();
 builder.Services.AddScoped<ZerodhaService>();
 builder.Services.AddSingleton<FundSearchCache>();
 

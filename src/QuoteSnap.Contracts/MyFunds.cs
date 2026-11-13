@@ -25,6 +25,15 @@ public sealed record MyFundOrder(IReadOnlyList<int> SchemeCodes);
 /// <param name="Funds">In list order.</param>
 public sealed record NavEstimateList(Guid? RequestId, DateTimeOffset? PricesAt, IReadOnlyList<NavEstimate> Funds);
 
+/// <summary>A day's saved NAV estimates, from that day's last finished holdings quote request.</summary>
+/// <param name="Day">The server's local date the prices were fetched on.</param>
+/// <param name="PricesAt">When that request's prices were fetched.</param>
+/// <param name="Funds">In the list order when saved; names are on GET /api/my-funds.</param>
+public sealed record NavEstimateDay(DateOnly Day, DateTimeOffset? PricesAt, IReadOnlyList<SavedNavEstimate> Funds);
+
+/// <summary>A fund's saved estimate; see <see cref="NavEstimate"/>.</summary>
+public sealed record SavedNavEstimate(int SchemeCode, decimal? Nav, decimal? ChangePercent, decimal? EstimatedNav, int PricedHoldings);
+
 /// <summary>
 /// A fund's estimated move: each holding's weight times its stock's day change, summed. Holdings without a price
 /// (cash, TREPS, bonds, failed quotes) count as unchanged.

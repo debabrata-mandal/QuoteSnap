@@ -16,6 +16,7 @@ public static class MyFundEndpoints
         RouteGroupBuilder group = app.MapGroup("/api/my-funds").RequireApiKey().WithTags("My funds");
         group.MapGet("/", GetAllAsync);
         group.MapGet("/estimates", GetEstimatesAsync);
+        group.MapGet("/estimates/history", GetEstimateHistoryAsync);
         group.MapPut("/order", ReorderAsync);
         group.MapPut("/{schemeCode:int}", AddAsync);
         group.MapPut("/{schemeCode:int}/units", SetUnitsAsync);
@@ -45,6 +46,10 @@ public static class MyFundEndpoints
         EstimateBasis basis = await EstimateBasis.LoadAsync(funds, navs, holdings, requests, cancellationToken);
         return TypedResults.Ok(basis.Estimate(live.GetQuotes().Quotes));
     }
+
+    /// <summary>The NAV estimates saved when each day's last holdings quote request finished, for the last 7 days, newest first.</summary>
+    private static async Task<Ok<List<NavEstimateDay>>> GetEstimateHistoryAsync(NavEstimateRepository estimates, CancellationToken cancellationToken) =>
+        TypedResults.Ok(await estimates.GetHistoryAsync(cancellationToken));
 
     /// <summary>Adds a Direct Plan scheme from AMFI's NAV file; adding a fund that's already on the list returns it unchanged.</summary>
     /// <param name="schemeCode">The AMFI scheme code, as returned by GET /api/nav/search.</param>

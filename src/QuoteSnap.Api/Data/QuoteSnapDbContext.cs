@@ -26,6 +26,8 @@ public sealed class QuoteSnapDbContext(DbContextOptions<QuoteSnapDbContext> opti
 
     public DbSet<ExcludedSymbolRecord> ExcludedSymbols => Set<ExcludedSymbolRecord>();
 
+    public DbSet<NavEstimateRecord> NavEstimates => Set<NavEstimateRecord>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         configurationBuilder.Properties<QuoteRequestStatus>().HaveConversion<string>().HaveMaxLength(32);
@@ -152,6 +154,16 @@ public sealed class QuoteSnapDbContext(DbContextOptions<QuoteSnapDbContext> opti
             entity.ToTable("ExcludedSymbols");
             entity.HasKey(s => s.Symbol);
             entity.Property(s => s.Symbol).HasMaxLength(100);
+        });
+
+        // No foreign key to MyFunds: a removed fund's past estimates are kept.
+        modelBuilder.Entity<NavEstimateRecord>(entity =>
+        {
+            entity.ToTable("NavEstimates");
+            entity.HasKey(e => new { e.Day, e.SchemeCode });
+            entity.Property(e => e.Nav).HasPrecision(18, 4);
+            entity.Property(e => e.ChangePercent).HasPrecision(9, 4);
+            entity.Property(e => e.EstimatedNav).HasPrecision(18, 4);
         });
     }
 }
