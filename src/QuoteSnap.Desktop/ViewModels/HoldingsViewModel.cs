@@ -22,6 +22,7 @@ public sealed partial class HoldingsViewModel : ObservableObject
     private Guid? _watching;
     private Guid? _watchingQuotes;
     private int _loadVersion;
+    private int? _requestedScheme;
     private bool _activated;
     private bool _showingLoadWarning;
 
@@ -167,6 +168,9 @@ public sealed partial class HoldingsViewModel : ObservableObject
         await Task.WhenAll(RefreshAsync(), _exclusions.RefreshAsync());
     }
 
+    /// <summary>Selects the fund with this scheme code the next time the funds load, such as when the page is opened.</summary>
+    public void ShowFund(int schemeCode) => _requestedScheme = schemeCode;
+
     /// <summary>Follows a live-prices request started elsewhere, such as by the automatic fetch, once the page has been opened.</summary>
     public Task FollowLatestPricesAsync() => _activated ? LoadLatestPricesAsync() : Task.CompletedTask;
 
@@ -308,7 +312,8 @@ public sealed partial class HoldingsViewModel : ObservableObject
         try
         {
             MyFundList list = await _connection.Client.GetMyFundsAsync();
-            int? selected = SelectedFund?.SchemeCode;
+            int? selected = _requestedScheme ?? SelectedFund?.SchemeCode;
+            _requestedScheme = null;
             Dictionary<int, HoldingFetchFundStatus?> statuses = Funds.ToDictionary(f => f.SchemeCode, f => f.FetchStatus);
             Funds.Clear();
             foreach (MyFund fund in list.Funds)

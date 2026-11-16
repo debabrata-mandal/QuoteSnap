@@ -34,6 +34,16 @@ public sealed partial class NavViewModel : ObservableObject
 
     public event EventHandler? NavsRefreshed;
 
+    /// <summary>Raised with a fund's scheme code to show its portfolio on the Holdings page.</summary>
+    public event EventHandler<int>? HoldingsRequested;
+
+    [RelayCommand]
+    private void OpenHoldings(FundRow? row)
+    {
+        if (row is not null)
+            HoldingsRequested?.Invoke(this, row.SchemeCode);
+    }
+
     /// <summary>Stored by the service, so every app pointed at it shares the list.</summary>
     public ObservableCollection<FundRow> MyFunds { get; } = [];
 

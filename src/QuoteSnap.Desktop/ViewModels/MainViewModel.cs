@@ -37,6 +37,11 @@ public sealed partial class MainViewModel : ObservableObject
         Zerodha = new ZerodhaViewModel(connection, store);
 
         Holdings.AddFundsRequested += (_, _) => SelectedTabIndex = NavTab;
+        Nav.HoldingsRequested += (_, schemeCode) =>
+        {
+            Holdings.ShowFund(schemeCode);
+            SelectedTabIndex = HoldingsTab;
+        };
         Dashboard.ProblemsRequested += async (_, request) =>
         {
             Task showing = History.ShowAsync(request.RequestId, request.Status.ToString());

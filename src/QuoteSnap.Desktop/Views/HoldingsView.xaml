@@ -8,7 +8,7 @@
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:HoldingsViewModel}">
   <UserControl.Resources>
-    <!-- A listed fund: avatar, name, what's stored ("24 holdings · Sep 2026") and, during a fetch, its status. Click to show its portfolio. -->
+    <!-- A listed fund: avatar, name, what's stored ("24 holdings · Sep 2026", with its status during a fetch). Click to show its portfolio. -->
     <DataTemplate x:Key="FundTemplate" DataType="{x:Type vm:HoldingsFundRow}">
       <Border x:Name="Row" Padding="12,10" Margin="8,1" CornerRadius="{StaticResource RadiusControl}" Background="Transparent"
               BorderBrush="Transparent" BorderThickness="1" Cursor="Hand" ToolTip="{Binding FetchError}">
@@ -20,20 +20,21 @@
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
           <Border Width="32" Height="32" CornerRadius="16" VerticalAlignment="Center" Background="{Binding AvatarColor}">
             <TextBlock Text="{Binding Initials}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextOnAccentBrush}"
                        HorizontalAlignment="Center" VerticalAlignment="Center" />
           </Border>
-          <StackPanel Grid.Column="1" Margin="12,0,10,0" VerticalAlignment="Center">
+          <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
             <TextBlock Text="{Binding Name}" FontWeight="Medium" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis"
                        ToolTip="{Binding Name}" />
-            <TextBlock x:Name="Summary" Text="{Binding SummaryText}" Style="{StaticResource Text.Muted}" FontSize="{StaticResource FontSizeCaption}"
-                       Margin="0,2,0,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Typography.NumeralAlignment="Tabular" />
+            <DockPanel Margin="0,2,0,0">
+              <ui:StatusPill DockPanel.Dock="Right" Margin="8,0,0,0" VerticalAlignment="Center" Text="{Binding FetchStatusText}" Tone="{Binding FetchLevel, Converter={StaticResource Tone}}"
+                             Visibility="{Binding HasFetchStatus, Converter={StaticResource BoolToVisibility}}" />
+              <TextBlock x:Name="Summary" Text="{Binding SummaryText}" Style="{StaticResource Text.Muted}" FontSize="{StaticResource FontSizeCaption}"
+                         VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Typography.NumeralAlignment="Tabular" />
+            </DockPanel>
           </StackPanel>
-          <ui:StatusPill Grid.Column="2" VerticalAlignment="Center" Text="{Binding FetchStatusText}" Tone="{Binding FetchLevel, Converter={StaticResource Tone}}"
-                         Visibility="{Binding HasFetchStatus, Converter={StaticResource BoolToVisibility}}" />
         </Grid>
       </Border>
       <DataTemplate.Triggers>
@@ -151,9 +152,9 @@
 
     <Grid Grid.Row="4">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="340" />
+        <ColumnDefinition Width="2*" MinWidth="340" MaxWidth="480" />
         <ColumnDefinition Width="16" />
-        <ColumnDefinition Width="*" MinWidth="560" />
+        <ColumnDefinition Width="3*" MinWidth="560" />
       </Grid.ColumnDefinitions>
 
       <!-- Listed funds -->

@@ -19,10 +19,14 @@
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
-    <!-- A fund on the user's list: avatar, name, "Growth · Equity · Large & Mid Cap", NAV and date; remove appears on hover. Drag a row to move it. -->
+    <!-- A fund on the user's list: avatar, name, "Growth · Equity · Large & Mid Cap", NAV and date; remove appears on hover. Drag a row to move it; double-click it to see its holdings. -->
     <DataTemplate x:Key="MyFundTemplate" DataType="{x:Type vm:FundRow}">
       <Border x:Name="Row" Padding="20,12,12,12" Background="Transparent" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1"
               ToolTip="{Binding Details}">
+        <Border.InputBindings>
+          <MouseBinding MouseAction="LeftDoubleClick" CommandParameter="{Binding}"
+                        Command="{Binding DataContext.OpenHoldingsCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
+        </Border.InputBindings>
         <Grid>
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
