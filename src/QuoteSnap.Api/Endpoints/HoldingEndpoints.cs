@@ -83,7 +83,7 @@ public static class HoldingEndpoints
     /// reuseWithinSeconds, so does one that started that recently and didn't fail, so several clients fetching on a
     /// schedule share one Fyers fetch.
     /// </summary>
-    private static async Task<Results<Accepted<QuoteRequestAccepted>, Ok<QuoteRequestAccepted>, ProblemHttpResult>> StartQuotesAsync(int? reuseWithinSeconds, HoldingRepository holdings, SymbolExclusionRepository exclusions, QuoteRequestRepository requests, QuoteRequestQueue queue, SessionService session, EventPublisher events, HoldingQuoteStartLock startLock, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken)
+    internal static async Task<Results<Accepted<QuoteRequestAccepted>, Ok<QuoteRequestAccepted>, ProblemHttpResult>> StartQuotesAsync(int? reuseWithinSeconds, HoldingRepository holdings, SymbolExclusionRepository exclusions, QuoteRequestRepository requests, QuoteRequestQueue queue, SessionService session, EventPublisher events, HoldingQuoteStartLock startLock, TimeProvider time, ILoggerFactory loggers, CancellationToken cancellationToken)
     {
         if (reuseWithinSeconds is < 0 or > 3600)
             return TypedResults.Problem("reuseWithinSeconds must be between 0 and 3600.", statusCode: StatusCodes.Status400BadRequest, title: "Invalid reuse window");

@@ -82,7 +82,10 @@ public sealed class SlackClient(HttpClient http, IOptions<SlackOptions> options)
     public static string Escape(string text) => text.Replace("&", "&amp;", StringComparison.Ordinal).Replace("<", "&lt;", StringComparison.Ordinal).Replace(">", "&gt;", StringComparison.Ordinal);
 }
 
-/// <summary>Keeps one QuoteSnap post in the channel: each new post replaces the previous one.</summary>
+/// <summary>
+/// Keeps one QuoteSnap post in the channel: each new post replaces the previous one. When the estimates can't be posted,
+/// one more post says why, replaced only when the problem changes and deleted once the estimates are posted again.
+/// </summary>
 public sealed class SlackPoster(SlackClient slack, SlackSettingsRepository settings, IOptions<SlackOptions> options, ILogger<SlackPoster> logger)
 {
     private static readonly SemaphoreSlim Gate = new(1, 1);
@@ -95,21 +98,52 @@ public sealed class SlackPoster(SlackClient slack, SlackSettingsRepository setti
             (string Channel, string Ts)? previous = await settings.GetLastMessageAsync(cancellationToken);
             string ts = await slack.PostAsync(message, cancellationToken);
             await settings.SetLastMessageAsync(options.Value.ChannelId!, ts, cancellationToken);
-            if (previous is not { } p)
-                return;
+            if (previous is { } p)
+                await DeleteAsync(p.Channel, p.Ts, cancellationToken);
 
-            try
+            if (await settings.GetProblemAsync(cancellationToken) is { } problem)
             {
-                await slack.DeleteAsync(p.Channel, p.Ts, cancellationToken);
-            }
-            catch (Exception ex) when (ex is SlackException or HttpRequestException)
-            {
-                logger.LogWarning("Couldn't delete the previous Slack post {Ts}: {Error}", p.Ts, ex.Message);
+                await settings.SetProblemAsync(null, cancellationToken);
+                await DeleteAsync(problem.Channel, problem.Ts, cancellationToken);
             }
         }
         finally
         {
             Gate.Release();
+        }
+    }
+
+    /// <returns>Whether it was posted; false when the channel already shows a problem of the same kind.</returns>
+    public async Task<bool> PostProblemAsync(SlackProblem problem, CancellationToken cancellationToken)
+    {
+        await Gate.WaitAsync(cancellationToken);
+        try
+        {
+            (string Channel, string Ts, string Key)? previous = await settings.GetProblemAsync(cancellationToken);
+            if (previous?.Key == problem.Key)
+                return false;
+
+            string ts = await slack.PostAsync(new SlackMessage($"*QuoteSnap couldn't post the NAV estimates*\n{problem.ToSlack()}"), cancellationToken);
+            await settings.SetProblemAsync((options.Value.ChannelId!, ts, problem.Key), cancellationToken);
+            if (previous is { } p)
+                await DeleteAsync(p.Channel, p.Ts, cancellationToken);
+            return true;
+        }
+        finally
+        {
+            Gate.Release();
+        }
+    }
+
+    private async Task DeleteAsync(string channel, string ts, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await slack.DeleteAsync(channel, ts, cancellationToken);
+        }
+        catch (Exception ex) when (ex is SlackException or HttpRequestException)
+        {
+            logger.LogWarning("Couldn't delete the previous Slack post {Ts}: {Error}", ts, ex.Message);
         }
     }
 }

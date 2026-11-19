@@ -53,6 +53,14 @@ public sealed class NavEstimateRepository(QuoteSnapDbContext db, TimeProvider ti
         return db.NavEstimates.AsNoTracking().Where(e => e.Day == today).OrderBy(e => e.Position).ToListAsync(cancellationToken);
     }
 
+    /// <summary>The newest saved day's estimates within the retention period, in list order; empty when there are none.</summary>
+    public async Task<List<NavEstimateRecord>> GetLatestDayAsync(CancellationToken cancellationToken)
+    {
+        DateOnly from = Today.AddDays(-(RetentionDays - 1));
+        DateOnly? day = await db.NavEstimates.AsNoTracking().Where(e => e.Day >= from).MaxAsync(e => (DateOnly?)e.Day, cancellationToken);
+        return day is { } d ? await db.NavEstimates.AsNoTracking().Where(e => e.Day == d).OrderBy(e => e.Position).ToListAsync(cancellationToken) : [];
+    }
+
     /// <summary>Deletes days older than the retention period.</summary>
     public Task<int> DeleteExpiredAsync(CancellationToken cancellationToken)
     {

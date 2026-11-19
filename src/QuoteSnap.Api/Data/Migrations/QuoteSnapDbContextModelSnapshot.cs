@@ -312,6 +312,15 @@ namespace QuoteSnap.Api.Data.Migrations
                     b.Property<string>("LastMessageTs")
                         .HasColumnType("text");
 
+                    b.Property<string>("ProblemChannel")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProblemKey")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProblemTs")
+                        .HasColumnType("text");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 

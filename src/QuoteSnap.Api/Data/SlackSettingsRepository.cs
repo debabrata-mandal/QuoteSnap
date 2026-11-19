@@ -20,6 +20,15 @@ public sealed class SlackSettingsRepository(QuoteSnapDbContext db, TimeProvider 
 
     public Task SetLastMessageAsync(string channel, string ts, CancellationToken cancellationToken) => UpdateAsync(r => (r.LastMessageChannel, r.LastMessageTs) = (channel, ts), cancellationToken);
 
+    /// <summary>The (channel, timestamp, kind) of the post saying why the estimates couldn't be posted; null when there's none.</summary>
+    public async Task<(string Channel, string Ts, string Key)?> GetProblemAsync(CancellationToken cancellationToken)
+    {
+        SlackSettingsRecord? row = await db.SlackSettings.AsNoTracking().SingleOrDefaultAsync(s => s.Id == SlackSettingsRecord.SingletonId, cancellationToken);
+        return row is { ProblemChannel: { } channel, ProblemTs: { } ts, ProblemKey: { } key } ? (channel, ts, key) : null;
+    }
+
+    public Task SetProblemAsync((string Channel, string Ts, string Key)? problem, CancellationToken cancellationToken) => UpdateAsync(r => (r.ProblemChannel, r.ProblemTs, r.ProblemKey) = (problem?.Channel, problem?.Ts, problem?.Key), cancellationToken);
+
     private async Task UpdateAsync(Action<SlackSettingsRecord> update, CancellationToken cancellationToken)
     {
         if (await db.SlackSettings.SingleOrDefaultAsync(s => s.Id == SlackSettingsRecord.SingletonId, cancellationToken) is { } row)

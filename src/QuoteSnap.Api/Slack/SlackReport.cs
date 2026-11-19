@@ -20,20 +20,25 @@ public static class SlackReport
     public static async Task<SlackMessage?> BuildAsync(MyFundRepository funds, NavEstimateRepository estimates, TimeProvider time, CancellationToken cancellationToken)
     {
         List<NavEstimateRecord> today = await estimates.GetTodayAsync(cancellationToken);
-        if (today.Count == 0)
-            return null;
+        return today.Count == 0 ? null : Build(await funds.GetAllAsync(cancellationToken), today, marketClosed: false, time);
+    }
 
-        Dictionary<int, NavEstimateRecord> bySchemeCode = today.ToDictionary(e => e.SchemeCode);
-        List<(string Name, decimal? Change)> rows = (await funds.GetAllAsync(cancellationToken))
+    /// <param name="estimates">One day's saved estimates.</param>
+    /// <param name="marketClosed">Marks the post as NSE being closed, with the prices' day.</param>
+    public static SlackMessage Build(List<MyFundRecord> funds, List<NavEstimateRecord> estimates, bool marketClosed, TimeProvider time)
+    {
+        Dictionary<int, NavEstimateRecord> bySchemeCode = estimates.ToDictionary(e => e.SchemeCode);
+        List<(string Name, decimal? Change)> rows = funds
             .Select(f => (Name: f.SchemeName, Change: bySchemeCode.GetValueOrDefault(f.SchemeCode)?.ChangePercent))
             .OrderBy(r => r.Change is null)
             .ThenBy(r => r.Change)
             .ToList();
 
-        DateTimeOffset? pricesAt = today[0].PricesAt is { } p ? TimeZoneInfo.ConvertTime(p, time.LocalTimeZone) : null;
-        string at = pricesAt is { } local ? $"Prices at *{local.ToString("HH:mm", CultureInfo.InvariantCulture)}* · {local.ToString("ddd, d MMM", CultureInfo.InvariantCulture)}" : "Prices at an unknown time";
+        DateTimeOffset? pricesAt = estimates[0].PricesAt is { } p ? TimeZoneInfo.ConvertTime(p, time.LocalTimeZone) : null;
+        string closed = marketClosed ? "NSE closed · " : "";
+        string at = closed + (pricesAt is { } local ? $"Prices at *{local.ToString("HH:mm", CultureInfo.InvariantCulture)}* · {local.ToString("ddd, d MMM", CultureInfo.InvariantCulture)}" : "Prices at an unknown time");
 
-        StringBuilder text = new($"{Title}{(pricesAt is { } t ? $" (prices at {t.ToString("HH:mm", CultureInfo.InvariantCulture)})" : "")}");
+        StringBuilder text = new($"{Title}{(pricesAt is { } t ? $" ({closed}prices at {t.ToString(marketClosed ? "ddd HH:mm" : "HH:mm", CultureInfo.InvariantCulture)})" : marketClosed ? " (NSE closed)" : "")}");
         foreach ((string name, decimal? change) in rows)
             text.Append('\n').Append(SlackClient.Escape(name)).Append(": ").Append(Format(change));
 

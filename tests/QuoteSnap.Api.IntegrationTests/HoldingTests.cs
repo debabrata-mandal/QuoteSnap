@@ -478,6 +478,31 @@ public sealed class HoldingTests
     }
 
     [Fact]
+    public async Task Slack_posts_start_a_holdings_fetch_only_without_one_from_the_last_5_minutes()
+    {
+        await using QuoteSnapApiFactory listed = await ListedAsync(true, Dsp);
+        await FetchAsync(listed.CreateQuoteSnapClient());
+        // A second host on the same database without workers, so the requests stay queued.
+        await using QuoteSnapApiFactory factory = new(listed.DataDirectory, startWorker: false) { SlackConfigured = true };
+        QuoteSnapClient client = factory.CreateQuoteSnapClient();
+        await factory.SeedSessionAsync();
+        await client.SetSlackAsync(true);
+        Slack.SlackReporter reporter = factory.Services.GetRequiredService<Slack.SlackReporter>();
+
+        Assert.False(await reporter.ReportAsync(default));
+        Assert.EndsWith("a live-prices fetch is running; try /latest again in a minute. Posted the problem in the channel. Started a live-prices fetch for the next post.", (await client.GetSlackAsync()).LastResult);
+        Guid started = (await client.GetLatestHoldingQuotesAsync())!.RequestId;
+
+        QuoteRequestAccepted desktop = await client.StartHoldingQuotesAsync(TimeSpan.FromMinutes(4));
+        Assert.Equal(started, desktop.RequestId);
+        Assert.False(await reporter.ReportAsync(default));
+        Assert.DoesNotContain("Started", (await client.GetSlackAsync()).LastResult);
+        Assert.Contains("No NAV estimates have been saved today yet", Assert.Single(factory.SlackMessages));
+        Assert.EndsWith("a live-prices fetch is running; try /latest again in a minute.", await factory.Services.GetRequiredService<Slack.SlackCommands>().PostLatestAsync(default));
+        Assert.Equal(started, (await client.GetLatestHoldingQuotesAsync())!.RequestId);
+    }
+
+    [Fact]
     public async Task Live_prices_need_fetched_holdings_with_symbols()
     {
         await using QuoteSnapApiFactory factory = await ListedAsync(true, Dsp);

@@ -261,7 +261,9 @@ Invoke-RestMethod "http://127.0.0.1:8080/api/my-funds/152712/holdings?month=2026
 
 ### Slack reports
 
-The API can post today's saved NAV estimates (the `GET /api/my-funds/estimates/history` save, not a new price fetch) to a Slack channel every 10 minutes while Fyers says NSE is trading. Each message lists every fund on your list with its estimated change, from the biggest loser to the biggest gainer (🔴/🟢), with funds without an estimate last. It's posted even if nothing changed, and each post deletes the previous one, so the channel only ever holds the latest. Nothing is posted until an estimate has been saved that day. Slack's free plan is enough.
+The API can post today's saved NAV estimates (the `GET /api/my-funds/estimates/history` save) to a Slack channel every 10 minutes while Fyers says NSE is trading. Each message lists every fund on your list with its estimated change, from the biggest loser to the biggest gainer (🔴/🟢), with funds without an estimate last. It's posted even if nothing changed, and each post deletes the previous one, so the channel only ever holds the latest. While NSE is trading, an estimate is only posted if NAVs were downloaded today and it was saved in the last 15 minutes (see [When it can't post](#when-it-cant-post)). Slack's free plan is enough.
+
+So the posts stay fresh with the desktop app closed, each one first starts a live-prices fetch for your holdings (`POST /api/holdings/quotes`) unless one was started in the last 5 minutes, by the desktop or by Slack; a queued or running fetch is always reused, so there's never more than one at a time. It doesn't wait for it: the post uses the estimates saved so far and the next one has the new prices. The fetch needs a valid Fyers login on the server; if it can't start, a saved estimate under 15 minutes old is still posted, and an older one is reported as a problem.
 
 Setting it up, once:
 
@@ -275,12 +277,27 @@ Setting it up, once:
 
 The switch and the latest post's ID are stored in the database (`SlackSettings`), so a restart still deletes it; reports are off by default. If the previous post can't be deleted, a warning is logged and the new one is kept. `GET /api/slack` returns whether the bot is set up, whether reports are on, the interval, when the next post is due (`nextReportAt`) and what the last one did (`lastCheckedAt`, `lastResult`, e.g. posted or skipped because NSE wasn't trading); the desktop's Settings shows it with a countdown to the next post. `PUT /api/slack` with `{"enabled": true}` turns them on (`409` without the bot settings); `POST /api/slack/test` posts now, whatever the switch or market status (`502` if Slack refuses it). `Slack__IntervalMinutes` (default 10) changes the interval. Failed posts are logged as warnings and tried again at the next interval.
 
-To get the latest on demand, type `/latest` in the channel: the API posts today's saved estimates there right away, replacing the previous post, even when NSE is closed or the reports are off. If nothing has been saved today, or Slack refuses the post, only you see a reply saying so. It works through Slack's Socket Mode, a connection the API opens to Slack, so the API needs no public URL. To set it up:
+To get the latest on demand, type `/latest` in the channel: the API posts the estimates there right away, replacing the previous post, even when the reports are off. It runs the same checks and fetch as the 10-minute post, and while NSE is closed (evenings, weekends, holidays) it posts the latest saved day, marked `NSE closed · prices at Fri 15:29`. If it can't post, only you see a reply with the problem and the fix. It works through Slack's Socket Mode, a connection the API opens to Slack, so the API needs no public URL. To set it up:
 
 1. In the app's settings, under **Socket Mode**, turn on **Enable Socket Mode**; name the token `quotesnap` and keep the `connections:write` scope. Copy the app-level token (`xapp-...`) into `.env` as `Slack__AppToken`; it's a secret too. (Later it's under **Basic Information → App-Level Tokens**.)
 2. Under **Slash Commands**, choose **Create New Command**: command `/latest`, a short description such as `Post the latest NAV estimates`, **Save**.
 3. **Reinstall to Workspace** when Slack asks, then restart the API (on Kubernetes, `./k8s/deploy.ps1 -UpdateSecret`). Its log says `Slack /latest is listening.` once connected; it reconnects by itself if the connection drops.
 
+#### When it can't post
+
+Before posting, the API checks the following, and if one fails it says what's wrong and how to fix it. For `/latest` that's a reply only you see. The 10-minute post keeps the last estimates in the channel and posts the problem beside them, once per kind of problem; it's deleted at the next successful post. The desktop's Settings shows it as the last result too.
+
+| Problem | Fix |
+| --- | --- |
+| The Fyers login has expired, so NSE's status can't be read or prices fetched | Log in on the desktop's Fyers login page, or run `quotesnap-login login` |
+| Fyers can't say whether NSE is trading | Try again in a few minutes; if it keeps happening, check the API's log |
+| No funds on your list | Add them on the Mutual funds page |
+| NSE is closed and no estimates were saved in the last 7 days | They're saved after each live-prices fetch while NSE is trading |
+| While trading: NAVs weren't downloaded today | Refresh NAVs on the Mutual funds page |
+| While trading: no estimate saved in the last 15 minutes, with why the fetch couldn't start (no holdings symbols, all excluded, Fyers login) or why the last one failed | The fix for that reason, or try `/latest` again in a minute while a fetch is running |
+| Slack refuses the post: bot not in the channel, bad or revoked token, missing `chat:write` scope | `/invite @QuoteSnap`; reinstall the app and update `Slack__BotToken` with `./k8s/deploy.ps1 -UpdateSecret`; add the scope |
+
+If the API itself is down or not connected to Slack, nothing can reply, and Slack shows its own error for `/latest` (e.g. `dispatch_failed` or that the app didn't respond). Check that the pod is running (`kubectl get pods -n quotesnap`) and that its log (`kubectl logs -n quotesnap deploy/quotesnap`) says `Slack /latest is listening.`.
 ### Top holdings
 
 `GET /api/holdings/top?limit=10` lists the stocks your funds hold most, as if the same amount were invested in each listed fund that has holdings. A stock's weight is the sum of its weights in those funds divided by their number, so a fund that doesn't hold it counts as 0%. Lines without a Fyers symbol are left out. Each stock also has how many funds hold it and, from the last finished holdings live-prices request, its LTP and day change % (a newer streamed price wins). `limit` is 1 to 100 (default 10); `all=true` returns every stock instead. The desktop dashboard shows the top 10 and the Stocks page all of them.

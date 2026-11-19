@@ -5,17 +5,19 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.Options;
 using Polly;
 using QuoteSnap.Api.Data;
+using QuoteSnap.Api.Domain;
+using QuoteSnap.Api.Endpoints;
+using QuoteSnap.Api.Services;
 
 namespace QuoteSnap.Api.Slack;
 
 /// <summary>
-/// Answers the app's slash command (/latest) over Slack's Socket Mode, so the API needs no public URL:
-/// it posts today's saved NAV estimates in the channel, replacing the previous post, whatever the switch or market status.
+/// Answers the app's slash command (/latest) over Slack's Socket Mode, so the API needs no public URL: whatever the
+/// switch, it posts the NAV estimates in the channel, replacing the previous post, after <see cref="SlackChecks"/>; when
+/// they can't be posted, only whoever typed it gets a reply saying why and how to fix it.
 /// </summary>
-public sealed class SlackCommands(IOptions<SlackOptions> options, IServiceScopeFactory scopes, TimeProvider time, ILogger<SlackCommands> logger) : BackgroundService
+public sealed class SlackCommands(IOptions<SlackOptions> options, IServiceScopeFactory scopes, MarketStatusCache marketStatus, SessionService session, TimeProvider time, ILogger<SlackCommands> logger) : BackgroundService
 {
-    public const string NoEstimatesText = "No NAV estimates have been saved today yet.";
-
     private static readonly TimeSpan MinRetryDelay = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan MaxRetryDelay = TimeSpan.FromMinutes(5);
 
@@ -141,25 +143,30 @@ public sealed class SlackCommands(IOptions<SlackOptions> options, IServiceScopeF
     /// <returns>Why it's turned down, for whoever typed it; null to answer it.</returns>
     public string? Reject(string? channelId) => channelId == options.Value.ChannelId ? null : $"QuoteSnap posts in <#{options.Value.ChannelId}>; use the command there.";
 
-    /// <summary>Posts today's saved estimates in the channel, replacing the previous post.</summary>
-    /// <returns>A note for whoever typed the command when nothing was posted; null when it was.</returns>
+    /// <summary>Posts the estimates in the channel, replacing the previous post, after <see cref="SlackChecks"/>.</summary>
+    /// <returns>Why nothing was posted and how to fix it, for whoever typed the command; null when it was posted.</returns>
     public async Task<string?> PostLatestAsync(CancellationToken cancellationToken)
     {
         await using AsyncServiceScope scope = scopes.CreateAsyncScope();
         IServiceProvider services = scope.ServiceProvider;
-        SlackMessage? message = await SlackReport.BuildAsync(services.GetRequiredService<MyFundRepository>(), services.GetRequiredService<NavEstimateRepository>(), time, cancellationToken);
-        if (message is null)
-            return NoEstimatesText;
+        SlackLatest latest = await SlackChecks.PrepareAsync(services, marketStatus, session, time, logger, cancellationToken);
+        if (latest.Problem is { } problem)
+        {
+            logger.LogWarning("Slack /latest: couldn't post the NAV estimates: {Problem}", problem);
+            return Reply(problem);
+        }
 
         try
         {
-            await services.GetRequiredService<SlackPoster>().PostAsync(message, cancellationToken);
+            await services.GetRequiredService<SlackPoster>().PostAsync(latest.Message!, cancellationToken);
             return null;
         }
         catch (Exception ex) when (ex is SlackException or HttpRequestException or ExecutionRejectedException || ex is TaskCanceledException && !cancellationToken.IsCancellationRequested)
         {
             logger.LogWarning("Couldn't post the NAV estimates to Slack for /latest: {Error}", ex.Message);
-            return $"Couldn't post the NAV estimates: {ex.Message}";
+            return Reply(SlackProblem.FromSlack(ex, options.Value.ChannelId));
         }
     }
+
+    public static string Reply(SlackProblem problem) => $"Couldn't post the NAV estimates.\n{problem.ToSlack()}";
 }

@@ -10,7 +10,8 @@ namespace QuoteSnap.Api.Slack;
 
 /// <summary>
 /// Every <see cref="SlackOptions.IntervalMinutes"/>, while the reports are turned on and Fyers says NSE is trading,
-/// posts today's saved NAV estimates to Slack. Nothing is posted until an estimate has been saved today.
+/// posts today's NAV estimates to Slack after <see cref="SlackChecks"/>, which also starts a live-prices fetch when
+/// needed. When they can't be posted, the channel gets one post saying why and how to fix it.
 /// </summary>
 public sealed class SlackReporter(IOptions<SlackOptions> options, IServiceScopeFactory scopes, MarketStatusCache marketStatus, SessionService session, TimeProvider time, ILogger<SlackReporter> logger) : BackgroundService
 {
@@ -63,22 +64,26 @@ public sealed class SlackReporter(IOptions<SlackOptions> options, IServiceScopeF
             if (!options.Value.IsConfigured || !await services.GetRequiredService<SlackSettingsRepository>().GetEnabledAsync(cancellationToken))
                 return false;
 
-            IQuoteProvider provider = services.GetRequiredService<IQuoteProvider>();
-            MarketStatus status = await marketStatus.GetAsync(ct => StatusEndpoints.ReadMarketStatusAsync(session, provider, ct), cancellationToken);
-            if (!status.IsOpen)
-                return Record(false, status.Error is null ? $"Skipped at {Local()}: NSE isn't trading ({status.Status ?? "no status from Fyers"})." : $"Skipped at {Local()}: couldn't read NSE's status ({status.Error}).");
+            SlackLatest latest = await SlackChecks.PrepareAsync(services, marketStatus, session, time, logger, cancellationToken);
+            if (latest.Market is { IsOpen: false } closed)
+                return Record(false, $"Skipped at {Local()}: NSE isn't trading ({closed.Status ?? "no status from Fyers"}).");
 
-            SlackMessage? message = await SlackReport.BuildAsync(services.GetRequiredService<MyFundRepository>(), services.GetRequiredService<NavEstimateRepository>(), time, cancellationToken);
-            if (message is null)
-                return Record(false, $"Skipped at {Local()}: no estimate saved today yet.");
+            SlackPoster poster = services.GetRequiredService<SlackPoster>();
+            string fetched = latest.FetchStarted ? " Started a live-prices fetch for the next post." : "";
+            if (latest.Problem is { } problem)
+            {
+                logger.LogWarning("Slack: couldn't post the NAV estimates: {Problem}", problem);
+                string shown = await poster.PostProblemAsync(problem, cancellationToken) ? " Posted the problem in the channel." : "";
+                return Record(false, $"Couldn't post at {Local()}: {problem}{shown}{fetched}");
+            }
 
-            await services.GetRequiredService<SlackPoster>().PostAsync(message, cancellationToken);
-            return Record(true, $"Posted at {Local()}.");
+            await poster.PostAsync(latest.Message!, cancellationToken);
+            return Record(true, $"Posted at {Local()}.{fetched}");
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             logger.LogWarning("Couldn't post the NAV estimates to Slack: {Error}", ex.Message);
-            return Record(false, $"Couldn't post at {Local()}: {ex.Message}");
+            return Record(false, $"Couldn't post at {Local()}: {(ex is SlackException or HttpRequestException ? SlackProblem.FromSlack(ex, options.Value.ChannelId) : ex.Message)}");
         }
     }
 
