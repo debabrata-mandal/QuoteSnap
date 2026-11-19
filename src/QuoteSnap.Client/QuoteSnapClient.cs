@@ -251,6 +251,27 @@ public sealed class QuoteSnapClient
         return await ReadAsync<LiveFeedStatus>(response, cancellationToken);
     }
 
+    /// <summary>Whether the API posts the saved NAV estimates to Slack while NSE is trading.</summary>
+    public async Task<SlackStatus> GetSlackAsync(CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "api/slack", null, admin: false, cancellationToken);
+        return await ReadAsync<SlackStatus>(response, cancellationToken);
+    }
+
+    /// <summary>Turns the Slack reports on or off; turning them on fails with 409 when the API has no Slack bot token and channel.</summary>
+    public async Task<SlackStatus> SetSlackAsync(bool enabled, CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Put, "api/slack", JsonContent.Create(new SetSlackReports(enabled), options: Json), admin: false, cancellationToken);
+        return await ReadAsync<SlackStatus>(response, cancellationToken);
+    }
+
+    /// <summary>Posts today's saved estimates to Slack now, whether or not the reports are on or the market is open.</summary>
+    public async Task<SlackTestResult> SendSlackTestAsync(CancellationToken cancellationToken = default)
+    {
+        using HttpResponseMessage response = await SendAsync(HttpMethod.Post, "api/slack/test", null, admin: false, cancellationToken);
+        return await ReadAsync<SlackTestResult>(response, cancellationToken);
+    }
+
     /// <summary>Polls a holdings fetch until it finishes, reporting each snapshot of its progress.</summary>
     public async Task<HoldingFetch> WaitForHoldingFetchAsync(Guid fetchId, IProgress<HoldingFetch>? progress = null, CancellationToken cancellationToken = default)
     {

@@ -110,5 +110,7 @@ public sealed partial class MainViewModel : ObservableObject
             _ = Stocks.ActivateAsync();
         else if (value == FyersLoginTab)
             _ = FyersLogin.ActivateAsync();
+        else if (value == SettingsTab)
+            _ = Settings.ActivateAsync();
     }
 }

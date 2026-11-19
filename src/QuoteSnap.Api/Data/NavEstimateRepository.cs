@@ -46,6 +46,13 @@ public sealed class NavEstimateRepository(QuoteSnapDbContext db, TimeProvider ti
         return [.. rows.GroupBy(e => e.Day).Select(g => new NavEstimateDay(g.Key, g.First().PricesAt, [.. g.Select(ToDto)]))];
     }
 
+    /// <summary>Today's saved estimates, in list order; empty before the day's first finished holdings quote request.</summary>
+    public Task<List<NavEstimateRecord>> GetTodayAsync(CancellationToken cancellationToken)
+    {
+        DateOnly today = Today;
+        return db.NavEstimates.AsNoTracking().Where(e => e.Day == today).OrderBy(e => e.Position).ToListAsync(cancellationToken);
+    }
+
     /// <summary>Deletes days older than the retention period.</summary>
     public Task<int> DeleteExpiredAsync(CancellationToken cancellationToken)
     {

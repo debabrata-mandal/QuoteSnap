@@ -298,6 +298,28 @@ namespace QuoteSnap.Api.Data.Migrations
                     b.ToTable("NavEstimates", (string)null);
                 });
 
+            modelBuilder.Entity("QuoteSnap.Api.Data.SlackSettingsRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("LastMessageChannel")
+                        .HasColumnType("text");
+
+                    b.Property<string>("LastMessageTs")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SlackSettings", (string)null);
+                });
+
             modelBuilder.Entity("QuoteSnap.Api.Domain.FyersSymbol", b =>
                 {
                     b.Property<string>("Isin")

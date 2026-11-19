@@ -18,6 +18,7 @@ using QuoteSnap.Api.Logging;
 using QuoteSnap.Api.Nav;
 using QuoteSnap.Api.Options;
 using QuoteSnap.Api.Services;
+using QuoteSnap.Api.Slack;
 using QuoteSnap.Api.Zerodha;
 using QuoteSnap.Contracts;
 using Serilog;
@@ -64,6 +65,10 @@ builder.Services.AddOptions<LiveQuotesOptions>()
     .BindConfiguration(LiveQuotesOptions.SectionName)
     .ValidateDataAnnotations()
     .ValidateOnStart();
+builder.Services.AddOptions<SlackOptions>()
+    .BindConfiguration(SlackOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
 
 builder.Services.AddSingleton(TimeProvider.System);
 
@@ -77,6 +82,8 @@ builder.Services.AddScoped<HoldingRepository>();
 builder.Services.AddScoped<FyersSymbolRepository>();
 builder.Services.AddScoped<SymbolExclusionRepository>();
 builder.Services.AddScoped<NavEstimateRepository>();
+builder.Services.AddScoped<SlackSettingsRepository>();
+builder.Services.AddScoped<SlackPoster>();
 builder.Services.AddScoped<ZerodhaService>();
 builder.Services.AddSingleton<FundSearchCache>();
 
@@ -108,6 +115,10 @@ builder.Services.AddSingleton<HubPresence>();
 builder.Services.AddSingleton<EventPublisher>();
 builder.Services.AddHostedService<EventBroadcaster>();
 builder.Services.AddHostedService<MarketStatusMonitor>();
+builder.Services.AddSingleton<SlackReporter>();
+builder.Services.AddHostedService(services => services.GetRequiredService<SlackReporter>());
+builder.Services.AddSingleton<SlackCommands>();
+builder.Services.AddHostedService(services => services.GetRequiredService<SlackCommands>());
 
 // The NAV file is about 1.5 MB and the scheme master about 4 MB.
 builder.Services.AddHttpClient<NavImporter>(client =>
@@ -139,6 +150,10 @@ IHttpClientBuilder kite = builder.Services.AddHttpClient<KiteClient>(client => c
 kite.AddStandardResilienceHandler(options => options.Retry.DisableForUnsafeHttpMethods());
 kite.AddExternalCallLogging("Zerodha");
 
+// No external call logging: Slack's calls carry the bot and app tokens.
+IHttpClientBuilder slack = builder.Services.AddHttpClient<SlackClient>(client => client.DefaultRequestHeaders.UserAgent.ParseAdd("QuoteSnap"));
+slack.AddStandardResilienceHandler(options => options.Retry.DisableForUnsafeHttpMethods());
+
 builder.Services.AddProblemDetails();
 // 3.0 rather than the 3.1 default: import tools such as Bruno and Postman read 3.0 reliably.
 builder.Services.AddOpenApi(options => options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_0);
@@ -163,6 +178,7 @@ app.MapZerodhaEndpoints();
 app.MapHoldingEndpoints();
 app.MapFyersSymbolEndpoints();
 app.MapLiveEndpoints();
+app.MapSlackEndpoints();
 app.MapHub<EventHub>(QuoteSnapEvents.HubPath);
 
 app.Run();

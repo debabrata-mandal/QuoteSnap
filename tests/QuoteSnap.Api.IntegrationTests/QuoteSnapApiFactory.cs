@@ -15,6 +15,7 @@ using QuoteSnap.Api.Holdings;
 using QuoteSnap.Api.Live;
 using QuoteSnap.Api.Nav;
 using QuoteSnap.Api.Services;
+using QuoteSnap.Api.Slack;
 using QuoteSnap.Api.Zerodha;
 using QuoteSnap.Client;
 using QuoteSnap.Contracts;
@@ -103,6 +104,23 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
     /// <summary>The (method, path and query, Authorization header, form body) of each call to Kite, in order.</summary>
     public ConcurrentQueue<(string Method, string PathAndQuery, string? Authorization, string? Body)> KiteCalls { get; } = new();
 
+    public const string SlackChannel = "C0TEST";
+
+    /// <summary>Whether the API gets a Slack bot token and channel; off by default, which turns the reports off.</summary>
+    public bool SlackConfigured { get; init; }
+
+    /// <summary>The text of each message posted to the fake Slack, in order.</summary>
+    public ConcurrentQueue<string> SlackMessages { get; } = new();
+
+    /// <summary>The JSON body of each chat.postMessage, in order.</summary>
+    public ConcurrentQueue<string> SlackPayloads { get; } = new();
+
+    /// <summary>The "channel/ts" of each chat.delete, in order.</summary>
+    public ConcurrentQueue<string> SlackDeletes { get; } = new();
+
+    /// <summary>The error the fake Slack answers every call with; null to succeed.</summary>
+    public string? SlackError { get; set; }
+
     public static string NewDataDirectory() =>
         Path.Combine(Path.GetTempPath(), "quotesnap-tests", Guid.NewGuid().ToString("N"));
 
@@ -143,6 +161,12 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("LiveQuotes:CheckIntervalSeconds", "1");
         if (LiveSymbolCount is { } count)
             builder.UseSetting("LiveQuotes:SymbolCount", count.ToString(CultureInfo.InvariantCulture));
+        if (SlackConfigured)
+        {
+            builder.UseSetting("Slack:BotToken", "xoxb-test-token");
+            builder.UseSetting("Slack:ChannelId", SlackChannel);
+            builder.UseSetting("Slack:ApiBaseUrl", "https://slack.test/api/");
+        }
 
         builder.ConfigureTestServices(services =>
         {
@@ -156,6 +180,7 @@ public sealed class QuoteSnapApiFactory : WebApplicationFactory<Program>
             services.AddHttpClient<FyersSymbolImporter>().ConfigurePrimaryHttpMessageHandler(() => new FakeSymbolMasterHandler(this));
             services.AddHttpClient<FyersAuthClient>().ConfigurePrimaryHttpMessageHandler(() => new FakeFyersAuthHandler(this));
             services.AddHttpClient<KiteClient>().ConfigurePrimaryHttpMessageHandler(() => new FakeKiteHandler(this));
+            services.AddHttpClient<SlackClient>().ConfigurePrimaryHttpMessageHandler(() => new FakeSlackHandler(this));
 
             if (!StartWorker)
             {
@@ -355,5 +380,36 @@ internal sealed class FakeKiteHandler(QuoteSnapApiFactory factory) : HttpMessage
             _ => (HttpStatusCode.NotFound, """{"status":"error","message":"Route not found","error_type":"GeneralException"}"""),
         };
         return new HttpResponseMessage(status) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
+    }
+}
+/// <summary>A fake Slack Web API: records chat.postMessage and chat.delete calls and answers with <see cref="QuoteSnapApiFactory.SlackError"/>.</summary>
+internal sealed class FakeSlackHandler(QuoteSnapApiFactory factory) : HttpMessageHandler
+{
+    private int _ts;
+
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        if (request.Method != HttpMethod.Post || request.Headers.Authorization?.ToString() != "Bearer xoxb-test-token" || request.Content is null)
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+
+        string json = await request.Content.ReadAsStringAsync(cancellationToken);
+        using System.Text.Json.JsonDocument body = System.Text.Json.JsonDocument.Parse(json);
+        string answer;
+        if (factory.SlackError is { } error)
+            answer = $$"""{"ok":false,"error":"{{error}}"}""";
+        else if (request.RequestUri!.AbsolutePath == "/api/chat.postMessage")
+        {
+            factory.SlackPayloads.Enqueue(json);
+            factory.SlackMessages.Enqueue(body.RootElement.GetProperty("text").GetString()!);
+            answer = $$"""{"ok":true,"channel":"{{body.RootElement.GetProperty("channel").GetString()}}","ts":"1700000000.{{Interlocked.Increment(ref _ts):D6}}"}""";
+        }
+        else if (request.RequestUri.AbsolutePath == "/api/chat.delete")
+        {
+            factory.SlackDeletes.Enqueue($"{body.RootElement.GetProperty("channel").GetString()}/{body.RootElement.GetProperty("ts").GetString()}");
+            answer = """{"ok":true}""";
+        }
+        else
+            answer = """{"ok":false,"error":"unknown_method"}""";
+        return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(answer, Encoding.UTF8, "application/json") };
     }
 }

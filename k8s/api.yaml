@@ -79,6 +79,24 @@ spec:
                   name: quotesnap
                   key: expected-fyers-id
                   optional: true
+            - name: Slack__BotToken
+              valueFrom:
+                secretKeyRef:
+                  name: quotesnap
+                  key: slack-bot-token
+                  optional: true
+            - name: Slack__ChannelId
+              valueFrom:
+                secretKeyRef:
+                  name: quotesnap
+                  key: slack-channel-id
+                  optional: true
+            - name: Slack__AppToken
+              valueFrom:
+                secretKeyRef:
+                  name: quotesnap
+                  key: slack-app-token
+                  optional: true
             # "Today" (excluded symbols, the live feed's daily re-rank) follows the market's time zone.
             - name: TZ
               value: Asia/Kolkata

@@ -28,6 +28,8 @@ public sealed class QuoteSnapDbContext(DbContextOptions<QuoteSnapDbContext> opti
 
     public DbSet<NavEstimateRecord> NavEstimates => Set<NavEstimateRecord>();
 
+    public DbSet<SlackSettingsRecord> SlackSettings => Set<SlackSettingsRecord>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         configurationBuilder.Properties<QuoteRequestStatus>().HaveConversion<string>().HaveMaxLength(32);
@@ -164,6 +166,13 @@ public sealed class QuoteSnapDbContext(DbContextOptions<QuoteSnapDbContext> opti
             entity.Property(e => e.Nav).HasPrecision(18, 4);
             entity.Property(e => e.ChangePercent).HasPrecision(9, 4);
             entity.Property(e => e.EstimatedNav).HasPrecision(18, 4);
+        });
+
+        modelBuilder.Entity<SlackSettingsRecord>(entity =>
+        {
+            entity.ToTable("SlackSettings");
+            entity.HasKey(s => s.Id);
+            entity.Property(s => s.Id).ValueGeneratedNever();
         });
     }
 }

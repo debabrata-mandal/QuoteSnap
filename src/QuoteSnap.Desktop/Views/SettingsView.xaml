@@ -187,6 +187,24 @@
           </DockPanel>
         </Border>
 
+        <TextBlock Text="Slack" Style="{StaticResource Group}" />
+
+        <Border Style="{StaticResource SettingRow}">
+          <DockPanel>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+              <Button Style="{StaticResource Button.Ghost}" Content="Send test" ui:Ui.Icon="&#xE724;" Margin="0,0,12,0" Command="{Binding TestSlackCommand}"
+                      ui:Ui.IsSpinning="{Binding TestSlackCommand.IsRunning}" IsEnabled="{Binding IsSlackConfigured}" />
+              <CheckBox Style="{StaticResource ToggleSwitch}" VerticalAlignment="Center" IsChecked="{Binding SlackEnabled}" IsEnabled="{Binding IsSlackConfigured}"
+                        AutomationProperties.Name="Post NAV estimates to Slack" />
+            </StackPanel>
+            <TextBlock Style="{StaticResource SettingIcon}" Text="&#xE8BD;" />
+            <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+              <TextBlock Text="Post NAV estimates to Slack" Style="{StaticResource SettingTitle}" />
+              <TextBlock Text="{Binding SlackText}" Style="{StaticResource SettingDescription}" TextWrapping="Wrap" />
+            </StackPanel>
+          </DockPanel>
+        </Border>
+
         <TextBlock Text="Connection" Style="{StaticResource Group}" />
 
         <Border Style="{StaticResource SettingRow}">

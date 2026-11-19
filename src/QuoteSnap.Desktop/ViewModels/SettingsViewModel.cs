@@ -37,6 +37,25 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial string? AutoFetchText { get; set; }
 
+    /// <summary>Whether the API posts the saved NAV estimates to Slack while NSE is trading; saved on the API straight away.</summary>
+    [ObservableProperty]
+    public partial bool SlackEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsSlackConfigured { get; set; }
+
+    [ObservableProperty]
+    public partial string SlackText { get; set; } = SlackIdleText;
+
+    private const string SlackIdleText = "The API posts each fund's saved estimate to your Slack channel while NSE is trading.";
+
+    private bool _showingSlack;
+    private SlackStatus? _slack;
+    private CancellationTokenSource? _slackCountdown;
+
+    // A Send test result, shown in place of the API's last report until the API reports a newer one.
+    private (DateTimeOffset At, string Text)? _slackNote;
+
     /// <summary>The colour theme; a change applies at once and is saved straight away.</summary>
     [ObservableProperty]
     public partial AppTheme Theme { get; set; }
@@ -110,6 +129,145 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             AutoFetchText = $"This applies until you close the app, but it couldn't be saved: {ex.Message}";
         }
+    }
+
+    /// <summary>Reads whether the Slack reports are on, each time the Settings tab opens.</summary>
+    public async Task ActivateAsync()
+    {
+        try
+        {
+            ShowSlack(await _connection.Client.GetSlackAsync());
+        }
+        catch (Exception ex)
+        {
+            StopSlackCountdown();
+            IsSlackConfigured = false;
+            SlackText = $"Couldn't read the Slack setting: {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}";
+        }
+    }
+
+    partial void OnSlackEnabledChanged(bool value)
+    {
+        if (!_showingSlack)
+            _ = SetSlackAsync(value);
+    }
+
+    private async Task SetSlackAsync(bool enabled)
+    {
+        try
+        {
+            ShowSlack(await _connection.Client.SetSlackAsync(enabled));
+        }
+        catch (Exception ex)
+        {
+            StopSlackCountdown();
+            _showingSlack = true;
+            SlackEnabled = !enabled;
+            _showingSlack = false;
+            SlackText = $"Not saved: {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task TestSlackAsync()
+    {
+        StopSlackCountdown();
+        SlackText = "Posting to Slack…";
+        try
+        {
+            await _connection.Client.SendSlackTestAsync();
+            _slackNote = (DateTimeOffset.Now, $"Test posted at {DateTimeOffset.Now:HH:mm}; check your Slack channel.");
+        }
+        catch (Exception ex)
+        {
+            _slackNote = (DateTimeOffset.Now, $"Test failed: {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}");
+        }
+
+        if (_slack is { } status)
+            ShowSlack(status);
+        else
+            SlackText = _slackNote.Value.Text;
+    }
+
+    private void ShowSlack(SlackStatus status)
+    {
+        _slack = status;
+        _showingSlack = true;
+        IsSlackConfigured = status.Configured;
+        SlackEnabled = status.Enabled;
+        _showingSlack = false;
+        if (_slackNote is { } note && status.LastCheckedAt > note.At)
+            _slackNote = null;
+
+        if (status is { Enabled: true, NextReportAt: not null })
+        {
+            ShowSlackCountdown();
+            if (_slackCountdown is null)
+            {
+                _slackCountdown = new CancellationTokenSource();
+                _ = RunSlackCountdownAsync(_slackCountdown.Token);
+            }
+
+            return;
+        }
+
+        StopSlackCountdown();
+        SlackText = _slackNote?.Text
+            ?? (!status.Configured ? "The API has no Slack bot yet. Set Slack__BotToken and Slack__ChannelId in its .env and restart it (README: Slack reports)."
+            : status.Enabled ? $"On: posts every {status.IntervalMinutes} minutes while NSE is trading, once an estimate is saved today."
+            : SlackIdleText);
+    }
+
+    /// <summary>Updates the countdown every second, and reads the status again once the API's post is due.</summary>
+    private async Task RunSlackCountdownAsync(CancellationToken cancellationToken)
+    {
+        DateTimeOffset lastRead = DateTimeOffset.Now;
+        try
+        {
+            while (true)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+                DateTimeOffset now = DateTimeOffset.Now;
+                if (_slack?.NextReportAt is { } next && now > next.AddSeconds(5) && now - lastRead > TimeSpan.FromSeconds(10))
+                {
+                    lastRead = now;
+                    try
+                    {
+                        SlackStatus status = await _connection.Client.GetSlackAsync(cancellationToken);
+                        cancellationToken.ThrowIfCancellationRequested();
+                        ShowSlack(status);
+                        continue;
+                    }
+                    catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+                    {
+                        SlackText = $"Couldn't read the Slack status: {ErrorText.Describe(ex, _connection.Settings.BaseAddress)}";
+                        continue;
+                    }
+                }
+
+                ShowSlackCountdown();
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private void ShowSlackCountdown()
+    {
+        if (_slack is not { NextReportAt: { } next } status)
+            return;
+
+        TimeSpan remaining = next > DateTimeOffset.Now ? next - DateTimeOffset.Now : TimeSpan.Zero;
+        string result = _slackNote?.Text ?? status.LastResult ?? $"On: posts every {status.IntervalMinutes} minutes while NSE is trading.";
+        SlackText = $"{result} Next post in {remaining:mm\\:ss} (at {next.ToLocalTime():HH:mm:ss}).";
+    }
+
+    private void StopSlackCountdown()
+    {
+        _slackCountdown?.Cancel();
+        _slackCountdown?.Dispose();
+        _slackCountdown = null;
     }
 
     [RelayCommand]

@@ -10,6 +10,9 @@ few builds. If the quotesnap secret doesn't exist yet, it's created from the rep
 .PARAMETER SkipBuild
 Applies only the manifest changes, keeping the image that's running.
 
+.PARAMETER UpdateSecret
+Recreates the quotesnap secret from .env, e.g. after adding the Slack bot token, and restarts the API to use it.
+
 .PARAMETER Keep
 How many of the newest images to keep; older ones are removed. 3 by default.
 
@@ -19,6 +22,7 @@ How many of the newest images to keep; older ones are removed. 3 by default.
 [CmdletBinding()]
 param(
     [switch]$SkipBuild,
+    [switch]$UpdateSecret,
     [ValidateRange(1, 50)][int]$Keep = 3
 )
 
@@ -49,8 +53,9 @@ if ($LASTEXITCODE -ne 0) {
     Assert-Ok 'Creating the namespace'
 }
 
-if (-not (Test-Exists secret quotesnap)) {
-    Step 'Creating the quotesnap secret from .env'
+$secretExists = Test-Exists secret quotesnap
+if (-not $secretExists -or $UpdateSecret) {
+    Step "$(if ($secretExists) { 'Updating' } else { 'Creating' }) the quotesnap secret from .env"
     $envFile = Join-Path $root '.env'
     if (-not (Test-Path $envFile)) { throw "No .env at $envFile; copy .env.example and fill it in." }
     $values = @{}
@@ -65,8 +70,11 @@ if (-not (Test-Exists secret quotesnap)) {
         "--from-literal=api-key=$($values.Auth__ApiKey)",
         "--from-literal=admin-api-key=$($values.Auth__AdminApiKey)")
     if ($values.Fyers__ExpectedFyersId) { $secretArgs += "--from-literal=expected-fyers-id=$($values.Fyers__ExpectedFyersId)" }
-    kubectl create secret generic quotesnap -n $namespace @secretArgs | Out-Null
-    Assert-Ok 'Creating the secret'
+    if ($values.Slack__BotToken) { $secretArgs += "--from-literal=slack-bot-token=$($values.Slack__BotToken)" }
+    if ($values.Slack__ChannelId) { $secretArgs += "--from-literal=slack-channel-id=$($values.Slack__ChannelId)" }
+    if ($values.Slack__AppToken) { $secretArgs += "--from-literal=slack-app-token=$($values.Slack__AppToken)" }
+    kubectl create secret generic quotesnap -n $namespace @secretArgs --dry-run=client -o yaml | kubectl apply -f - | Out-Null
+    Assert-Ok 'Saving the secret'
 }
 
 if ($SkipBuild) {
@@ -87,6 +95,12 @@ $manifests = (kubectl kustomize $PSScriptRoot) -join "`n"
 Assert-Ok 'Rendering the manifests'
 $manifests.Replace('image: quotesnap:local', "image: $image") | kubectl apply -f -
 Assert-Ok 'kubectl apply'
+
+# Pods read the secret only when they start.
+if ($secretExists -and $UpdateSecret) {
+    kubectl rollout restart deployment/quotesnap -n $namespace | Out-Null
+    Assert-Ok 'Restarting the API'
+}
 
 Step 'Waiting for the rollout'
 foreach ($workload in 'statefulset/postgres', 'deployment/quotesnap', 'deployment/adminer') {

@@ -259,6 +259,28 @@ Invoke-RestMethod "http://127.0.0.1:8080/api/my-funds/152712/holdings?month=2026
 - When a `POST /api/holdings/quotes` request finishes with any prices, the estimates from its prices alone are saved for the day, replacing that day's earlier save. `GET /api/my-funds/estimates/history` returns the last 7 days' saves, newest first: per fund only the NAV, change %, estimated NAV and priced holdings count, plus the day's `pricesAt` (names are on `GET /api/my-funds`). The hub pushes `Changed(EstimateHistory)` after each save. Older days are deleted by the hourly cleanup.
 - Each fund also has the `units` you hold (null until entered with `PUT /api/my-funds/{schemeCode}/units`). Once every listed fund has units, the desktop dashboard weights the overall move by each fund's value (units × latest NAV) and can show today's estimated gain or loss in rupees, hidden until you press the eye icon, then shown for 5 seconds. Until then it's the plain average of the funds' estimated changes.
 
+### Slack reports
+
+The API can post today's saved NAV estimates (the `GET /api/my-funds/estimates/history` save, not a new price fetch) to a Slack channel every 10 minutes while Fyers says NSE is trading. Each message lists every fund on your list with its estimated change, from the biggest loser to the biggest gainer (🔴/🟢), with funds without an estimate last. It's posted even if nothing changed, and each post deletes the previous one, so the channel only ever holds the latest. Nothing is posted until an estimate has been saved that day. Slack's free plan is enough.
+
+Setting it up, once:
+
+1. Sign up at [slack.com](https://slack.com/get-started) with your email and create a workspace; free, no card needed. Install the Slack app on your phone and sign in, to get the posts as notifications.
+2. At [api.slack.com/apps](https://api.slack.com/apps) choose **Create New App → From scratch**, name it `QuoteSnap` and pick your workspace.
+3. Under **OAuth & Permissions → Scopes → Bot Token Scopes**, add `chat:write`, then **Install to Workspace** (or **Reinstall**) and **Allow**.
+4. Copy the **Bot User OAuth Token** (`xoxb-...`) into `.env` as `Slack__BotToken`. Keep it secret: anyone with it can post as the bot.
+5. In Slack, create the channel (e.g. `#nav-estimates`), type `/invite @QuoteSnap` in it, then open the channel name → **About** and copy the **Channel ID** (`C0...`) into `.env` as `Slack__ChannelId`.
+6. Restart the API; on Kubernetes run `./k8s/deploy.ps1 -SkipBuild -UpdateSecret`.
+7. In the desktop app, open **Settings → Slack**, press **Send test** and check the channel, then turn on **Post NAV estimates to Slack**.
+
+The switch and the latest post's ID are stored in the database (`SlackSettings`), so a restart still deletes it; reports are off by default. If the previous post can't be deleted, a warning is logged and the new one is kept. `GET /api/slack` returns whether the bot is set up, whether reports are on, the interval, when the next post is due (`nextReportAt`) and what the last one did (`lastCheckedAt`, `lastResult`, e.g. posted or skipped because NSE wasn't trading); the desktop's Settings shows it with a countdown to the next post. `PUT /api/slack` with `{"enabled": true}` turns them on (`409` without the bot settings); `POST /api/slack/test` posts now, whatever the switch or market status (`502` if Slack refuses it). `Slack__IntervalMinutes` (default 10) changes the interval. Failed posts are logged as warnings and tried again at the next interval.
+
+To get the latest on demand, type `/latest` in the channel: the API posts today's saved estimates there right away, replacing the previous post, even when NSE is closed or the reports are off. If nothing has been saved today, or Slack refuses the post, only you see a reply saying so. It works through Slack's Socket Mode, a connection the API opens to Slack, so the API needs no public URL. To set it up:
+
+1. In the app's settings, under **Socket Mode**, turn on **Enable Socket Mode**; name the token `quotesnap` and keep the `connections:write` scope. Copy the app-level token (`xapp-...`) into `.env` as `Slack__AppToken`; it's a secret too. (Later it's under **Basic Information → App-Level Tokens**.)
+2. Under **Slash Commands**, choose **Create New Command**: command `/latest`, a short description such as `Post the latest NAV estimates`, **Save**.
+3. **Reinstall to Workspace** when Slack asks, then restart the API (on Kubernetes, `./k8s/deploy.ps1 -UpdateSecret`). Its log says `Slack /latest is listening.` once connected; it reconnects by itself if the connection drops.
+
 ### Top holdings
 
 `GET /api/holdings/top?limit=10` lists the stocks your funds hold most, as if the same amount were invested in each listed fund that has holdings. A stock's weight is the sum of its weights in those funds divided by their number, so a fund that doesn't hold it counts as 0%. Lines without a Fyers symbol are left out. Each stock also has how many funds hold it and, from the last finished holdings live-prices request, its LTP and day change % (a newer streamed price wins). `limit` is 1 to 100 (default 10); `all=true` returns every stock instead. The desktop dashboard shows the top 10 and the Stocks page all of them.
@@ -297,6 +319,9 @@ ConnectionStrings__QuoteSnap=Host=<db host>;Port=5432;Database=quotesnap;Usernam
 Auth__ApiKey=<api key>
 Auth__AdminApiKey=<admin key>
 Fyers__ExpectedFyersId=<optional, e.g. XY12345>
+Slack__BotToken=<optional, see Slack reports>
+Slack__ChannelId=<optional>
+Slack__AppToken=<optional, for /latest>
 ```
 
 ```powershell
@@ -314,12 +339,15 @@ The `quotesnap-data` volume holds the encryption keys for the stored Fyers sessi
 ```powershell
 docker build -t quotesnap:local .
 
-# The secret, from the values in .env (expected-fyers-id is optional).
+# The secret, from the values in .env (expected-fyers-id and the slack-* keys are optional).
 kubectl create namespace quotesnap
 kubectl create secret generic quotesnap -n quotesnap `
     --from-literal=db-password=<QUOTESNAP_DB_PASSWORD> `
     --from-literal=api-key=<Auth__ApiKey> `
-    --from-literal=admin-api-key=<Auth__AdminApiKey>
+    --from-literal=admin-api-key=<Auth__AdminApiKey> `
+    --from-literal=slack-bot-token=<Slack__BotToken> `
+    --from-literal=slack-channel-id=<Slack__ChannelId> `
+    --from-literal=slack-app-token=<Slack__AppToken>
 
 kubectl apply -k k8s
 kubectl get pods -n quotesnap
@@ -329,7 +357,7 @@ The API is then on `http://localhost:8080`, so the desktop app and login tool wo
 
 Docker Desktop's load balancer listens on every network interface, so other machines on your network can reach the API and Adminer too (if the Windows firewall allows it). The API still needs its keys and Adminer the database password.
 
-After changing the code, run `./k8s/deploy.ps1`. It builds the image with a unique tag, applies `k8s/`, waits for the rollout, checks `/health` and removes all but the newest 3 builds. It also creates the namespace and the secret from `.env` when they're missing, so on a fresh cluster it's the only command you need. `-SkipBuild` applies just manifest changes. Logs: `kubectl logs -n quotesnap deploy/quotesnap -f`.
+After changing the code, run `./k8s/deploy.ps1`. It builds the image with a unique tag, applies `k8s/`, waits for the rollout, checks `/health` and removes all but the newest 3 builds. It also creates the namespace and the secret from `.env` when they're missing, so on a fresh cluster it's the only command you need. `-SkipBuild` applies just manifest changes. `-UpdateSecret` recreates the secret from `.env` and restarts the API, e.g. after adding the Slack settings. Logs: `kubectl logs -n quotesnap deploy/quotesnap -f`.
 
 ## Development
 
